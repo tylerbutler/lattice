@@ -166,26 +166,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COUNTER-01 to COUNTER-04 | Phase 1 | Pending |
+| COUNTER-01 to COUNTER-09 | Phase 1 | Pending |
 | CLOCK-01 to CLOCK-05 | Phase 1 | Pending |
-| TEST-01 to TEST-08 | Phase 1 | Pending |
-| REG-01 to REG-04 | Phase 2 | Pending |
-| SET-01 to SET-05 | Phase 2 | Pending |
-| SET-06 to SET-11 | Phase 2 | Pending |
-| SET-12 to SET-17 | Phase 3 | Pending |
-| CLOCK-06 to CLOCK-09 | Phase 3 | Pending |
-| TEST-09 to TEST-10 | Phase 3 | Pending |
-| MAP-01 to MAP-07 | Phase 4 | Pending |
-| MAP-08 to MAP-14 | Phase 4 | Pending |
-| JSON-01 to JSON-20 | Phase 4 | Pending |
-| DELTA-01 to DELTA-04 | Phase 5 | Pending |
-| SEQ-01 to SEQ-05 | Phase 5 | Pending |
-| TEXT-01 to TEXT-05 | Phase 5 | Pending |
-| DIST-01 to DIST-02 | Phase 5 | Pending |
+| TEST-01 to TEST-02 (counter portion) | Phase 1 | Pending |
+| REG-01 to REG-08 | Phase 2 | Pending |
+| SET-01 to SET-17 | Phase 2 | Pending |
+| TEST-01 to TEST-03 (register/set portion) | Phase 2 | Pending |
+| MAP-01 to MAP-14 | Phase 3 | Pending |
+| JSON-01 to JSON-20 | Phase 3 | Pending |
+| TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
+| CLOCK-06 to CLOCK-09 | Phase 4 | Pending |
+| TEST-01 to TEST-10 (all remaining) | Phase 4 | Pending |
+| TEST-09 (OR-Set concurrent add-wins) | Phase 4 | Pending |
+| TEST-10 (2P-Set tombstone permanence) | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 75 total
-- Mapped to phases: 75
+- v1 requirements: 87 total
+- Mapped to phases: 87
 - Unmapped: 0 ✓
 
 ---
