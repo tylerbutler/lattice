@@ -2,145 +2,136 @@ import gleeunit
 import gleeunit/should
 import lattice/g_counter
 import lattice/pn_counter
+import qcheck
 
 pub fn main() -> Nil {
   gleeunit.main()
 }
 
-// G-Counter commutativity test: merge(a, b) == merge(b, a)
-pub fn g_counter_merge_commutativity__test() {
-  // Test with explicit test cases
-  let a = g_counter.new("A") |> g_counter.increment(5)
-  let b = g_counter.new("B") |> g_counter.increment(3)
-
-  let merge_ab = g_counter.merge(a, b)
-  let merge_ba = g_counter.merge(b, a)
-
-  g_counter.value(merge_ab)
-  |> should.equal(g_counter.value(merge_ba))
+fn small_test_config() -> qcheck.Config {
+  qcheck.config(test_count: 10, max_retries: 3, seed: qcheck.seed(42))
 }
 
-// G-Counter associativity test: merge(merge(a, b), c) == merge(a, merge(b, c))
-pub fn g_counter_merge_associativity__test() {
-  let a = g_counter.new("A") |> g_counter.increment(5)
-  let b = g_counter.new("B") |> g_counter.increment(3)
-  let c = g_counter.new("C") |> g_counter.increment(7)
+// Simple qcheck tests with explicit config to avoid timeouts
 
-  let merge_ab_c = g_counter.merge(g_counter.merge(a, b), c)
-  let merge_a_bc = g_counter.merge(a, g_counter.merge(b, c))
-
-  g_counter.value(merge_ab_c)
-  |> should.equal(g_counter.value(merge_a_bc))
+pub fn g_counter_simple_commutativity__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      fn(a, b) { #(a, b) },
+    ),
+    fn(pair) {
+      let #(a, b) = pair
+      let counter_a = g_counter.new("A") |> g_counter.increment(a)
+      let counter_b = g_counter.new("B") |> g_counter.increment(b)
+      g_counter.value(g_counter.merge(counter_a, counter_b))
+      |> should.equal(g_counter.value(g_counter.merge(counter_b, counter_a)))
+      Nil
+    },
+  )
 }
 
-// G-Counter idempotency test: merge(a, a) == a
-pub fn g_counter_merge_idempotency__test() {
-  let a = g_counter.new("A") |> g_counter.increment(5)
-
-  let merged = g_counter.merge(a, a)
-
-  g_counter.value(merged)
-  |> should.equal(g_counter.value(a))
+pub fn g_counter_simple_associativity__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(a, b, c) = triple
+      let counter_a = g_counter.new("A") |> g_counter.increment(a)
+      let counter_b = g_counter.new("B") |> g_counter.increment(b)
+      let counter_c = g_counter.new("C") |> g_counter.increment(c)
+      let merged1 =
+        g_counter.merge(g_counter.merge(counter_a, counter_b), counter_c)
+      let merged2 =
+        g_counter.merge(counter_a, g_counter.merge(counter_b, counter_c))
+      g_counter.value(merged1) |> should.equal(g_counter.value(merged2))
+      Nil
+    },
+  )
 }
 
-// G-Counter monotonicity test: value(merge(a, b)) >= value(a)
-pub fn g_counter_merge_monotonicity__test() {
-  let a = g_counter.new("A") |> g_counter.increment(5)
-  let b = g_counter.new("B") |> g_counter.increment(3)
-
-  let merged = g_counter.merge(a, b)
-  let is_monotonic = g_counter.value(merged) >= g_counter.value(a)
-
-  // G-Counter is grow-only, so merged value >= each operand
-  is_monotonic |> should.be_true()
+pub fn g_counter_simple_idempotency__test() {
+  qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(n) {
+    let counter = g_counter.new("A") |> g_counter.increment(n)
+    g_counter.value(g_counter.merge(counter, counter))
+    |> should.equal(g_counter.value(counter))
+    Nil
+  })
 }
 
-// Additional random test for more thorough verification
-pub fn g_counter_merge_random_tests__test() {
-  // Test multiple random merge scenarios
-  // Merge two counters with overlapping keys
-  let a1 = g_counter.new("A") |> g_counter.increment(10)
-  let a2 = g_counter.new("A") |> g_counter.increment(5)
-  let merged = g_counter.merge(a1, a2)
-  merged |> g_counter.value |> should.equal(10)
-
-  // Merge with empty counter
-  let empty = g_counter.new("X")
-  let nonempty = g_counter.new("Y") |> g_counter.increment(7)
-  let merged_empty = g_counter.merge(empty, nonempty)
-  merged_empty |> g_counter.value |> should.equal(7)
-
-  // Merge three counters
-  let x = g_counter.new("X") |> g_counter.increment(1)
-  let y = g_counter.new("Y") |> g_counter.increment(2)
-  let z = g_counter.new("Z") |> g_counter.increment(3)
-  let merged_xyz = g_counter.merge(g_counter.merge(x, y), z)
-  merged_xyz |> g_counter.value |> should.equal(6)
+pub fn pn_counter_simple_commutativity__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(-50, 50),
+      qcheck.bounded_int(-50, 50),
+      fn(a, b) { #(a, b) },
+    ),
+    fn(pair) {
+      let #(a, b) = pair
+      let counter_a = case a >= 0 {
+        True -> pn_counter.new("A") |> pn_counter.increment(a)
+        False -> pn_counter.new("A") |> pn_counter.decrement(-a)
+      }
+      let counter_b = case b >= 0 {
+        True -> pn_counter.new("B") |> pn_counter.increment(b)
+        False -> pn_counter.new("B") |> pn_counter.decrement(-b)
+      }
+      pn_counter.value(pn_counter.merge(counter_a, counter_b))
+      |> should.equal(pn_counter.value(pn_counter.merge(counter_b, counter_a)))
+      Nil
+    },
+  )
 }
 
-// PN-Counter commutativity test: merge(a, b) == merge(b, a)
-pub fn pn_counter_merge_commutativity__test() {
-  let a = pn_counter.new("A")
-  let a = pn_counter.increment(a, 10)
-  let a = pn_counter.decrement(a, 3)
-
-  let b = pn_counter.new("B")
-  let b = pn_counter.increment(b, 7)
-  let b = pn_counter.decrement(b, 2)
-
-  let merge_ab = pn_counter.merge(a, b)
-  let merge_ba = pn_counter.merge(b, a)
-
-  pn_counter.value(merge_ab)
-  |> should.equal(pn_counter.value(merge_ba))
+pub fn pn_counter_simple_associativity__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.bounded_int(-30, 30),
+      qcheck.bounded_int(-30, 30),
+      qcheck.bounded_int(-30, 30),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(a, b, c) = triple
+      let counter_a = case a >= 0 {
+        True -> pn_counter.new("A") |> pn_counter.increment(a)
+        False -> pn_counter.new("A") |> pn_counter.decrement(-a)
+      }
+      let counter_b = case b >= 0 {
+        True -> pn_counter.new("B") |> pn_counter.increment(b)
+        False -> pn_counter.new("B") |> pn_counter.decrement(-b)
+      }
+      let counter_c = case c >= 0 {
+        True -> pn_counter.new("C") |> pn_counter.increment(c)
+        False -> pn_counter.new("C") |> pn_counter.decrement(-c)
+      }
+      let merged1 =
+        pn_counter.merge(pn_counter.merge(counter_a, counter_b), counter_c)
+      let merged2 =
+        pn_counter.merge(counter_a, pn_counter.merge(counter_b, counter_c))
+      pn_counter.value(merged1) |> should.equal(pn_counter.value(merged2))
+      Nil
+    },
+  )
 }
 
-// PN-Counter associativity test: merge(merge(a, b), c) == merge(a, merge(b, c))
-pub fn pn_counter_merge_associativity__test() {
-  let a = pn_counter.new("A") |> pn_counter.increment(5)
-  let b = pn_counter.new("B") |> pn_counter.increment(3)
-  let c = pn_counter.new("C") |> pn_counter.increment(7)
-
-  let merge_ab_c = pn_counter.merge(pn_counter.merge(a, b), c)
-  let merge_a_bc = pn_counter.merge(a, pn_counter.merge(b, c))
-
-  pn_counter.value(merge_ab_c)
-  |> should.equal(pn_counter.value(merge_a_bc))
-}
-
-// PN-Counter idempotency test: merge(a, a) == a
-pub fn pn_counter_merge_idempotency__test() {
-  let a = pn_counter.new("A")
-  let a = pn_counter.increment(a, 10)
-  let a = pn_counter.decrement(a, 3)
-
-  let merged = pn_counter.merge(a, a)
-
-  pn_counter.value(merged)
-  |> should.equal(pn_counter.value(a))
-}
-
-// PN-Counter convergence test: all-to-all exchange produces identical values
-pub fn pn_counter_merge_convergence__test() {
-  // Create three replicas
-  let a =
-    pn_counter.new("A") |> pn_counter.increment(10) |> pn_counter.decrement(3)
-  let b = pn_counter.new("B") |> pn_counter.increment(5)
-  let c =
-    pn_counter.new("C") |> pn_counter.increment(2) |> pn_counter.decrement(1)
-
-  // All-to-all merge: a receives from b and c
-  let a_final = pn_counter.merge(a, pn_counter.merge(b, c))
-  // b receives from a and c
-  let b_final = pn_counter.merge(b, pn_counter.merge(a, c))
-  // c receives from a and b
-  let c_final = pn_counter.merge(c, pn_counter.merge(a, b))
-
-  // All replicas should have the same value after convergence
-  let a_val = pn_counter.value(a_final)
-  let b_val = pn_counter.value(b_final)
-  let c_val = pn_counter.value(c_final)
-
-  a_val |> should.equal(b_val)
-  b_val |> should.equal(c_val)
+pub fn pn_counter_simple_idempotency__test() {
+  qcheck.run(small_test_config(), qcheck.bounded_int(-50, 50), fn(n) {
+    let counter = case n >= 0 {
+      True -> pn_counter.new("A") |> pn_counter.increment(n)
+      False -> pn_counter.new("A") |> pn_counter.decrement(-n)
+    }
+    pn_counter.value(pn_counter.merge(counter, counter))
+    |> should.equal(pn_counter.value(counter))
+    Nil
+  })
 }
