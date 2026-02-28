@@ -1,12 +1,12 @@
-name = "my_gleam_project"
+name = "lattice"
 version = "0.1.0"
-description = "A Gleam project"
+description = "A Gleam CRDT library"
 licences = ["MIT"]
-repository = { type = "github", user = "YOUR_USERNAME", repo = "my_gleam_project" }
+repository = { type = "github", user = "tylerbutler", repo = "lattice" }
 gleam = ">= 1.7.0"
 
 # Uncomment to mark internal modules (not exported in public API):
-# internal_modules = ["my_gleam_project/internal", "my_gleam_project/internal/*"]
+# internal_modules = ["lattice/internal", "lattice/internal/*"]
 
 [dependencies]
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
