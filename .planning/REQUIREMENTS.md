@@ -21,34 +21,34 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Registers
 
-- [ ] **REG-01**: LWW-Register: new(value, timestamp) -> t
-- [ ] **REG-02**: LWW-Register: set(register, value, timestamp) -> register
-- [ ] **REG-03**: LWW-Register: value(register) -> value
-- [ ] **REG-04**: LWW-Register: merge(a, b) -> register (higher timestamp wins)
-- [ ] **REG-05**: MV-Register: new(replica_id) -> t
-- [ ] **REG-06**: MV-Register: set(register, value) -> register
-- [ ] **REG-07**: MV-Register: value(register) -> List(value)
-- [ ] **REG-08**: MV-Register: merge(a, b) -> register (preserve concurrent values)
+- [x] **REG-01**: LWW-Register: new(value, timestamp) -> t
+- [x] **REG-02**: LWW-Register: set(register, value, timestamp) -> register
+- [x] **REG-03**: LWW-Register: value(register) -> value
+- [x] **REG-04**: LWW-Register: merge(a, b) -> register (higher timestamp wins)
+- [x] **REG-05**: MV-Register: new(replica_id) -> t
+- [x] **REG-06**: MV-Register: set(register, value) -> register
+- [x] **REG-07**: MV-Register: value(register) -> List(value)
+- [x] **REG-08**: MV-Register: merge(a, b) -> register (preserve concurrent values)
 
 ### Sets
 
-- [ ] **SET-01**: G-Set: new() -> t
-- [ ] **SET-02**: G-Set: add(set, element) -> set
-- [ ] **SET-03**: G-Set: contains(set, element) -> Bool
-- [ ] **SET-04**: G-Set: value(set) -> Set(element)
-- [ ] **SET-05**: G-Set: merge(a, b) -> set (union)
-- [ ] **SET-06**: 2P-Set: new() -> t
-- [ ] **SET-07**: 2P-Set: add(set, element) -> set
-- [ ] **SET-08**: 2P-Set: remove(set, element) -> set
-- [ ] **SET-09**: 2P-Set: contains(set, element) -> Bool
-- [ ] **SET-10**: 2P-Set: value(set) -> Set(element)
-- [ ] **SET-11**: 2P-Set: merge(a, b) -> set (respects tombstones)
-- [ ] **SET-12**: OR-Set: new(replica_id) -> t
-- [ ] **SET-13**: OR-Set: add(or_set, element) -> or_set
-- [ ] **SET-14**: OR-Set: remove(or_set, element) -> or_set
-- [ ] **SET-15**: OR-Set: contains(or_set, element) -> Bool
-- [ ] **SET-16**: OR-Set: value(or_set) -> Set(element)
-- [ ] **SET-17**: OR-Set: merge(a, b) -> or_set (add wins on concurrent)
+- [x] **SET-01**: G-Set: new() -> t
+- [x] **SET-02**: G-Set: add(set, element) -> set
+- [x] **SET-03**: G-Set: contains(set, element) -> Bool
+- [x] **SET-04**: G-Set: value(set) -> Set(element)
+- [x] **SET-05**: G-Set: merge(a, b) -> set (union)
+- [x] **SET-06**: 2P-Set: new() -> t
+- [x] **SET-07**: 2P-Set: add(set, element) -> set
+- [x] **SET-08**: 2P-Set: remove(set, element) -> set
+- [x] **SET-09**: 2P-Set: contains(set, element) -> Bool
+- [x] **SET-10**: 2P-Set: value(set) -> Set(element)
+- [x] **SET-11**: 2P-Set: merge(a, b) -> set (respects tombstones)
+- [x] **SET-12**: OR-Set: new(replica_id) -> t
+- [x] **SET-13**: OR-Set: add(or_set, element) -> or_set
+- [x] **SET-14**: OR-Set: remove(or_set, element) -> or_set
+- [x] **SET-15**: OR-Set: contains(or_set, element) -> Bool
+- [x] **SET-16**: OR-Set: value(or_set) -> Set(element)
+- [x] **SET-17**: OR-Set: merge(a, b) -> or_set (add wins on concurrent)
 
 ### Maps
 
@@ -170,7 +170,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLOCK-01 to CLOCK-05 | Phase 1 | Complete |
 | TEST-01 to TEST-02 (counter portion) | Phase 1 | Complete |
 | REG-01 to REG-08 | Phase 2 | Pending |
-| SET-01 to SET-17 | Phase 2 | Pending |
+| SET-01 to SET-11 | Phase 2 | Complete (G-Set and 2P-Set) |
+| SET-12 to SET-17 | Phase 2 | Pending (OR-Set) |
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Pending |
 | MAP-01 to MAP-14 | Phase 3 | Pending |
 | JSON-01 to JSON-20 | Phase 3 | Pending |

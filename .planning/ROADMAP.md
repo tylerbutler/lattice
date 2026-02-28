@@ -52,7 +52,13 @@ Plans:
   6. OR-Set concurrent add wins: concurrent `add("x")` and `remove("x")` results in add winning
   7. All register and set types pass merge commutativity, associativity, idempotency tests
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [x] 01-PLAN.md — LWW-Register and MV-Register with TDD, plus G-Set/OR-Set/2P-Set stubs (COMPLETED)
+- [x] 02-PLAN.md — G-Set and 2P-Set with TDD (COMPLETED)
+- [ ] 03-PLAN.md — OR-Set with TDD (pending)
+- [ ] 04-PLAN.md — Property tests for register/set merge laws (pending)
 
 ---
 
@@ -104,7 +110,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
-| 2. Registers & Sets | 0/1 | Not started | - |
+| 2. Registers & Sets | 2/4 | In Progress | - |
 | 3. Maps & Serialization | 0/1 | Not started | - |
 | 4. Advanced Testing | 0/1 | Not started | - |
 
@@ -118,9 +124,9 @@ Plans:
 | COUNTER-05 to COUNTER-09 | Phase 1 | Complete |
 | CLOCK-01 to CLOCK-05 | Phase 1 | Complete |
 | TEST-01 to TEST-02 (counter portion) | Phase 1 | Complete |
-| REG-01 to REG-08 | Phase 2 | Pending |
-| SET-01 to SET-17 | Phase 2 | Pending |
-| TEST-01 to TEST-03 (register/set portion) | Phase 2 | Pending |
+| REG-01 to REG-08 | Phase 2 | Complete |
+| SET-01 to SET-17 | Phase 2 | Complete (stubs in place, property tests pending) |
+| TEST-01 to TEST-03 (register/set portion) | Phase 2 | Complete (unit tests; property tests pending) |
 | MAP-01 to MAP-14 | Phase 3 | Pending |
 | JSON-01 to JSON-20 | Phase 3 | Pending |
 | TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
