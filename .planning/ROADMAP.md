@@ -3,7 +3,7 @@
 ## Phases
 
 - [ ] **Phase 1: Foundation & Counters** - Build system, testing infrastructure, Version Vector, G-Counter, PN-Counter with TDD
-- [ ] **Phase 2: Registers & Sets** - LWW-Register, MV-Register, G-Set, 2P-Set, OR-Set with property tests
+- [x] **Phase 2: Registers & Sets** - LWW-Register, MV-Register, G-Set, 2P-Set, OR-Set with property tests
 - [ ] **Phase 3: Maps & Serialization** - LWW-Map, OR-Map, JSON serialization with round-trip tests
 - [ ] **Phase 4: Advanced Testing** - Cross-target serialization, OR-Set edge cases, convergence tests
 
@@ -58,7 +58,7 @@ Plans:
 - [x] 01-PLAN.md — LWW-Register and MV-Register with TDD (COMPLETED)
 - [x] 02-PLAN.md — G-Set and 2P-Set with TDD (COMPLETED)
 - [x] 03-PLAN.md — OR-Set with add-wins semantics (COMPLETED)
-- [ ] 04-PLAN.md — Property tests for register/set merge laws (pending)
+- [x] 04-PLAN.md — Property tests for register/set merge laws (COMPLETED)
 
 ---
 
@@ -110,7 +110,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
-| 2. Registers & Sets | 3/4 | In Progress | - |
+| 2. Registers & Sets | 4/4 | Complete | 2026-02-28 |
 | 3. Maps & Serialization | 0/1 | Not started | - |
 | 4. Advanced Testing | 0/1 | Not started | - |
 

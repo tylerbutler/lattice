@@ -104,9 +104,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Testing (Property-Based)
 
-- [x] **TEST-01**: Merge commutativity tests for all CRDT types (counters done)
-- [x] **TEST-02**: Merge associativity tests for all CRDT types (counters done)
-- [ ] **TEST-03**: Merge idempotency tests for all CRDT types
+- [x] **TEST-01**: Merge commutativity tests for all CRDT types (counters + registers/sets done)
+- [x] **TEST-02**: Merge associativity tests for all CRDT types (counters + G-Set/2P-Set/LWW-Register done)
+- [x] **TEST-03**: Merge idempotency tests for all CRDT types (counters + registers/sets done)
 - [ ] **TEST-04**: Convergence tests (all-to-all exchange)
 - [ ] **TEST-05**: Bottom identity tests
 - [ ] **TEST-06**: Inflation/monotonicity tests
@@ -172,7 +172,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REG-01 to REG-08 | Phase 2 | Complete (LWW-Register and MV-Register) |
 | SET-01 to SET-11 | Phase 2 | Complete (G-Set and 2P-Set) |
 | SET-12 to SET-17 | Phase 2 | Complete (OR-Set) |
-| TEST-01 to TEST-03 (register/set portion) | Phase 2 | Pending |
+| TEST-01 to TEST-03 (register/set portion) | Phase 2 | Complete |
 | MAP-01 to MAP-14 | Phase 3 | Pending |
 | JSON-01 to JSON-20 | Phase 3 | Pending |
 | TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
