@@ -1,0 +1,11 @@
+name = "hello_world"
+version = "1.0.0"
+description = "A simple hello world example"
+gleam = ">= 1.7.0"
+
+[dependencies]
+gleam_stdlib = ">= 0.48.0 and < 2.0.0"
+my_gleam_project = { path = "../.." }
+
+[dev-dependencies]
+gleeunit = ">= 1.0.0 and < 2.0.0"
