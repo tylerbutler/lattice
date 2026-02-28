@@ -1,6 +1,7 @@
 import gleeunit
 import gleeunit/should
 import lattice/g_counter
+import lattice/pn_counter
 
 pub fn main() -> Nil {
   gleeunit.main()
@@ -75,4 +76,71 @@ pub fn g_counter_merge_random_tests__test() {
   let z = g_counter.new("Z") |> g_counter.increment(3)
   let merged_xyz = g_counter.merge(g_counter.merge(x, y), z)
   merged_xyz |> g_counter.value |> should.equal(6)
+}
+
+// PN-Counter commutativity test: merge(a, b) == merge(b, a)
+pub fn pn_counter_merge_commutativity__test() {
+  let a = pn_counter.new("A")
+  let a = pn_counter.increment(a, 10)
+  let a = pn_counter.decrement(a, 3)
+
+  let b = pn_counter.new("B")
+  let b = pn_counter.increment(b, 7)
+  let b = pn_counter.decrement(b, 2)
+
+  let merge_ab = pn_counter.merge(a, b)
+  let merge_ba = pn_counter.merge(b, a)
+
+  pn_counter.value(merge_ab)
+  |> should.equal(pn_counter.value(merge_ba))
+}
+
+// PN-Counter associativity test: merge(merge(a, b), c) == merge(a, merge(b, c))
+pub fn pn_counter_merge_associativity__test() {
+  let a = pn_counter.new("A") |> pn_counter.increment(5)
+  let b = pn_counter.new("B") |> pn_counter.increment(3)
+  let c = pn_counter.new("C") |> pn_counter.increment(7)
+
+  let merge_ab_c = pn_counter.merge(pn_counter.merge(a, b), c)
+  let merge_a_bc = pn_counter.merge(a, pn_counter.merge(b, c))
+
+  pn_counter.value(merge_ab_c)
+  |> should.equal(pn_counter.value(merge_a_bc))
+}
+
+// PN-Counter idempotency test: merge(a, a) == a
+pub fn pn_counter_merge_idempotency__test() {
+  let a = pn_counter.new("A")
+  let a = pn_counter.increment(a, 10)
+  let a = pn_counter.decrement(a, 3)
+
+  let merged = pn_counter.merge(a, a)
+
+  pn_counter.value(merged)
+  |> should.equal(pn_counter.value(a))
+}
+
+// PN-Counter convergence test: all-to-all exchange produces identical values
+pub fn pn_counter_merge_convergence__test() {
+  // Create three replicas
+  let a =
+    pn_counter.new("A") |> pn_counter.increment(10) |> pn_counter.decrement(3)
+  let b = pn_counter.new("B") |> pn_counter.increment(5)
+  let c =
+    pn_counter.new("C") |> pn_counter.increment(2) |> pn_counter.decrement(1)
+
+  // All-to-all merge: a receives from b and c
+  let a_final = pn_counter.merge(a, pn_counter.merge(b, c))
+  // b receives from a and c
+  let b_final = pn_counter.merge(b, pn_counter.merge(a, c))
+  // c receives from a and b
+  let c_final = pn_counter.merge(c, pn_counter.merge(a, b))
+
+  // All replicas should have the same value after convergence
+  let a_val = pn_counter.value(a_final)
+  let b_val = pn_counter.value(b_final)
+  let c_val = pn_counter.value(c_final)
+
+  a_val |> should.equal(b_val)
+  b_val |> should.equal(c_val)
 }
