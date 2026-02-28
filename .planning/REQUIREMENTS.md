@@ -104,8 +104,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Testing (Property-Based)
 
-- [ ] **TEST-01**: Merge commutativity tests for all CRDT types
-- [ ] **TEST-02**: Merge associativity tests for all CRDT types
+- [x] **TEST-01**: Merge commutativity tests for all CRDT types (counters done)
+- [x] **TEST-02**: Merge associativity tests for all CRDT types (counters done)
 - [ ] **TEST-03**: Merge idempotency tests for all CRDT types
 - [ ] **TEST-04**: Convergence tests (all-to-all exchange)
 - [ ] **TEST-05**: Bottom identity tests
@@ -166,9 +166,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COUNTER-01 to COUNTER-09 | Phase 1 | Pending |
-| CLOCK-01 to CLOCK-05 | Phase 1 | Pending |
-| TEST-01 to TEST-02 (counter portion) | Phase 1 | Pending |
+| COUNTER-01 to COUNTER-09 | Phase 1 | Complete |
+| CLOCK-01 to CLOCK-05 | Phase 1 | Complete |
+| TEST-01 to TEST-02 (counter portion) | Phase 1 | Complete |
 | REG-01 to REG-08 | Phase 2 | Pending |
 | SET-01 to SET-17 | Phase 2 | Pending |
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Pending |

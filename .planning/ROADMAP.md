@@ -31,7 +31,7 @@
 Plans:
 - [x] 01-PLAN.md — Version Vector and G-Counter with TDD (COMPLETED)
 - [x] 02-PLAN.md — PN-Counter implementation (COMPLETED)
-- [ ] 03-PLAN.md — Property-based tests for merge laws (qcheck)
+- [x] 03-PLAN.md — Property-based tests for merge laws (COMPLETED)
 
 ---
 
@@ -103,7 +103,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Counters | 2/3 | In Progress | 2026-02-28 |
+| 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
 | 2. Registers & Sets | 0/1 | Not started | - |
 | 3. Maps & Serialization | 0/1 | Not started | - |
 | 4. Advanced Testing | 0/1 | Not started | - |
@@ -117,7 +117,7 @@ Plans:
 | COUNTER-01 to COUNTER-04 | Phase 1 | Complete |
 | COUNTER-05 to COUNTER-09 | Phase 1 | Complete |
 | CLOCK-01 to CLOCK-05 | Phase 1 | Complete |
-| TEST-01 to TEST-02 (counter portion) | Phase 1 | Pending |
+| TEST-01 to TEST-02 (counter portion) | Phase 1 | Complete |
 | REG-01 to REG-08 | Phase 2 | Pending |
 | SET-01 to SET-17 | Phase 2 | Pending |
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Pending |
