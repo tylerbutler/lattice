@@ -1,18 +1,11 @@
-import gleeunit
-import gleeunit/should
 import lattice/g_counter
 import lattice/pn_counter
 import qcheck
-
-pub fn main() -> Nil {
-  gleeunit.main()
-}
+import startest/expect
 
 fn small_test_config() -> qcheck.Config {
   qcheck.config(test_count: 10, max_retries: 3, seed: qcheck.seed(42))
 }
-
-// Simple qcheck tests with explicit config to avoid timeouts
 
 pub fn g_counter_simple_commutativity__test() {
   qcheck.run(
@@ -27,7 +20,7 @@ pub fn g_counter_simple_commutativity__test() {
       let counter_a = g_counter.new("A") |> g_counter.increment(a)
       let counter_b = g_counter.new("B") |> g_counter.increment(b)
       g_counter.value(g_counter.merge(counter_a, counter_b))
-      |> should.equal(g_counter.value(g_counter.merge(counter_b, counter_a)))
+      |> expect.to_equal(g_counter.value(g_counter.merge(counter_b, counter_a)))
       Nil
     },
   )
@@ -51,7 +44,7 @@ pub fn g_counter_simple_associativity__test() {
         g_counter.merge(g_counter.merge(counter_a, counter_b), counter_c)
       let merged2 =
         g_counter.merge(counter_a, g_counter.merge(counter_b, counter_c))
-      g_counter.value(merged1) |> should.equal(g_counter.value(merged2))
+      g_counter.value(merged1) |> expect.to_equal(g_counter.value(merged2))
       Nil
     },
   )
@@ -61,7 +54,7 @@ pub fn g_counter_simple_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(n) {
     let counter = g_counter.new("A") |> g_counter.increment(n)
     g_counter.value(g_counter.merge(counter, counter))
-    |> should.equal(g_counter.value(counter))
+    |> expect.to_equal(g_counter.value(counter))
     Nil
   })
 }
@@ -85,7 +78,7 @@ pub fn pn_counter_simple_commutativity__test() {
         False -> pn_counter.new("B") |> pn_counter.decrement(-b)
       }
       pn_counter.value(pn_counter.merge(counter_a, counter_b))
-      |> should.equal(pn_counter.value(pn_counter.merge(counter_b, counter_a)))
+      |> expect.to_equal(pn_counter.value(pn_counter.merge(counter_b, counter_a)))
       Nil
     },
   )
@@ -118,7 +111,7 @@ pub fn pn_counter_simple_associativity__test() {
         pn_counter.merge(pn_counter.merge(counter_a, counter_b), counter_c)
       let merged2 =
         pn_counter.merge(counter_a, pn_counter.merge(counter_b, counter_c))
-      pn_counter.value(merged1) |> should.equal(pn_counter.value(merged2))
+      pn_counter.value(merged1) |> expect.to_equal(pn_counter.value(merged2))
       Nil
     },
   )
@@ -131,7 +124,7 @@ pub fn pn_counter_simple_idempotency__test() {
       False -> pn_counter.new("A") |> pn_counter.decrement(-n)
     }
     pn_counter.value(pn_counter.merge(counter, counter))
-    |> should.equal(pn_counter.value(counter))
+    |> expect.to_equal(pn_counter.value(counter))
     Nil
   })
 }

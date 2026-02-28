@@ -1,10 +1,5 @@
-import gleeunit
-import gleeunit/should
 import lattice/pn_counter
-
-pub fn main() -> Nil {
-  gleeunit.main()
-}
+import startest/expect
 
 // Tests for new/constructor
 
@@ -12,7 +7,7 @@ pub fn new_returns_counter_at_zero_test() {
   let counter = pn_counter.new("A")
   counter
   |> pn_counter.value
-  |> should.equal(0)
+  |> expect.to_equal(0)
 }
 
 // Tests for increment
@@ -22,7 +17,7 @@ pub fn increment_adds_to_positive_test() {
   let counter = pn_counter.increment(counter, 3)
   counter
   |> pn_counter.value
-  |> should.equal(3)
+  |> expect.to_equal(3)
 }
 
 pub fn increment_by_five_test() {
@@ -30,7 +25,7 @@ pub fn increment_by_five_test() {
   let counter = pn_counter.increment(counter, 5)
   counter
   |> pn_counter.value
-  |> should.equal(5)
+  |> expect.to_equal(5)
 }
 
 // Tests for decrement
@@ -40,7 +35,7 @@ pub fn decrement_adds_to_negative_test() {
   let counter = pn_counter.decrement(counter, 2)
   counter
   |> pn_counter.value
-  |> should.equal(-2)
+  |> expect.to_equal(-2)
 }
 
 pub fn decrement_by_three_test() {
@@ -48,7 +43,7 @@ pub fn decrement_by_three_test() {
   let counter = pn_counter.decrement(counter, 3)
   counter
   |> pn_counter.value
-  |> should.equal(-3)
+  |> expect.to_equal(-3)
 }
 
 // Tests combining increment and decrement
@@ -59,7 +54,7 @@ pub fn increment_and_decrement_combined_test() {
   let counter = pn_counter.decrement(counter, 2)
   counter
   |> pn_counter.value
-  |> should.equal(3)
+  |> expect.to_equal(3)
 }
 
 pub fn value_returns_positive_minus_negative_test() {
@@ -69,7 +64,7 @@ pub fn value_returns_positive_minus_negative_test() {
   let counter = pn_counter.decrement(counter, 2)
   counter
   |> pn_counter.value
-  |> should.equal(3)
+  |> expect.to_equal(3)
 }
 
 pub fn value_with_more_negative_test() {
@@ -79,18 +74,12 @@ pub fn value_with_more_negative_test() {
   let counter = pn_counter.decrement(counter, 7)
   counter
   |> pn_counter.value
-  |> should.equal(-4)
+  |> expect.to_equal(-4)
 }
 
 // Tests for merge
 
 pub fn merge_preserves_both_counters_test() {
-  // PN-Counter merge combines positive and negative counters separately
-  // Using different replicas: A has +5/-2, B has +3/-7
-  // After merge: positive = max(A:5, B:3), negative = max(A:2, B:7)
-  // = {A:5, B:3} = 8, {A:2, B:7} = 9
-  // Value = 8 - 9 = -1
-
   let a_counter = pn_counter.new("A")
   let a_counter = pn_counter.increment(a_counter, 5)
   let a_counter = pn_counter.decrement(a_counter, 2)
@@ -103,14 +92,10 @@ pub fn merge_preserves_both_counters_test() {
 
   merged
   |> pn_counter.value
-  |> should.equal(-1)
+  |> expect.to_equal(-1)
 }
 
 pub fn merge_preserves_different_replicas_test() {
-  // Replica A: +5
-  // Replica B: -3
-  // Merge should have both: +5 + (-3) = 2
-
   let a_counter = pn_counter.new("A")
   let a_counter = pn_counter.increment(a_counter, 5)
 
@@ -121,18 +106,10 @@ pub fn merge_preserves_different_replicas_test() {
 
   merged
   |> pn_counter.value
-  |> should.equal(2)
+  |> expect.to_equal(2)
 }
 
 pub fn concurrent_increments_and_decrements_test() {
-  // Concurrent scenario: two replicas make independent changes, then merge all
-  // a1: A: +5, B: -3 → after merge1 = positive:{A:5,B:0}=5, negative:{A:0,B:3}=3 → value = 2
-  // a2: A: +2/-1, B: +2 → after merge2 = positive:{A:2,B:2}=4, negative:{A:1,B:0}=1 → value = 3
-  // After final merge:
-  //   positive: max(A:5, A:2)=5, max(B:0, B:2)=2 → {A:5,B:2} = 7
-  //   negative: max(A:0, A:1)=1, max(B:3, B:0)=3 → {A:1,B:3} = 4
-  //   value = 7 - 4 = 3
-
   let a1 = pn_counter.new("A")
   let a1 = pn_counter.increment(a1, 5)
 
@@ -154,5 +131,5 @@ pub fn concurrent_increments_and_decrements_test() {
 
   final
   |> pn_counter.value
-  |> should.equal(3)
+  |> expect.to_equal(3)
 }
