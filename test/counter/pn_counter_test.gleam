@@ -1,6 +1,5 @@
 import gleeunit
 import gleeunit/should
-import lattice/g_counter
 import lattice/pn_counter
 
 pub fn main() -> Nil {
@@ -86,9 +85,11 @@ pub fn value_with_more_negative_test() {
 // Tests for merge
 
 pub fn merge_preserves_both_counters_test() {
-  // {positive: {A:5}, negative: {A:2}} merge {positive: {A:3}, negative: {A:7}}
-  // Result: positive max(A:5, A:3) = A:5, negative max(A:2, A:7) = A:7
-  // Value: 5 - 7 = -2
+  // PN-Counter merge combines positive and negative counters separately
+  // Using different replicas: A has +5/-2, B has +3/-7
+  // After merge: positive = max(A:5, B:3), negative = max(A:2, B:7)
+  // = {A:5, B:3} = 8, {A:2, B:7} = 9
+  // Value = 8 - 9 = -1
 
   let a_counter = pn_counter.new("A")
   let a_counter = pn_counter.increment(a_counter, 5)
@@ -102,7 +103,7 @@ pub fn merge_preserves_both_counters_test() {
 
   merged
   |> pn_counter.value
-  |> should.equal(-2)
+  |> should.equal(-1)
 }
 
 pub fn merge_preserves_different_replicas_test() {
@@ -124,9 +125,13 @@ pub fn merge_preserves_different_replicas_test() {
 }
 
 pub fn concurrent_increments_and_decrements_test() {
-  // A: +5, B: -3
-  // B: +2, A: -1
-  // After full merge: A: +4, B: -1 = 3
+  // Concurrent scenario: two replicas make independent changes, then merge all
+  // a1: A: +5, B: -3 → after merge1 = positive:{A:5,B:0}=5, negative:{A:0,B:3}=3 → value = 2
+  // a2: A: +2/-1, B: +2 → after merge2 = positive:{A:2,B:2}=4, negative:{A:1,B:0}=1 → value = 3
+  // After final merge:
+  //   positive: max(A:5, A:2)=5, max(B:0, B:2)=2 → {A:5,B:2} = 7
+  //   negative: max(A:0, A:1)=1, max(B:3, B:0)=3 → {A:1,B:3} = 4
+  //   value = 7 - 4 = 3
 
   let a1 = pn_counter.new("A")
   let a1 = pn_counter.increment(a1, 5)
@@ -135,7 +140,6 @@ pub fn concurrent_increments_and_decrements_test() {
   let b1 = pn_counter.decrement(b1, 3)
 
   let merged1 = pn_counter.merge(a1, b1)
-  // merged1 = A:5, B:-3 = 2
 
   let a2 = pn_counter.new("A")
   let a2 = pn_counter.increment(a2, 2)
@@ -145,12 +149,10 @@ pub fn concurrent_increments_and_decrements_test() {
   let b2 = pn_counter.increment(b2, 2)
 
   let merged2 = pn_counter.merge(a2, b2)
-  // merged2 = A:1, B:2 = 3
 
   let final = pn_counter.merge(merged1, merged2)
-  // final = A: max(5, 1) = 5, B: max(-3, 2) = 2 = 7
 
   final
   |> pn_counter.value
-  |> should.equal(7)
+  |> should.equal(3)
 }
