@@ -26,7 +26,12 @@
   6. Version Vector compare returns correct Order (Before/After/Concurrent/Equal) for any two vectors
   7. Property tests shrink correctly (qcheck generators produce minimal counterexamples)
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-PLAN.md — Version Vector and G-Counter with TDD
+- [ ] 02-PLAN.md — PN-Counter implementation
+- [ ] 03-PLAN.md — Property-based tests for merge laws (qcheck)
 
 ---
 
@@ -98,7 +103,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Counters | 0/1 | Not started | - |
+| 1. Foundation & Counters | 0/3 | Not started | - |
 | 2. Registers & Sets | 0/1 | Not started | - |
 | 3. Maps & Serialization | 0/1 | Not started | - |
 | 4. Advanced Testing | 0/1 | Not started | - |
