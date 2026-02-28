@@ -50,21 +50,26 @@ pub fn value(register: MVRegister(a)) -> List(a) {
 }
 
 /// Merge two MV-Registers.
-/// An entry survives if it is not dominated by the other register's vclock:
+/// An entry survives if it is not dominated by the other register's vclock,
+/// or if both registers share the same entry (handles self-merge idempotency):
 ///   - Entry Tag(rid, counter) from a survives if b.vclock[rid] < counter
+///     OR b.entries also contains that tag
 ///   - Entry Tag(rid, counter) from b survives if a.vclock[rid] < counter
+///     OR a.entries also contains that tag
 /// The merged vclock is the pairwise maximum of both vclocks.
 pub fn merge(a: MVRegister(el), b: MVRegister(el)) -> MVRegister(el) {
-  // Entries from a that survive: not dominated by b's vclock
+  // Entries from a that survive: not dominated by b's vclock, or shared with b
   let surviving_from_a =
     dict.filter(a.entries, fn(tag, _val) {
       version_vector.get(b.vclock, tag.replica_id) < tag.counter
+      || dict.has_key(b.entries, tag)
     })
 
-  // Entries from b that survive: not dominated by a's vclock
+  // Entries from b that survive: not dominated by a's vclock, or shared with a
   let surviving_from_b =
     dict.filter(b.entries, fn(tag, _val) {
       version_vector.get(a.vclock, tag.replica_id) < tag.counter
+      || dict.has_key(a.entries, tag)
     })
 
   // Combine surviving entries from both sides
