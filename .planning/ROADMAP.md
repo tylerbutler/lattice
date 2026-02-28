@@ -55,9 +55,9 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [x] 01-PLAN.md — LWW-Register and MV-Register with TDD, plus G-Set/OR-Set/2P-Set stubs (COMPLETED)
+- [x] 01-PLAN.md — LWW-Register and MV-Register with TDD (COMPLETED)
 - [x] 02-PLAN.md — G-Set and 2P-Set with TDD (COMPLETED)
-- [ ] 03-PLAN.md — OR-Set with TDD (pending)
+- [x] 03-PLAN.md — OR-Set with add-wins semantics (COMPLETED)
 - [ ] 04-PLAN.md — Property tests for register/set merge laws (pending)
 
 ---
@@ -110,7 +110,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
-| 2. Registers & Sets | 2/4 | In Progress | - |
+| 2. Registers & Sets | 3/4 | In Progress | - |
 | 3. Maps & Serialization | 0/1 | Not started | - |
 | 4. Advanced Testing | 0/1 | Not started | - |
 
@@ -125,7 +125,7 @@ Plans:
 | CLOCK-01 to CLOCK-05 | Phase 1 | Complete |
 | TEST-01 to TEST-02 (counter portion) | Phase 1 | Complete |
 | REG-01 to REG-08 | Phase 2 | Complete |
-| SET-01 to SET-17 | Phase 2 | Complete (stubs in place, property tests pending) |
+| SET-01 to SET-17 | Phase 2 | Complete (all set types implemented; property tests pending Plan 04) |
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Complete (unit tests; property tests pending) |
 | MAP-01 to MAP-14 | Phase 3 | Pending |
 | JSON-01 to JSON-20 | Phase 3 | Pending |

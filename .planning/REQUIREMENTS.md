@@ -169,9 +169,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COUNTER-01 to COUNTER-09 | Phase 1 | Complete |
 | CLOCK-01 to CLOCK-05 | Phase 1 | Complete |
 | TEST-01 to TEST-02 (counter portion) | Phase 1 | Complete |
-| REG-01 to REG-08 | Phase 2 | Pending |
+| REG-01 to REG-08 | Phase 2 | Complete (LWW-Register and MV-Register) |
 | SET-01 to SET-11 | Phase 2 | Complete (G-Set and 2P-Set) |
-| SET-12 to SET-17 | Phase 2 | Pending (OR-Set) |
+| SET-12 to SET-17 | Phase 2 | Complete (OR-Set) |
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Pending |
 | MAP-01 to MAP-14 | Phase 3 | Pending |
 | JSON-01 to JSON-20 | Phase 3 | Pending |
