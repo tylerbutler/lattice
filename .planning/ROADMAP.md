@@ -23,7 +23,7 @@
 
 **Milestone Goal:** Polish, document, test on JS target, and publish lattice to Hex.pm.
 
-- [ ] **Phase 5: JS Target** - All 228+ tests pass on both Erlang and JavaScript targets with CI enforcing both
+- [x] **Phase 5: JS Target** - All 228+ tests pass on both Erlang and JavaScript targets with CI enforcing both
 - [ ] **Phase 6: Docs & API Polish** - All public API documented, reviewed for consistency, and hexdocs builds clean
 - [ ] **Phase 7: Publishing** - Package metadata complete, README written, CHANGELOG created, and published to Hex.pm
 
@@ -37,7 +37,8 @@
   1. `gleam test --target javascript` completes with all 228+ tests passing
   2. Any JS-specific failures discovered are identified and fixed before proceeding
   3. CI workflow runs the full test suite against both Erlang and JavaScript targets on every push
-**Plans**: TBD
+**Plans**: 1 plan
+**Completed**: 2026-03-01
 
 ### Phase 6: Docs & API Polish
 **Goal**: Every public function and type has doc comments, the API surface is consistent and ergonomic, and hexdocs generates without warnings
@@ -70,7 +71,7 @@
 | 2. Registers & Sets | v1.0 | 4/4 | Complete | 2026-03-01 |
 | 3. Maps & Serialization | v1.0 | 4/4 | Complete | 2026-03-01 |
 | 4. Advanced Testing | v1.0 | 3/3 | Complete | 2026-03-01 |
-| 5. JS Target | v1.1 | 0/? | Not started | - |
+| 5. JS Target | v1.1 | 1/1 | Complete | 2026-03-01 |
 | 6. Docs & API Polish | v1.1 | 0/? | Not started | - |
 | 7. Publishing | v1.1 | 0/? | Not started | - |
 
