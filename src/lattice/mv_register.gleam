@@ -157,7 +157,7 @@ pub fn to_json(register: MVRegister(String)) -> json.Json {
         #("value", json.string(value)),
       ])
     })
-  let version_vector.VersionVector(vclock_dict) = vclock
+  let vclock_dict = version_vector.to_dict(vclock)
   json.object([
     #("type", json.string("mv_register")),
     #("v", json.int(1)),
@@ -197,7 +197,7 @@ pub fn from_json(
         decode.dict(decode.string, decode.int),
       )
       let entries = dict.from_list(entries_list)
-      let vclock = version_vector.VersionVector(dict: vclock_dict)
+      let vclock = version_vector.from_dict(vclock_dict)
       decode.success(MVRegister(
         replica_id: replica_id,
         entries: entries,
