@@ -4,7 +4,7 @@
 
 - [ ] **Phase 1: Foundation & Counters** - Build system, testing infrastructure, Version Vector, G-Counter, PN-Counter with TDD
 - [x] **Phase 2: Registers & Sets** - LWW-Register, MV-Register, G-Set, 2P-Set, OR-Set with property tests
-- [ ] **Phase 3: Maps & Serialization** - LWW-Map, OR-Map, JSON serialization with round-trip tests
+- [x] **Phase 3: Maps & Serialization** - LWW-Map, OR-Map, JSON serialization with round-trip tests
 - [ ] **Phase 4: Advanced Testing** - Cross-target serialization, OR-Set edge cases, convergence tests
 
 ## Phase Details
@@ -84,7 +84,7 @@ Plans:
 - [x] 01-PLAN.md — LWW-Map + gleam_json dependency (Wave 1) (COMPLETED)
 - [x] 02-PLAN.md — JSON serialization for all 8 leaf types + Version Vector (Wave 1, parallel) (COMPLETED)
 - [x] 03-PLAN.md — Crdt union type + OR-Map implementation (Wave 2) (COMPLETED)
-- [ ] 04-PLAN.md — Map JSON + round-trip property tests (Wave 3)
+- [x] 04-PLAN.md — Map JSON + round-trip property tests (Wave 3) (COMPLETED)
 
 ---
 
@@ -117,7 +117,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
 | 2. Registers & Sets | 4/4 | Complete | 2026-02-28 |
-| 3. Maps & Serialization | 3/4 | In progress | - |
+| 3. Maps & Serialization | 4/4 | Complete | 2026-03-01 |
 | 4. Advanced Testing | 0/1 | Not started | - |
 
 ---
@@ -136,8 +136,8 @@ Plans:
 | MAP-01 to MAP-07 | Phase 3 | Complete (LWW-Map implemented) |
 | MAP-08 to MAP-14 | Phase 3 | Complete (OR-Map + Crdt union implemented) |
 | JSON-01 to JSON-14, JSON-19, JSON-20 | Phase 3 | Complete (leaf types + VersionVector done) |
-| JSON-15 to JSON-18 | Phase 3 | Pending (LWW-Map and OR-Map JSON) |
-| TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
+| JSON-15 to JSON-18 | Phase 3 | Complete (LWW-Map and OR-Map JSON done) |
+| TEST-04 to TEST-08 (convergence, serialization) | Phase 3/4 | Partial (round-trip property tests done; convergence pending) |
 | CLOCK-06 to CLOCK-09 | Phase 4 | Pending |
 | TEST-01 to TEST-10 (all remaining) | Phase 4 | Pending |
 | TEST-09 (OR-Set concurrent add-wins) | Phase 4 | Pending |

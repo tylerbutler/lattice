@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T21:59:00Z"
+last_updated: "2026-03-01T21:54:00Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -23,12 +23,12 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 ## Current Position
 
-Phase: 3 of 4 (Maps & Serialization)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-03-01 — Plan 03 completed (Crdt union + CrdtSpec + OR-Map with add-wins key semantics)
+Phase: 3 of 4 (Maps & Serialization) — COMPLETE
+Plan: 4 of 4 in current phase — COMPLETE
+Status: Phase 3 complete, ready for Phase 4
+Last activity: 2026-03-01 — Plan 04 completed (LWW-Map + OR-Map JSON, serialization property tests)
 
-Progress: [█████████░] 88%
+Progress: [██████████] 100% (Phase 3 complete)
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [█████████░] 88%
 |-------|-------|----------|----------|
 | 1 - Foundation & Counters | 3/3 | 3 | 15 min |
 | 2 - Registers & Sets | 4/4 | 4 | 3 min |
-| 3 - Maps & Serialization | 3/4 | 3 | 5 min |
+| 3 - Maps & Serialization | 4/4 | 4 | 5 min |
 | 4 - Advanced Testing | 0/1 | 0 | - |
 
 **Recent Trend:**
@@ -55,6 +55,7 @@ Progress: [█████████░] 88%
 - Phase 2 plan 3: Completed in 5 min (OR-Set)
 - Phase 2 plan 4: Completed in 2 min (Register & Set Property Tests)
 - Phase 3 plan 3: Completed in 3 min (Crdt union + OR-Map)
+- Phase 3 plan 4: Completed in 6 min (LWW-Map + OR-Map JSON, serialization property tests)
 
 *Updated after each plan completion*
 
@@ -94,6 +95,9 @@ Recent decisions affecting current work:
 - Phase 3 plan 03: crdt.merge returns first argument on type mismatch (safe degradation)
 - Phase 3 plan 03: ORMap remove() only affects key_set (values dict preserved for add-wins merge)
 - Phase 3 plan 03: json.UnableToDecode is the correct gleam_json error constructor (not UnexpectedFormat)
+- Phase 3 plan 04: OR-Map uses double-encoding (json.to_string of nested CRDTs) for pragmatic v1 compatibility with existing from_json(String) API
+- Phase 3 plan 04: LWW-Map encodes entries as JSON array of objects to avoid Dict key serialization complexity
+- Phase 3 plan 04: None/Some tombstone round-trips via decode.optional(decode.string) — None becomes JSON null
 
 ### Pending Todos
 
@@ -106,5 +110,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 03-maps-serialization-03-PLAN.md (Crdt union + OR-Map with add-wins key semantics)
+Stopped at: Completed 03-maps-serialization-04-PLAN.md (LWW-Map + OR-Map JSON, serialization property tests — Phase 3 complete)
 Resume file: None

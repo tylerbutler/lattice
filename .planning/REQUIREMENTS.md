@@ -95,10 +95,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **JSON-12**: JSON decoder for 2P-Set
 - [ ] **JSON-13**: JSON encoder for OR-Set
 - [ ] **JSON-14**: JSON decoder for OR-Set
-- [ ] **JSON-15**: JSON encoder for LWW-Map
-- [ ] **JSON-16**: JSON decoder for LWW-Map
-- [ ] **JSON-17**: JSON encoder for OR-Map
-- [ ] **JSON-18**: JSON decoder for OR-Map
+- [x] **JSON-15**: JSON encoder for LWW-Map
+- [x] **JSON-16**: JSON decoder for LWW-Map
+- [x] **JSON-17**: JSON encoder for OR-Map
+- [x] **JSON-18**: JSON decoder for OR-Map
 - [ ] **JSON-19**: JSON encoder for Version Vector
 - [ ] **JSON-20**: JSON decoder for Version Vector
 
