@@ -11,7 +11,7 @@ Requirements for production-ready release. Each maps to roadmap phases.
 
 - [x] **TARGET-01**: All existing tests pass with `gleam test --target javascript`
 - [x] **TARGET-02**: Fix any JS-specific failures (if discovered)
-- [ ] **TARGET-03**: CI workflow runs tests on both Erlang and JavaScript targets
+- [x] **TARGET-03**: CI workflow runs tests on both Erlang and JavaScript targets
 
 ### Documentation
 
@@ -73,7 +73,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | TARGET-01 | Phase 5 | Complete |
 | TARGET-02 | Phase 5 | Complete |
-| TARGET-03 | Phase 5 | Pending |
+| TARGET-03 | Phase 5 | Complete |
 | DOCS-01 | Phase 6 | Pending |
 | DOCS-02 | Phase 6 | Pending |
 | DOCS-03 | Phase 6 | Pending |
@@ -93,4 +93,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after Phase 5 Plan 01 completion (TARGET-01, TARGET-02 marked complete)*
+*Last updated: 2026-03-01 after Phase 5 Plan 02 completion (TARGET-03 marked complete)*
