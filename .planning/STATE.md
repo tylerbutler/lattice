@@ -8,7 +8,7 @@ progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -24,16 +24,16 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 3 of 4 (Maps & Serialization)
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-03-01 — Plan 02 completed (JSON serialization for all 8 leaf CRDT types + VersionVector)
+Last activity: 2026-03-01 — Plan 03 completed (Crdt union + CrdtSpec + OR-Map with add-wins key semantics)
 
-Progress: [████████░░] 82%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: 10 min
 - Total execution time: ~1.0 hours
 
@@ -43,7 +43,7 @@ Progress: [████████░░] 82%
 |-------|-------|----------|----------|
 | 1 - Foundation & Counters | 3/3 | 3 | 15 min |
 | 2 - Registers & Sets | 4/4 | 4 | 3 min |
-| 3 - Maps & Serialization | 2/4 | 2 | 7 min |
+| 3 - Maps & Serialization | 3/4 | 3 | 5 min |
 | 4 - Advanced Testing | 0/1 | 0 | - |
 
 **Recent Trend:**
@@ -54,6 +54,7 @@ Progress: [████████░░] 82%
 - Phase 2 plan 2: Completed in 3 min (G-Set + 2P-Set)
 - Phase 2 plan 3: Completed in 5 min (OR-Set)
 - Phase 2 plan 4: Completed in 2 min (Register & Set Property Tests)
+- Phase 3 plan 3: Completed in 3 min (Crdt union + OR-Map)
 
 *Updated after each plan completion*
 
@@ -87,6 +88,12 @@ Recent decisions affecting current work:
 - Phase 3 plan 02: MV-Register entries (Dict(Tag, String)) encoded as JSON array of {tag, value} objects — Tag cannot be a JSON dict key
 - Phase 3 plan 02: OR-Set entries (Dict(String, set.Set(Tag))) encoded as JSON dict with String keys mapping to arrays of tag objects
 - Phase 3 plan 02: Round-trip tests for MVRegister/ORSet compare value() output, not structural equality
+- Phase 3 plan 03: Crdt union covers only 8 leaf types (no map variants) to prevent circular imports
+- Phase 3 plan 03: All parameterized Crdt types fixed to String in v1 (CrdtLwwRegister(LWWRegister(String)), etc.)
+- Phase 3 plan 03: CrdtSpec has 7 variants (no VersionVectorSpec — VersionVector is infrastructure, not an OR-Map value)
+- Phase 3 plan 03: crdt.merge returns first argument on type mismatch (safe degradation)
+- Phase 3 plan 03: ORMap remove() only affects key_set (values dict preserved for add-wins merge)
+- Phase 3 plan 03: json.UnableToDecode is the correct gleam_json error constructor (not UnexpectedFormat)
 
 ### Pending Todos
 
@@ -99,5 +106,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 03-maps-serialization-02-PLAN.md (JSON serialization for all 8 leaf CRDT types + VersionVector)
+Stopped at: Completed 03-maps-serialization-03-PLAN.md (Crdt union + OR-Map with add-wins key semantics)
 Resume file: None
