@@ -78,7 +78,13 @@ Plans:
   5. All CRDT types serialize/deserialize correctly to/from JSON
   6. Cross-target serialization works: state encoded on Erlang decodes identically on JS
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [x] 01-PLAN.md — LWW-Map + gleam_json dependency (Wave 1) (COMPLETED)
+- [x] 02-PLAN.md — JSON serialization for all 8 leaf types + Version Vector (Wave 1, parallel) (COMPLETED)
+- [ ] 03-PLAN.md — Crdt union type + OR-Map implementation (Wave 2)
+- [ ] 04-PLAN.md — Map JSON + round-trip property tests (Wave 3)
 
 ---
 
@@ -111,7 +117,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
 | 2. Registers & Sets | 4/4 | Complete | 2026-02-28 |
-| 3. Maps & Serialization | 0/1 | Not started | - |
+| 3. Maps & Serialization | 2/4 | In progress | - |
 | 4. Advanced Testing | 0/1 | Not started | - |
 
 ---
@@ -127,7 +133,8 @@ Plans:
 | REG-01 to REG-08 | Phase 2 | Complete |
 | SET-01 to SET-17 | Phase 2 | Complete (all set types implemented; property tests pending Plan 04) |
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Complete (unit tests; property tests pending) |
-| MAP-01 to MAP-14 | Phase 3 | Pending |
+| MAP-01 to MAP-07 | Phase 3 | Complete (LWW-Map implemented) |
+| MAP-08 to MAP-14 | Phase 3 | Pending (OR-Map) |
 | JSON-01 to JSON-20 | Phase 3 | Pending |
 | TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
 | CLOCK-06 to CLOCK-09 | Phase 4 | Pending |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T20:57:48.108Z"
+last_updated: "2026-03-01T21:59:00Z"
 progress:
-  total_phases: 2
+  total_phases: 4
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -24,11 +24,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 3 of 4 (Maps & Serialization)
-Plan: 0 of TBD in current phase
-Status: In Progress
-Last activity: 2026-02-28 — Plan 04 completed (Register & Set Property Tests)
+Plan: 2 of 4 in current phase
+Status: In progress
+Last activity: 2026-03-01 — Plan 02 completed (JSON serialization for all 8 leaf CRDT types + VersionVector)
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 82%
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [████████░░] 75%
 |-------|-------|----------|----------|
 | 1 - Foundation & Counters | 3/3 | 3 | 15 min |
 | 2 - Registers & Sets | 4/4 | 4 | 3 min |
-| 3 - Maps & Serialization | 0/1 | 0 | - |
+| 3 - Maps & Serialization | 2/4 | 2 | 7 min |
 | 4 - Advanced Testing | 0/1 | 0 | - |
 
 **Recent Trend:**
@@ -79,6 +79,14 @@ Recent decisions affecting current work:
 - Phase 2 plan 04: MV-Register self-merge idempotency required dict.has_key check in addition to vclock dominance filter
 - Phase 2 plan 04: OR-Set and MV-Register tests compare on value() (sorted lists / sets) not structural equality
 - Phase 2 plan 04: MV-Register associativity skipped — too complex to construct valid vclock triples for property testing
+- Phase 3 plan 01: LWW-Map uses Dict(String, #(Option(String), Int)) — None for tombstoned, Some(val) for active
+- Phase 3 plan 01: set()/remove() require strictly greater timestamp to overwrite (not >=)
+- Phase 3 plan 01: merge() tiebreak: first argument wins on equal timestamps (consistent with LWW semantics)
+- Phase 3 plan 01: keys()/values() use dict.fold to filter tombstoned entries; sort before comparing in tests
+- Phase 3 plan 02: Parameterized CRDT types (LWWRegister, GSet, TwoPSet, ORSet, MVRegister) serialization constrained to String (v1 simplification)
+- Phase 3 plan 02: MV-Register entries (Dict(Tag, String)) encoded as JSON array of {tag, value} objects — Tag cannot be a JSON dict key
+- Phase 3 plan 02: OR-Set entries (Dict(String, set.Set(Tag))) encoded as JSON dict with String keys mapping to arrays of tag objects
+- Phase 3 plan 02: Round-trip tests for MVRegister/ORSet compare value() output, not structural equality
 
 ### Pending Todos
 
@@ -90,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: Completed 02-registers-sets-04-PLAN.md (Register & Set Property Tests)
+Last session: 2026-03-01
+Stopped at: Completed 03-maps-serialization-02-PLAN.md (JSON serialization for all 8 leaf CRDT types + VersionVector)
 Resume file: None

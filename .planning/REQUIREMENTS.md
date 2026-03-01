@@ -52,13 +52,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Maps
 
-- [ ] **MAP-01**: LWW-Map: new() -> t
-- [ ] **MAP-02**: LWW-Map: set(map, key, value, timestamp) -> map
-- [ ] **MAP-03**: LWW-Map: get(map, key) -> Result(value, Nil)
-- [ ] **MAP-04**: LWW-Map: remove(map, key, timestamp) -> map
-- [ ] **MAP-05**: LWW-Map: keys(map) -> List(key)
-- [ ] **MAP-06**: LWW-Map: values(map) -> List(value)
-- [ ] **MAP-07**: LWW-Map: merge(a, b) -> map (per-key LWW)
+- [x] **MAP-01**: LWW-Map: new() -> t
+- [x] **MAP-02**: LWW-Map: set(map, key, value, timestamp) -> map
+- [x] **MAP-03**: LWW-Map: get(map, key) -> Result(value, Nil)
+- [x] **MAP-04**: LWW-Map: remove(map, key, timestamp) -> map
+- [x] **MAP-05**: LWW-Map: keys(map) -> List(key)
+- [x] **MAP-06**: LWW-Map: values(map) -> List(value)
+- [x] **MAP-07**: LWW-Map: merge(a, b) -> map (per-key LWW)
 - [ ] **MAP-08**: OR-Map: new(replica_id, crdt_spec) -> t
 - [ ] **MAP-09**: OR-Map: update(map, key, fn(crdt) -> crdt) -> map
 - [ ] **MAP-10**: OR-Map: get(map, key) -> Result(crdt, Nil)
@@ -173,7 +173,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SET-01 to SET-11 | Phase 2 | Complete (G-Set and 2P-Set) |
 | SET-12 to SET-17 | Phase 2 | Complete (OR-Set) |
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Complete |
-| MAP-01 to MAP-14 | Phase 3 | Pending |
+| MAP-01 to MAP-07 | Phase 3 | Complete (LWW-Map implemented) |
+| MAP-08 to MAP-14 | Phase 3 | Pending (OR-Map) |
 | JSON-01 to JSON-20 | Phase 3 | Pending |
 | TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
 | CLOCK-06 to CLOCK-09 | Phase 4 | Pending |
