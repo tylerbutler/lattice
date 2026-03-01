@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Production Ready
-status: unknown
-last_updated: "2026-03-01T23:36:52.779Z"
+status: in_progress
+last_updated: "2026-03-01T23:51:16Z"
 progress:
-  total_phases: 5
+  total_phases: 7
   completed_phases: 5
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 18
+  completed_plans: 18
 ---
 
 # Project State
@@ -19,16 +19,16 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** A comprehensive CRDT library for Gleam with correct merge semantics verified by property-based tests, providing developers with battle-tested data structures for building distributed, collaborative, or offline-first applications.
 
-**Current focus:** v1.1 Production Ready — Phase 5: JS Target (complete), moving to Phase 6: Docs & API Polish
+**Current focus:** v1.1 Production Ready — Phase 6: Docs & API Polish (complete), ready for Phase 7: Publishing
 
 ## Current Position
 
-Phase: 5 of 7 (JS Target) — COMPLETE
+Phase: 6 of 7 (Docs & API Polish) — COMPLETE
 Plan: 2 of 2 — COMPLETE
-Status: Phase 5 complete, ready for Phase 6
-Last activity: 2026-03-01 — Phase 5 Plan 02: CI workflow updated with dual-target test jobs
+Status: Phase 6 complete; all 12 modules documented; ready for Phase 7
+Last activity: 2026-03-01 — Phase 6 Plan 02: Set/map/crdt modules documented; or_set.Tag made opaque; consistent function ordering applied
 
-Progress: [██░░░░░░░░] ~20%
+Progress: [████░░░░░░] ~60%
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [██░░░░░░░░] ~20%
 | Phase | Plans | Completed | Avg/Plan |
 |-------|-------|----------|----------|
 | 5 - JS Target | 2 | 2 | ~2 min |
-| 6 - Docs & API Polish | TBD | 0 | - |
+| 6 - Docs & API Polish | 2 | 2 | ~7 min |
 | 7 - Publishing | TBD | 0 | - |
 
 *Updated after each plan completion*
@@ -58,6 +58,10 @@ Recent decisions affecting current work:
 - Phase 6 combines Docs and API Polish (quick depth; reviewing signatures and writing comments happen together)
 - Phase 5: All 228 tests already passed on JS target — no code fixes needed; justfile multi-target section uncommented and ci recipe updated to enforce both targets
 - Phase 5 Plan 02: Two explicit CI jobs (test-erlang, test-js) instead of matrix strategy — different setup requirements make explicit jobs clearer; format/type check only in Erlang job (target-independent, not duplicated)
+- Phase 6 Plan 01: GCounter/PNCounter remain pub (pn_counter destructures GCounter internals for serialization); LWWRegister remains pub (value/timestamp are part of public API); MVRegister and Tag made opaque; VersionVector made opaque with to_dict/from_dict helpers for sibling-module serialization; DotContext made opaque
+- Phase 6 Plan 02: or_set.Tag made pub opaque — users never construct tags directly; internal add/remove implementation detail
+- Phase 6 Plan 02: Crdt and CrdtSpec remain pub — or_map.gleam pattern-matches on CrdtSpec variants, requiring visibility
+- Phase 6 Plan 02: API-03 convenience gaps (size/is_empty for sets/maps) identified but deferred — new functions need tests, out of scope for docs plan
 
 ### Pending Todos
 
@@ -70,5 +74,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Phase 5 Plan 02 complete — CI workflow updated with dual-target test jobs (test-erlang, test-js)
+Stopped at: Phase 6 Plan 02 complete — Set/map/crdt modules documented; or_set.Tag made opaque; consistent function ordering applied to all 12 modules
 Resume file: None

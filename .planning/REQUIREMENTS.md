@@ -74,12 +74,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TARGET-01 | Phase 5 | Complete |
 | TARGET-02 | Phase 5 | Complete |
 | TARGET-03 | Phase 5 | Complete |
-| DOCS-01 | Phase 6 | Pending |
-| DOCS-02 | Phase 6 | Pending |
-| DOCS-03 | Phase 6 | Pending |
+| DOCS-01 | Phase 6 | Partial (6/12 modules — plan 01) |
+| DOCS-02 | Phase 6 | Partial (6/12 modules — plan 01) |
+| DOCS-03 | Phase 6 | Partial (6/12 modules — plan 01) |
 | DOCS-04 | Phase 6 | Pending |
-| API-01 | Phase 6 | Pending |
-| API-02 | Phase 6 | Pending |
+| API-01 | Phase 6 | Partial (6/12 modules — plan 01) |
+| API-02 | Phase 6 | Partial (6/12 modules — plan 01) |
 | API-03 | Phase 6 | Pending |
 | PUB-01 | Phase 7 | Pending |
 | PUB-02 | Phase 7 | Pending |
@@ -93,4 +93,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after Phase 5 Plan 02 completion (TARGET-03 marked complete)*
+*Last updated: 2026-03-01 after Phase 6 Plan 01 completion (DOCS-01/02/03, API-01/02 partial — 6/12 modules)*

@@ -72,7 +72,7 @@
 | 3. Maps & Serialization | v1.0 | 4/4 | Complete | 2026-03-01 |
 | 4. Advanced Testing | v1.0 | 3/3 | Complete | 2026-03-01 |
 | 5. JS Target | v1.1 | 2/2 | Complete | 2026-03-01 |
-| 6. Docs & API Polish | v1.1 | 0/? | Not started | - |
+| 6. Docs & API Polish | v1.1 | 1/? | In progress | - |
 | 7. Publishing | v1.1 | 0/? | Not started | - |
 
 ---
