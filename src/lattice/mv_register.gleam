@@ -1,4 +1,6 @@
 import gleam/dict
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import lattice/version_vector.{type VersionVector}
 
@@ -15,6 +17,67 @@ pub type MVRegister(a) {
     entries: dict.Dict(Tag, a),
     vclock: VersionVector,
   )
+}
+
+/// Encode a MVRegister(String) as a self-describing JSON value.
+/// Entries (Dict(Tag, String)) are encoded as an array of tag+value objects
+/// because Tag is a custom type that cannot serve as a JSON dict key.
+/// Format: {"type": "mv_register", "v": 1, "state": {"replica_id": "...", "entries": [...], "vclock": {...}}}
+pub fn to_json(register: MVRegister(String)) -> json.Json {
+  let MVRegister(replica_id, entries, vclock) = register
+  let entries_json =
+    json.array(dict.to_list(entries), fn(pair) {
+      let #(Tag(rid, counter), value) = pair
+      json.object([
+        #("tag", json.object([
+          #("r", json.string(rid)),
+          #("c", json.int(counter)),
+        ])),
+        #("value", json.string(value)),
+      ])
+    })
+  let version_vector.VersionVector(vclock_dict) = vclock
+  json.object([
+    #("type", json.string("mv_register")),
+    #("v", json.int(1)),
+    #("state", json.object([
+      #("replica_id", json.string(replica_id)),
+      #("entries", entries_json),
+      #("vclock", json.dict(vclock_dict, fn(k) { k }, json.int)),
+    ])),
+  ])
+}
+
+/// Decode a MVRegister(String) from a JSON string produced by to_json.
+pub fn from_json(json_string: String) -> Result(MVRegister(String), json.DecodeError) {
+  let entry_decoder = {
+    use tag <- decode.field("tag", {
+      use r <- decode.field("r", decode.string)
+      use c <- decode.field("c", decode.int)
+      decode.success(Tag(replica_id: r, counter: c))
+    })
+    use value <- decode.field("value", decode.string)
+    decode.success(#(tag, value))
+  }
+  let decoder = {
+    use state <- decode.field("state", {
+      use replica_id <- decode.field("replica_id", decode.string)
+      use entries_list <- decode.field("entries", decode.list(entry_decoder))
+      use vclock_dict <- decode.field(
+        "vclock",
+        decode.dict(decode.string, decode.int),
+      )
+      let entries = dict.from_list(entries_list)
+      let vclock = version_vector.VersionVector(dict: vclock_dict)
+      decode.success(MVRegister(
+        replica_id: replica_id,
+        entries: entries,
+        vclock: vclock,
+      ))
+    })
+    decode.success(state)
+  }
+  json.parse(from: json_string, using: decoder)
 }
 
 /// Create a new empty MV-Register for the given replica

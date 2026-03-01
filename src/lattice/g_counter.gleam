@@ -1,4 +1,6 @@
 import gleam/dict
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import gleam/result
 
@@ -38,6 +40,33 @@ pub fn merge(a: GCounter, b: GCounter) -> GCounter {
 
   // Keep the self_id from the first counter
   GCounter(merged_dict, self_id_a)
+}
+
+/// Encode a G-Counter as a self-describing JSON value.
+/// Format: {"type": "g_counter", "v": 1, "state": {"self_id": "...", "counts": {...}}}
+pub fn to_json(counter: GCounter) -> json.Json {
+  let GCounter(d, self_id) = counter
+  json.object([
+    #("type", json.string("g_counter")),
+    #("v", json.int(1)),
+    #("state", json.object([
+      #("self_id", json.string(self_id)),
+      #("counts", json.dict(d, fn(k) { k }, json.int)),
+    ])),
+  ])
+}
+
+/// Decode a G-Counter from a JSON string produced by to_json.
+pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
+  let decoder = {
+    use state <- decode.field("state", {
+      use self_id <- decode.field("self_id", decode.string)
+      use counts <- decode.field("counts", decode.dict(decode.string, decode.int))
+      decode.success(GCounter(dict: counts, self_id: self_id))
+    })
+    decode.success(state)
+  }
+  json.parse(from: json_string, using: decoder)
 }
 
 fn merge_helper(

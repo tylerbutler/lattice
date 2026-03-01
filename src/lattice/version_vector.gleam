@@ -1,4 +1,6 @@
 import gleam/dict
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import gleam/result
 
@@ -75,6 +77,31 @@ fn compare_helper(
       }
     }
   }
+}
+
+/// Encode a VersionVector as a self-describing JSON value.
+/// Format: {"type": "version_vector", "v": 1, "state": {"clocks": {...}}}
+pub fn to_json(vv: VersionVector) -> json.Json {
+  let VersionVector(d) = vv
+  json.object([
+    #("type", json.string("version_vector")),
+    #("v", json.int(1)),
+    #("state", json.object([
+      #("clocks", json.dict(d, fn(k) { k }, json.int)),
+    ])),
+  ])
+}
+
+/// Decode a VersionVector from a JSON string produced by to_json.
+pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError) {
+  let decoder = {
+    use state <- decode.field("state", {
+      use clocks <- decode.field("clocks", decode.dict(decode.string, decode.int))
+      decode.success(VersionVector(dict: clocks))
+    })
+    decode.success(state)
+  }
+  json.parse(from: json_string, using: decoder)
 }
 
 /// Merge two version vectors using pairwise maximum
