@@ -1,4 +1,6 @@
 import gleam/dict
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import gleam/result
 import gleam/set
@@ -16,6 +18,58 @@ pub type ORSet(a) {
     counter: Int,
     entries: dict.Dict(a, set.Set(Tag)),
   )
+}
+
+/// Encode an ORSet(String) as a self-describing JSON value.
+/// Entries (Dict(String, set.Set(Tag))) are encoded as a JSON dict where
+/// values are arrays of tag objects {r, c}.
+/// Format: {"type": "or_set", "v": 1, "state": {"replica_id": "...", "counter": N, "entries": {...}}}
+pub fn to_json(orset: ORSet(String)) -> json.Json {
+  json.object([
+    #("type", json.string("or_set")),
+    #("v", json.int(1)),
+    #("state", json.object([
+      #("replica_id", json.string(orset.replica_id)),
+      #("counter", json.int(orset.counter)),
+      #(
+        "entries",
+        json.dict(orset.entries, fn(k) { k }, fn(tag_set) {
+          json.array(set.to_list(tag_set), fn(tag) {
+            let Tag(rid, c) = tag
+            json.object([#("r", json.string(rid)), #("c", json.int(c))])
+          })
+        }),
+      ),
+    ])),
+  ])
+}
+
+/// Decode an ORSet(String) from a JSON string produced by to_json.
+pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError) {
+  let tag_decoder = {
+    use r <- decode.field("r", decode.string)
+    use c <- decode.field("c", decode.int)
+    decode.success(Tag(replica_id: r, counter: c))
+  }
+  let tag_set_decoder =
+    decode.map(decode.list(tag_decoder), set.from_list)
+  let decoder = {
+    use state <- decode.field("state", {
+      use replica_id <- decode.field("replica_id", decode.string)
+      use counter <- decode.field("counter", decode.int)
+      use entries <- decode.field(
+        "entries",
+        decode.dict(decode.string, tag_set_decoder),
+      )
+      decode.success(ORSet(
+        replica_id: replica_id,
+        counter: counter,
+        entries: entries,
+      ))
+    })
+    decode.success(state)
+  }
+  json.parse(from: json_string, using: decoder)
 }
 
 /// Create a new empty OR-Set for the given replica
