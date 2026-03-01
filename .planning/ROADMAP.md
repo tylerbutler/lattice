@@ -5,7 +5,7 @@
 - [ ] **Phase 1: Foundation & Counters** - Build system, testing infrastructure, Version Vector, G-Counter, PN-Counter with TDD
 - [x] **Phase 2: Registers & Sets** - LWW-Register, MV-Register, G-Set, 2P-Set, OR-Set with property tests
 - [x] **Phase 3: Maps & Serialization** - LWW-Map, OR-Map, JSON serialization with round-trip tests
-- [ ] **Phase 4: Advanced Testing** - Cross-target serialization, OR-Set edge cases, convergence tests
+- [x] **Phase 4: Advanced Testing** - Cross-target serialization, OR-Set edge cases, convergence tests
 
 ## Phase Details
 
@@ -112,7 +112,7 @@ Plans:
 Plans:
 - [x] 01-PLAN.md — Dot Context implementation + unit tests (CLOCK-06 to CLOCK-09) (COMPLETED)
 - [x] 02-PLAN.md — Map merge-law property tests + remaining serialization round-trips (TEST-01/02/03 maps, TEST-07) (COMPLETED)
-- [ ] 03-PLAN.md — Convergence + bottom identity + monotonicity + edge cases + cross-target (TEST-04/05/06/08/09/10)
+- [x] 03-PLAN.md — Convergence + bottom identity + monotonicity + edge cases + cross-target (TEST-04/05/06/08/09/10) (COMPLETED)
 
 ---
 
@@ -123,7 +123,7 @@ Plans:
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
 | 2. Registers & Sets | 4/4 | Complete | 2026-02-28 |
 | 3. Maps & Serialization | 4/4 | Complete | 2026-03-01 |
-| 4. Advanced Testing | 2/3 | In Progress | - |
+| 4. Advanced Testing | 3/3 | Complete | 2026-03-01 |
 
 ---
 
@@ -142,13 +142,14 @@ Plans:
 | MAP-08 to MAP-14 | Phase 3 | Complete (OR-Map + Crdt union implemented) |
 | JSON-01 to JSON-14, JSON-19, JSON-20 | Phase 3 | Complete (leaf types + VersionVector done) |
 | JSON-15 to JSON-18 | Phase 3 | Complete (LWW-Map and OR-Map JSON done) |
-| TEST-04 to TEST-08 (convergence, serialization) | Phase 3/4 | Partial (round-trip property tests done; convergence pending) |
+| TEST-04 to TEST-08 (convergence, serialization) | Phase 3/4 | Complete (round-trip + convergence property tests done) |
 | CLOCK-06 to CLOCK-09 | Phase 4 | Complete (DotContext module) |
 | TEST-01 to TEST-03 (map merge laws, OR-Set assoc) | Phase 4 | Complete (plan 02) |
 | TEST-07 (serialization round-trips all types) | Phase 4 | Complete (plan 02) |
-| TEST-04/05/06/08/09/10 (convergence, edge cases) | Phase 4 | Pending (plan 03) |
-| TEST-09 (OR-Set concurrent add-wins) | Phase 4 | Pending |
-| TEST-10 (2P-Set tombstone permanence) | Phase 4 | Pending |
+| TEST-04/05/06 (convergence, bottom identity, monotonicity) | Phase 4 | Complete (plan 03) |
+| TEST-08 (cross-target JSON smoke tests) | Phase 4 | Complete (plan 03) |
+| TEST-09 (OR-Set concurrent add-wins) | Phase 4 | Complete (plan 03) |
+| TEST-10 (2P-Set tombstone permanence) | Phase 4 | Complete (plan 03) |
 
 **Coverage:**
 - v1 requirements: 87 total
