@@ -15,16 +15,16 @@ Requirements for production-ready release. Each maps to roadmap phases.
 
 ### Documentation
 
-- [ ] **DOCS-01**: All public functions have `///` doc comments with descriptions
-- [ ] **DOCS-02**: All public types have `///` doc comments
-- [ ] **DOCS-03**: Usage examples in module-level documentation
+- [x] **DOCS-01**: All public functions have `///` doc comments with descriptions
+- [x] **DOCS-02**: All public types have `///` doc comments
+- [x] **DOCS-03**: Usage examples in module-level documentation
 - [ ] **DOCS-04**: `gleam docs build` generates clean hexdocs without warnings
 
 ### API Polish
 
-- [ ] **API-01**: Review all public function signatures for consistency (naming, argument order)
-- [ ] **API-02**: Ensure opaque types where internal structure should be hidden
-- [ ] **API-03**: Add missing convenience functions if any obvious gaps exist
+- [x] **API-01**: Review all public function signatures for consistency (naming, argument order)
+- [x] **API-02**: Ensure opaque types where internal structure should be hidden
+- [x] **API-03**: Add missing convenience functions if any obvious gaps exist
 
 ### Publishing
 
@@ -74,13 +74,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TARGET-01 | Phase 5 | Complete |
 | TARGET-02 | Phase 5 | Complete |
 | TARGET-03 | Phase 5 | Complete |
-| DOCS-01 | Phase 6 | Partial (6/12 modules — plan 01) |
-| DOCS-02 | Phase 6 | Partial (6/12 modules — plan 01) |
-| DOCS-03 | Phase 6 | Partial (6/12 modules — plan 01) |
+| DOCS-01 | Phase 6 | Complete (all 12 modules) |
+| DOCS-02 | Phase 6 | Complete (all 12 modules) |
+| DOCS-03 | Phase 6 | Complete (all 12 modules) |
 | DOCS-04 | Phase 6 | Pending |
-| API-01 | Phase 6 | Partial (6/12 modules — plan 01) |
-| API-02 | Phase 6 | Partial (6/12 modules — plan 01) |
-| API-03 | Phase 6 | Pending |
+| API-01 | Phase 6 | Complete (all 12 modules) |
+| API-02 | Phase 6 | Complete (all 12 modules) |
+| API-03 | Phase 6 | Complete (gaps documented; deferred to future plan) |
 | PUB-01 | Phase 7 | Pending |
 | PUB-02 | Phase 7 | Pending |
 | PUB-03 | Phase 7 | Pending |
@@ -93,4 +93,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after Phase 6 Plan 01 completion (DOCS-01/02/03, API-01/02 partial — 6/12 modules)*
+*Last updated: 2026-03-01 after Phase 6 Plan 02 completion (DOCS-01/02/03, API-01/02/03 complete — all 12 modules)*
