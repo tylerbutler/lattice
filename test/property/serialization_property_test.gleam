@@ -1,12 +1,19 @@
 import gleam/int
 import gleam/json
+import gleam/list
+import gleam/set
+import gleam/string
+import lattice/crdt
 import lattice/g_counter
 import lattice/g_set
 import lattice/lww_map
 import lattice/lww_register
+import lattice/mv_register
+import lattice/or_map
 import lattice/or_set
 import lattice/pn_counter
 import lattice/two_p_set
+import lattice/version_vector
 import qcheck
 import startest/expect
 
@@ -197,6 +204,112 @@ pub fn lww_map_json_round_trip__test() {
         Ok(d) -> {
           lww_map.get(d, "key1") |> expect.to_equal(lww_map.get(map, "key1"))
           lww_map.get(d, "key2") |> expect.to_equal(lww_map.get(map, "key2"))
+        }
+        Error(_) -> expect.to_be_true(False)
+      }
+      Nil
+    },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// MV-Register round-trip property
+// ---------------------------------------------------------------------------
+
+pub fn mv_register_json_round_trip__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(0, 10),
+      qcheck.bounded_int(0, 10),
+      fn(a, b) { #(a, b) },
+    ),
+    fn(pair) {
+      let #(a, b) = pair
+      let reg_a =
+        mv_register.new("A") |> mv_register.set(int.to_string(a))
+      let reg_b =
+        mv_register.new("B") |> mv_register.set(int.to_string(b))
+      let merged = mv_register.merge(reg_a, reg_b)
+      let json_str = json.to_string(mv_register.to_json(merged))
+      let decoded = mv_register.from_json(json_str)
+      case decoded {
+        Ok(d) -> {
+          let sorted_original =
+            list.sort(mv_register.value(merged), string.compare)
+          let sorted_decoded =
+            list.sort(mv_register.value(d), string.compare)
+          sorted_decoded |> expect.to_equal(sorted_original)
+        }
+        Error(_) -> expect.to_be_true(False)
+      }
+      Nil
+    },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// OR-Map round-trip property
+// ---------------------------------------------------------------------------
+
+pub fn or_map_json_round_trip__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.bounded_int(0, 10),
+    fn(inc) {
+      let map =
+        or_map.new("A", crdt.GCounterSpec)
+        |> or_map.update("x", fn(c) {
+          case c {
+            crdt.CrdtGCounter(gc) ->
+              crdt.CrdtGCounter(g_counter.increment(gc, inc))
+            other -> other
+          }
+        })
+      let json_str = json.to_string(or_map.to_json(map))
+      let decoded = or_map.from_json(json_str)
+      case decoded {
+        Ok(d) -> {
+          set.from_list(or_map.keys(d))
+          |> expect.to_equal(set.from_list(or_map.keys(map)))
+        }
+        Error(_) -> expect.to_be_true(False)
+      }
+      Nil
+    },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// VersionVector round-trip property
+// ---------------------------------------------------------------------------
+
+pub fn version_vector_json_round_trip__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      fn(a, b) { #(a, b) },
+    ),
+    fn(pair) {
+      let #(a, b) = pair
+      let vv =
+        list.fold(list.range(1, a), version_vector.new(), fn(v, _) {
+          version_vector.increment(v, "A")
+        })
+      let vv2 =
+        list.fold(list.range(1, b), vv, fn(v, _) {
+          version_vector.increment(v, "B")
+        })
+      let json_str = json.to_string(version_vector.to_json(vv2))
+      let decoded = version_vector.from_json(json_str)
+      case decoded {
+        Ok(d) -> {
+          version_vector.get(d, "A")
+          |> expect.to_equal(version_vector.get(vv2, "A"))
+          version_vector.get(d, "B")
+          |> expect.to_equal(version_vector.get(vv2, "B"))
         }
         Error(_) -> expect.to_be_true(False)
       }
