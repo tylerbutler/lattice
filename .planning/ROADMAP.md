@@ -135,7 +135,8 @@ Plans:
 | TEST-01 to TEST-03 (register/set portion) | Phase 2 | Complete (unit tests; property tests pending) |
 | MAP-01 to MAP-07 | Phase 3 | Complete (LWW-Map implemented) |
 | MAP-08 to MAP-14 | Phase 3 | Pending (OR-Map) |
-| JSON-01 to JSON-20 | Phase 3 | Pending |
+| JSON-01 to JSON-14, JSON-19, JSON-20 | Phase 3 | Complete (leaf types + VersionVector done) |
+| JSON-15 to JSON-18 | Phase 3 | Pending (LWW-Map and OR-Map JSON) |
 | TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
 | CLOCK-06 to CLOCK-09 | Phase 4 | Pending |
 | TEST-01 to TEST-10 (all remaining) | Phase 4 | Pending |
