@@ -107,7 +107,12 @@ Plans:
   8. 2P-Set tombstone permanence verified under various merge orders
   9. Cross-target serialization round-trips verified
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-PLAN.md — Dot Context implementation + unit tests (CLOCK-06 to CLOCK-09)
+- [ ] 02-PLAN.md — Map merge-law property tests + remaining serialization round-trips (TEST-01/02/03 maps, TEST-07)
+- [ ] 03-PLAN.md — Convergence + bottom identity + monotonicity + edge cases + cross-target (TEST-04/05/06/08/09/10)
 
 ---
 
@@ -118,7 +123,7 @@ Plans:
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
 | 2. Registers & Sets | 4/4 | Complete | 2026-02-28 |
 | 3. Maps & Serialization | 4/4 | Complete | 2026-03-01 |
-| 4. Advanced Testing | 0/1 | Not started | - |
+| 4. Advanced Testing | 0/3 | Planned | - |
 
 ---
 
