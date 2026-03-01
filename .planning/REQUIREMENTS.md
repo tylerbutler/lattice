@@ -74,10 +74,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CLOCK-03**: Version Vector: get(vv, replica_id) -> Int
 - [ ] **CLOCK-04**: Version Vector: compare(a, b) -> Order (Before/After/Concurrent/Equal)
 - [ ] **CLOCK-05**: Version Vector: merge(a, b) -> vv (pairwise max)
-- [ ] **CLOCK-06**: Dot Context: new() -> t
-- [ ] **CLOCK-07**: Dot Context: add_dot(context, replica_id, Int) -> context
-- [ ] **CLOCK-08**: Dot Context: remove_dots(context, List(Dot)) -> context
-- [ ] **CLOCK-09**: Dot Context: contains_dots(context, List(Dot)) -> Bool
+- [x] **CLOCK-06**: Dot Context: new() -> t
+- [x] **CLOCK-07**: Dot Context: add_dot(context, replica_id, Int) -> context
+- [x] **CLOCK-08**: Dot Context: remove_dots(context, List(Dot)) -> context
+- [x] **CLOCK-09**: Dot Context: contains_dots(context, List(Dot)) -> Bool
 
 ### Serialization (Companion Package)
 
@@ -177,7 +177,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MAP-08 to MAP-14 | Phase 3 | Pending (OR-Map) |
 | JSON-01 to JSON-20 | Phase 3 | Pending |
 | TEST-04 to TEST-08 (convergence, serialization) | Phase 3 | Pending |
-| CLOCK-06 to CLOCK-09 | Phase 4 | Pending |
+| CLOCK-06 to CLOCK-09 | Phase 4 | Complete |
 | TEST-01 to TEST-10 (all remaining) | Phase 4 | Pending |
 | TEST-09 (OR-Set concurrent add-wins) | Phase 4 | Pending |
 | TEST-10 (2P-Set tombstone permanence) | Phase 4 | Pending |

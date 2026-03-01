@@ -110,7 +110,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-PLAN.md — Dot Context implementation + unit tests (CLOCK-06 to CLOCK-09)
+- [x] 01-PLAN.md — Dot Context implementation + unit tests (CLOCK-06 to CLOCK-09) (COMPLETED)
 - [ ] 02-PLAN.md — Map merge-law property tests + remaining serialization round-trips (TEST-01/02/03 maps, TEST-07)
 - [ ] 03-PLAN.md — Convergence + bottom identity + monotonicity + edge cases + cross-target (TEST-04/05/06/08/09/10)
 
@@ -123,7 +123,7 @@ Plans:
 | 1. Foundation & Counters | 3/3 | Complete | 2026-02-28 |
 | 2. Registers & Sets | 4/4 | Complete | 2026-02-28 |
 | 3. Maps & Serialization | 4/4 | Complete | 2026-03-01 |
-| 4. Advanced Testing | 0/3 | Planned | - |
+| 4. Advanced Testing | 1/3 | In Progress | - |
 
 ---
 
@@ -143,7 +143,7 @@ Plans:
 | JSON-01 to JSON-14, JSON-19, JSON-20 | Phase 3 | Complete (leaf types + VersionVector done) |
 | JSON-15 to JSON-18 | Phase 3 | Complete (LWW-Map and OR-Map JSON done) |
 | TEST-04 to TEST-08 (convergence, serialization) | Phase 3/4 | Partial (round-trip property tests done; convergence pending) |
-| CLOCK-06 to CLOCK-09 | Phase 4 | Pending |
+| CLOCK-06 to CLOCK-09 | Phase 4 | Complete (DotContext module) |
 | TEST-01 to TEST-10 (all remaining) | Phase 4 | Pending |
 | TEST-09 (OR-Set concurrent add-wins) | Phase 4 | Pending |
 | TEST-10 (2P-Set tombstone permanence) | Phase 4 | Pending |
