@@ -1,5 +1,5 @@
-import gleam/set
 import gleam/json
+import gleam/set
 import lattice/crdt.{GCounterSpec}
 import lattice/g_counter
 import lattice/or_map

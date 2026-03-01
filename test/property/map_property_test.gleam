@@ -35,16 +35,12 @@ pub fn lww_map_commutativity__test() {
 }
 
 pub fn lww_map_idempotency__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(1, 100),
-    fn(ts) {
-      let map = lww_map.new() |> lww_map.set("key", "val", ts)
-      lww_map.get(lww_map.merge(map, map), "key")
-      |> expect.to_equal(lww_map.get(map, "key"))
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.bounded_int(1, 100), fn(ts) {
+    let map = lww_map.new() |> lww_map.set("key", "val", ts)
+    lww_map.get(lww_map.merge(map, map), "key")
+    |> expect.to_equal(lww_map.get(map, "key"))
+    Nil
+  })
 }
 
 pub fn lww_map_associativity__test() {
@@ -63,7 +59,8 @@ pub fn lww_map_associativity__test() {
       let map_c = lww_map.new() |> lww_map.set("key", "val_c", ts_c)
       let merged1 = lww_map.merge(lww_map.merge(map_a, map_b), map_c)
       let merged2 = lww_map.merge(map_a, lww_map.merge(map_b, map_c))
-      lww_map.get(merged1, "key") |> expect.to_equal(lww_map.get(merged2, "key"))
+      lww_map.get(merged1, "key")
+      |> expect.to_equal(lww_map.get(merged2, "key"))
       Nil
     },
   )
@@ -83,11 +80,9 @@ fn increment_g_counter(crdt_val: crdt.Crdt, delta: Int) -> crdt.Crdt {
 pub fn or_map_commutativity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 10),
-      qcheck.bounded_int(0, 10),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 10), qcheck.bounded_int(0, 10), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let map_a =
@@ -97,27 +92,21 @@ pub fn or_map_commutativity__test() {
         or_map.new("B", crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, b))
       set.from_list(or_map.keys(or_map.merge(map_a, map_b)))
-      |> expect.to_equal(
-        set.from_list(or_map.keys(or_map.merge(map_b, map_a))),
-      )
+      |> expect.to_equal(set.from_list(or_map.keys(or_map.merge(map_b, map_a))))
       Nil
     },
   )
 }
 
 pub fn or_map_idempotency__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(0, 10),
-    fn(a) {
-      let map =
-        or_map.new("A", crdt.GCounterSpec)
-        |> or_map.update("x", increment_g_counter(_, a))
-      set.from_list(or_map.keys(or_map.merge(map, map)))
-      |> expect.to_equal(set.from_list(or_map.keys(map)))
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(a) {
+    let map =
+      or_map.new("A", crdt.GCounterSpec)
+      |> or_map.update("x", increment_g_counter(_, a))
+    set.from_list(or_map.keys(or_map.merge(map, map)))
+    |> expect.to_equal(set.from_list(or_map.keys(map)))
+    Nil
+  })
 }
 
 // OR-Map associativity: Associativity skipped — constructing valid OR-Map triples

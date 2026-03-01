@@ -40,8 +40,7 @@ pub fn update_auto_creates_crdt_test() {
       }
     })
   case or_map.get(m, "score") {
-    Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(5)
+    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(5)
     _ -> expect.to_be_true(False)
   }
 }
@@ -63,8 +62,7 @@ pub fn update_modifies_existing_value_test() {
       }
     })
   case or_map.get(m, "score") {
-    Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(10)
+    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
     _ -> expect.to_be_true(False)
   }
 }
@@ -214,8 +212,7 @@ pub fn merge_nested_values_combined_test() {
     })
   let merged = or_map.merge(map_a, map_b)
   case or_map.get(merged, "score") {
-    Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(10)
+    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
     _ -> expect.to_be_true(False)
   }
 }

@@ -56,11 +56,9 @@ pub fn g_counter_json_round_trip__test() {
 pub fn pn_counter_json_round_trip__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 50),
-      qcheck.bounded_int(0, 50),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 50), qcheck.bounded_int(0, 50), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(inc, dec) = pair
       let counter =
@@ -84,22 +82,18 @@ pub fn pn_counter_json_round_trip__test() {
 // ---------------------------------------------------------------------------
 
 pub fn lww_register_json_round_trip__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(0, 100),
-    fn(ts) {
-      let reg = lww_register.new("value_" <> int.to_string(ts), ts)
-      let json_str = json.to_string(lww_register.to_json(reg))
-      let decoded = lww_register.from_json(json_str)
-      case decoded {
-        Ok(d) -> {
-          lww_register.value(d) |> expect.to_equal(lww_register.value(reg))
-        }
-        Error(_) -> expect.to_be_true(False)
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 100), fn(ts) {
+    let reg = lww_register.new("value_" <> int.to_string(ts), ts)
+    let json_str = json.to_string(lww_register.to_json(reg))
+    let decoded = lww_register.from_json(json_str)
+    case decoded {
+      Ok(d) -> {
+        lww_register.value(d) |> expect.to_equal(lww_register.value(reg))
       }
-      Nil
-    },
-  )
+      Error(_) -> expect.to_be_true(False)
+    }
+    Nil
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -109,11 +103,9 @@ pub fn lww_register_json_round_trip__test() {
 pub fn g_set_json_round_trip__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 20),
-      qcheck.bounded_int(0, 20),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 20), qcheck.bounded_int(0, 20), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let s =
@@ -136,24 +128,20 @@ pub fn g_set_json_round_trip__test() {
 // ---------------------------------------------------------------------------
 
 pub fn two_p_set_json_round_trip__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(0, 10),
-    fn(n) {
-      let s =
-        two_p_set.new()
-        |> two_p_set.add(int.to_string(n))
-        |> two_p_set.add(int.to_string(n + 1))
-        |> two_p_set.remove(int.to_string(n))
-      let json_str = json.to_string(two_p_set.to_json(s))
-      let decoded = two_p_set.from_json(json_str)
-      case decoded {
-        Ok(d) -> two_p_set.value(d) |> expect.to_equal(two_p_set.value(s))
-        Error(_) -> expect.to_be_true(False)
-      }
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(n) {
+    let s =
+      two_p_set.new()
+      |> two_p_set.add(int.to_string(n))
+      |> two_p_set.add(int.to_string(n + 1))
+      |> two_p_set.remove(int.to_string(n))
+    let json_str = json.to_string(two_p_set.to_json(s))
+    let decoded = two_p_set.from_json(json_str)
+    case decoded {
+      Ok(d) -> two_p_set.value(d) |> expect.to_equal(two_p_set.value(s))
+      Error(_) -> expect.to_be_true(False)
+    }
+    Nil
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -161,23 +149,19 @@ pub fn two_p_set_json_round_trip__test() {
 // ---------------------------------------------------------------------------
 
 pub fn or_set_json_round_trip__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(0, 10),
-    fn(n) {
-      let s =
-        or_set.new("A")
-        |> or_set.add(int.to_string(n))
-        |> or_set.add(int.to_string(n + 1))
-      let json_str = json.to_string(or_set.to_json(s))
-      let decoded = or_set.from_json(json_str)
-      case decoded {
-        Ok(d) -> or_set.value(d) |> expect.to_equal(or_set.value(s))
-        Error(_) -> expect.to_be_true(False)
-      }
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(n) {
+    let s =
+      or_set.new("A")
+      |> or_set.add(int.to_string(n))
+      |> or_set.add(int.to_string(n + 1))
+    let json_str = json.to_string(or_set.to_json(s))
+    let decoded = or_set.from_json(json_str)
+    case decoded {
+      Ok(d) -> or_set.value(d) |> expect.to_equal(or_set.value(s))
+      Error(_) -> expect.to_be_true(False)
+    }
+    Nil
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -187,11 +171,9 @@ pub fn or_set_json_round_trip__test() {
 pub fn lww_map_json_round_trip__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 20),
-      qcheck.bounded_int(1, 100),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 20), qcheck.bounded_int(1, 100), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(val, ts) = pair
       let map =
@@ -219,17 +201,13 @@ pub fn lww_map_json_round_trip__test() {
 pub fn mv_register_json_round_trip__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 10),
-      qcheck.bounded_int(0, 10),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 10), qcheck.bounded_int(0, 10), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
-      let reg_a =
-        mv_register.new("A") |> mv_register.set(int.to_string(a))
-      let reg_b =
-        mv_register.new("B") |> mv_register.set(int.to_string(b))
+      let reg_a = mv_register.new("A") |> mv_register.set(int.to_string(a))
+      let reg_b = mv_register.new("B") |> mv_register.set(int.to_string(b))
       let merged = mv_register.merge(reg_a, reg_b)
       let json_str = json.to_string(mv_register.to_json(merged))
       let decoded = mv_register.from_json(json_str)
@@ -237,8 +215,7 @@ pub fn mv_register_json_round_trip__test() {
         Ok(d) -> {
           let sorted_original =
             list.sort(mv_register.value(merged), string.compare)
-          let sorted_decoded =
-            list.sort(mv_register.value(d), string.compare)
+          let sorted_decoded = list.sort(mv_register.value(d), string.compare)
           sorted_decoded |> expect.to_equal(sorted_original)
         }
         Error(_) -> expect.to_be_true(False)
@@ -253,31 +230,27 @@ pub fn mv_register_json_round_trip__test() {
 // ---------------------------------------------------------------------------
 
 pub fn or_map_json_round_trip__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(0, 10),
-    fn(inc) {
-      let map =
-        or_map.new("A", crdt.GCounterSpec)
-        |> or_map.update("x", fn(c) {
-          case c {
-            crdt.CrdtGCounter(gc) ->
-              crdt.CrdtGCounter(g_counter.increment(gc, inc))
-            other -> other
-          }
-        })
-      let json_str = json.to_string(or_map.to_json(map))
-      let decoded = or_map.from_json(json_str)
-      case decoded {
-        Ok(d) -> {
-          set.from_list(or_map.keys(d))
-          |> expect.to_equal(set.from_list(or_map.keys(map)))
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(inc) {
+    let map =
+      or_map.new("A", crdt.GCounterSpec)
+      |> or_map.update("x", fn(c) {
+        case c {
+          crdt.CrdtGCounter(gc) ->
+            crdt.CrdtGCounter(g_counter.increment(gc, inc))
+          other -> other
         }
-        Error(_) -> expect.to_be_true(False)
+      })
+    let json_str = json.to_string(or_map.to_json(map))
+    let decoded = or_map.from_json(json_str)
+    case decoded {
+      Ok(d) -> {
+        set.from_list(or_map.keys(d))
+        |> expect.to_equal(set.from_list(or_map.keys(map)))
       }
-      Nil
-    },
-  )
+      Error(_) -> expect.to_be_true(False)
+    }
+    Nil
+  })
 }
 
 // ---------------------------------------------------------------------------

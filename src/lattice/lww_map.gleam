@@ -52,8 +52,7 @@ pub fn remove(map: LWWMap, key: String, timestamp: Int) -> LWWMap {
     Ok(#(_, existing_ts)) -> timestamp > existing_ts
   }
   case should_remove {
-    True ->
-      LWWMap(entries: dict.insert(map.entries, key, #(None, timestamp)))
+    True -> LWWMap(entries: dict.insert(map.entries, key, #(None, timestamp)))
     False -> map
   }
 }
@@ -91,13 +90,10 @@ pub fn to_json(map: LWWMap) -> json.Json {
       let #(key, #(opt_value, timestamp)) = pair
       json.object([
         #("key", json.string(key)),
-        #(
-          "value",
-          case opt_value {
-            Some(v) -> json.string(v)
-            None -> json.null()
-          },
-        ),
+        #("value", case opt_value {
+          Some(v) -> json.string(v)
+          None -> json.null()
+        }),
         #("timestamp", json.int(timestamp)),
       ])
     })

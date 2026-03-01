@@ -34,9 +34,12 @@ pub fn to_json(g_set: GSet(String)) -> json.Json {
   json.object([
     #("type", json.string("g_set")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("elements", json.array(set.to_list(g_set.elements), json.string)),
-    ])),
+    #(
+      "state",
+      json.object([
+        #("elements", json.array(set.to_list(g_set.elements), json.string)),
+      ]),
+    ),
   ])
 }
 

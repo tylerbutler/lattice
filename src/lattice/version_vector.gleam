@@ -86,9 +86,12 @@ pub fn to_json(vv: VersionVector) -> json.Json {
   json.object([
     #("type", json.string("version_vector")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("clocks", json.dict(d, fn(k) { k }, json.int)),
-    ])),
+    #(
+      "state",
+      json.object([
+        #("clocks", json.dict(d, fn(k) { k }, json.int)),
+      ]),
+    ),
   ])
 }
 
@@ -96,7 +99,10 @@ pub fn to_json(vv: VersionVector) -> json.Json {
 pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError) {
   let decoder = {
     use state <- decode.field("state", {
-      use clocks <- decode.field("clocks", decode.dict(decode.string, decode.int))
+      use clocks <- decode.field(
+        "clocks",
+        decode.dict(decode.string, decode.int),
+      )
       decode.success(VersionVector(dict: clocks))
     })
     decode.success(state)

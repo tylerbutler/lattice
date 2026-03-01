@@ -95,13 +95,15 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
     Ok(#(replica_id, crdt_spec_str, key_set_str, values_list)) -> {
       case string_to_spec(crdt_spec_str) {
         Error(_) ->
-          Error(json.UnableToDecode([
-            decode.DecodeError(
-              expected: "known CrdtSpec",
-              found: crdt_spec_str,
-              path: ["state", "crdt_spec"],
-            ),
-          ]))
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "known CrdtSpec",
+                found: crdt_spec_str,
+                path: ["state", "crdt_spec"],
+              ),
+            ]),
+          )
         Ok(crdt_spec) -> {
           case or_set.from_json(key_set_str) {
             Error(e) -> Error(e)
@@ -207,7 +209,8 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
         Ok(ca), Ok(cb) -> crdt.merge(ca, cb)
         Ok(ca), Error(_) -> ca
         Error(_), Ok(cb) -> cb
-        Error(_), Error(_) -> panic as "unreachable: key must exist in at least one map"
+        Error(_), Error(_) ->
+          panic as "unreachable: key must exist in at least one map"
       }
       dict.insert(acc, key, merged_crdt)
     })

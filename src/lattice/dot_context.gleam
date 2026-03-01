@@ -17,7 +17,11 @@ pub fn new() -> DotContext {
 }
 
 /// Add a specific dot to the context
-pub fn add_dot(context: DotContext, replica_id: String, counter: Int) -> DotContext {
+pub fn add_dot(
+  context: DotContext,
+  replica_id: String,
+  counter: Int,
+) -> DotContext {
   DotContext(dots: set.insert(context.dots, Dot(replica_id:, counter:)))
 }
 

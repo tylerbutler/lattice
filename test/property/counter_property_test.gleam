@@ -78,7 +78,9 @@ pub fn pn_counter_simple_commutativity__test() {
         False -> pn_counter.new("B") |> pn_counter.decrement(-b)
       }
       pn_counter.value(pn_counter.merge(counter_a, counter_b))
-      |> expect.to_equal(pn_counter.value(pn_counter.merge(counter_b, counter_a)))
+      |> expect.to_equal(
+        pn_counter.value(pn_counter.merge(counter_b, counter_a)),
+      )
       Nil
     },
   )

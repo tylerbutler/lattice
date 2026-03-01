@@ -49,10 +49,8 @@ pub fn lww_register_associativity__test() {
       let reg_a = lww_register.new("val_a", ts_a)
       let reg_b = lww_register.new("val_b", ts_b)
       let reg_c = lww_register.new("val_c", ts_c)
-      let merged1 =
-        lww_register.merge(lww_register.merge(reg_a, reg_b), reg_c)
-      let merged2 =
-        lww_register.merge(reg_a, lww_register.merge(reg_b, reg_c))
+      let merged1 = lww_register.merge(lww_register.merge(reg_a, reg_b), reg_c)
+      let merged2 = lww_register.merge(reg_a, lww_register.merge(reg_b, reg_c))
       lww_register.value(merged1)
       |> expect.to_equal(lww_register.value(merged2))
       Nil
@@ -76,19 +74,23 @@ pub fn lww_register_idempotency__test() {
 pub fn mv_register_commutativity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 10),
-      qcheck.bounded_int(0, 10),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 10), qcheck.bounded_int(0, 10), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let reg_a = mv_register.new("A") |> mv_register.set(a)
       let reg_b = mv_register.new("B") |> mv_register.set(b)
       let sorted_ab =
-        list.sort(mv_register.value(mv_register.merge(reg_a, reg_b)), int.compare)
+        list.sort(
+          mv_register.value(mv_register.merge(reg_a, reg_b)),
+          int.compare,
+        )
       let sorted_ba =
-        list.sort(mv_register.value(mv_register.merge(reg_b, reg_a)), int.compare)
+        list.sort(
+          mv_register.value(mv_register.merge(reg_b, reg_a)),
+          int.compare,
+        )
       sorted_ab |> expect.to_equal(sorted_ba)
       Nil
     },
@@ -113,11 +115,9 @@ pub fn mv_register_idempotency__test() {
 pub fn g_set_commutativity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 20),
-      qcheck.bounded_int(0, 20),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 20), qcheck.bounded_int(0, 20), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let set_a = g_set.new() |> g_set.add(a)
@@ -166,11 +166,9 @@ pub fn g_set_idempotency__test() {
 pub fn two_p_set_commutativity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 20),
-      qcheck.bounded_int(0, 20),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 20), qcheck.bounded_int(0, 20), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let set_a = two_p_set.new() |> two_p_set.add(a)
@@ -196,10 +194,8 @@ pub fn two_p_set_associativity__test() {
       let set_a = two_p_set.new() |> two_p_set.add(a)
       let set_b = two_p_set.new() |> two_p_set.add(b)
       let set_c = two_p_set.new() |> two_p_set.add(c)
-      let merged1 =
-        two_p_set.merge(two_p_set.merge(set_a, set_b), set_c)
-      let merged2 =
-        two_p_set.merge(set_a, two_p_set.merge(set_b, set_c))
+      let merged1 = two_p_set.merge(two_p_set.merge(set_a, set_b), set_c)
+      let merged2 = two_p_set.merge(set_a, two_p_set.merge(set_b, set_c))
       two_p_set.value(merged1) |> expect.to_equal(two_p_set.value(merged2))
       Nil
     },
@@ -221,11 +217,9 @@ pub fn two_p_set_idempotency__test() {
 pub fn or_set_commutativity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 10),
-      qcheck.bounded_int(0, 10),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 10), qcheck.bounded_int(0, 10), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let set_a = or_set.new("A") |> or_set.add(a)

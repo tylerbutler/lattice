@@ -29,10 +29,13 @@ pub fn to_json(register: MVRegister(String)) -> json.Json {
     json.array(dict.to_list(entries), fn(pair) {
       let #(Tag(rid, counter), value) = pair
       json.object([
-        #("tag", json.object([
-          #("r", json.string(rid)),
-          #("c", json.int(counter)),
-        ])),
+        #(
+          "tag",
+          json.object([
+            #("r", json.string(rid)),
+            #("c", json.int(counter)),
+          ]),
+        ),
         #("value", json.string(value)),
       ])
     })
@@ -40,16 +43,21 @@ pub fn to_json(register: MVRegister(String)) -> json.Json {
   json.object([
     #("type", json.string("mv_register")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("replica_id", json.string(replica_id)),
-      #("entries", entries_json),
-      #("vclock", json.dict(vclock_dict, fn(k) { k }, json.int)),
-    ])),
+    #(
+      "state",
+      json.object([
+        #("replica_id", json.string(replica_id)),
+        #("entries", entries_json),
+        #("vclock", json.dict(vclock_dict, fn(k) { k }, json.int)),
+      ]),
+    ),
   ])
 }
 
 /// Decode a MVRegister(String) from a JSON string produced by to_json.
-pub fn from_json(json_string: String) -> Result(MVRegister(String), json.DecodeError) {
+pub fn from_json(
+  json_string: String,
+) -> Result(MVRegister(String), json.DecodeError) {
   let entry_decoder = {
     use tag <- decode.field("tag", {
       use r <- decode.field("r", decode.string)
@@ -94,7 +102,8 @@ pub fn new(replica_id: String) -> MVRegister(a) {
 /// prior entries (this write causally supersedes everything in our vclock),
 /// and inserts the new tag -> value entry.
 pub fn set(register: MVRegister(a), val: a) -> MVRegister(a) {
-  let new_vclock = version_vector.increment(register.vclock, register.replica_id)
+  let new_vclock =
+    version_vector.increment(register.vclock, register.replica_id)
   let new_counter = version_vector.get(new_vclock, register.replica_id)
   let tag = Tag(replica_id: register.replica_id, counter: new_counter)
 
@@ -137,14 +146,10 @@ pub fn merge(a: MVRegister(el), b: MVRegister(el)) -> MVRegister(el) {
 
   // Combine surviving entries from both sides
   let merged_entries =
-    list.fold(
-      dict.to_list(surviving_from_b),
-      surviving_from_a,
-      fn(acc, entry) {
-        let #(tag, val) = entry
-        dict.insert(acc, tag, val)
-      },
-    )
+    list.fold(dict.to_list(surviving_from_b), surviving_from_a, fn(acc, entry) {
+      let #(tag, val) = entry
+      dict.insert(acc, tag, val)
+    })
 
   MVRegister(
     replica_id: a.replica_id,

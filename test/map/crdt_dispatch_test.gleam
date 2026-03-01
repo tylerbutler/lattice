@@ -111,13 +111,9 @@ pub fn merge_or_set_dispatches_test() {
 
 pub fn merge_version_vector_dispatches_test() {
   let a =
-    CrdtVersionVector(
-      version_vector.new() |> version_vector.increment("A"),
-    )
+    CrdtVersionVector(version_vector.new() |> version_vector.increment("A"))
   let b =
-    CrdtVersionVector(
-      version_vector.new() |> version_vector.increment("B"),
-    )
+    CrdtVersionVector(version_vector.new() |> version_vector.increment("B"))
   let merged = crdt.merge(a, b)
   case merged {
     CrdtVersionVector(vv) -> {

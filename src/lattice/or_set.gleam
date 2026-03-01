@@ -13,11 +13,7 @@ pub type Tag {
 /// An OR-Set (Observed-Remove Set) CRDT
 /// Supports both add and remove operations; concurrent add wins over remove
 pub type ORSet(a) {
-  ORSet(
-    replica_id: String,
-    counter: Int,
-    entries: dict.Dict(a, set.Set(Tag)),
-  )
+  ORSet(replica_id: String, counter: Int, entries: dict.Dict(a, set.Set(Tag)))
 }
 
 /// Encode an ORSet(String) as a self-describing JSON value.
@@ -28,19 +24,22 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
   json.object([
     #("type", json.string("or_set")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("replica_id", json.string(orset.replica_id)),
-      #("counter", json.int(orset.counter)),
-      #(
-        "entries",
-        json.dict(orset.entries, fn(k) { k }, fn(tag_set) {
-          json.array(set.to_list(tag_set), fn(tag) {
-            let Tag(rid, c) = tag
-            json.object([#("r", json.string(rid)), #("c", json.int(c))])
-          })
-        }),
-      ),
-    ])),
+    #(
+      "state",
+      json.object([
+        #("replica_id", json.string(orset.replica_id)),
+        #("counter", json.int(orset.counter)),
+        #(
+          "entries",
+          json.dict(orset.entries, fn(k) { k }, fn(tag_set) {
+            json.array(set.to_list(tag_set), fn(tag) {
+              let Tag(rid, c) = tag
+              json.object([#("r", json.string(rid)), #("c", json.int(c))])
+            })
+          }),
+        ),
+      ]),
+    ),
   ])
 }
 
@@ -51,8 +50,7 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
     use c <- decode.field("c", decode.int)
     decode.success(Tag(replica_id: r, counter: c))
   }
-  let tag_set_decoder =
-    decode.map(decode.list(tag_decoder), set.from_list)
+  let tag_set_decoder = decode.map(decode.list(tag_decoder), set.from_list)
   let decoder = {
     use state <- decode.field("state", {
       use replica_id <- decode.field("replica_id", decode.string)
@@ -82,8 +80,7 @@ pub fn new(replica_id: String) -> ORSet(a) {
 pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
   let new_counter = orset.counter + 1
   let tag = Tag(replica_id: orset.replica_id, counter: new_counter)
-  let existing_tags =
-    result.unwrap(dict.get(orset.entries, element), set.new())
+  let existing_tags = result.unwrap(dict.get(orset.entries, element), set.new())
   let new_tags = set.insert(existing_tags, tag)
   ORSet(
     replica_id: orset.replica_id,

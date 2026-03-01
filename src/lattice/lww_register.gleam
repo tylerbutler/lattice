@@ -32,15 +32,20 @@ pub fn to_json(register: LWWRegister(String)) -> json.Json {
   json.object([
     #("type", json.string("lww_register")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("value", json.string(register.value)),
-      #("timestamp", json.int(register.timestamp)),
-    ])),
+    #(
+      "state",
+      json.object([
+        #("value", json.string(register.value)),
+        #("timestamp", json.int(register.timestamp)),
+      ]),
+    ),
   ])
 }
 
 /// Decode a LWWRegister(String) from a JSON string produced by to_json.
-pub fn from_json(json_string: String) -> Result(LWWRegister(String), json.DecodeError) {
+pub fn from_json(
+  json_string: String,
+) -> Result(LWWRegister(String), json.DecodeError) {
   let decoder = {
     use state <- decode.field("state", {
       use value <- decode.field("value", decode.string)

@@ -55,8 +55,7 @@ pub fn default_crdt(spec: CrdtSpec, replica_id: String) -> Crdt {
 /// On type mismatch, returns the first argument unchanged.
 pub fn merge(a: Crdt, b: Crdt) -> Crdt {
   case a, b {
-    CrdtGCounter(ca), CrdtGCounter(cb) ->
-      CrdtGCounter(g_counter.merge(ca, cb))
+    CrdtGCounter(ca), CrdtGCounter(cb) -> CrdtGCounter(g_counter.merge(ca, cb))
     CrdtPnCounter(ca), CrdtPnCounter(cb) ->
       CrdtPnCounter(pn_counter.merge(ca, cb))
     CrdtLwwRegister(ca), CrdtLwwRegister(cb) ->
@@ -64,8 +63,7 @@ pub fn merge(a: Crdt, b: Crdt) -> Crdt {
     CrdtMvRegister(ca), CrdtMvRegister(cb) ->
       CrdtMvRegister(mv_register.merge(ca, cb))
     CrdtGSet(ca), CrdtGSet(cb) -> CrdtGSet(g_set.merge(ca, cb))
-    CrdtTwoPSet(ca), CrdtTwoPSet(cb) ->
-      CrdtTwoPSet(two_p_set.merge(ca, cb))
+    CrdtTwoPSet(ca), CrdtTwoPSet(cb) -> CrdtTwoPSet(two_p_set.merge(ca, cb))
     CrdtOrSet(ca), CrdtOrSet(cb) -> CrdtOrSet(or_set.merge(ca, cb))
     CrdtVersionVector(ca), CrdtVersionVector(cb) ->
       CrdtVersionVector(version_vector.merge(ca, cb))
@@ -147,12 +145,14 @@ fn dispatch_decode(
         Error(e) -> Error(e)
       }
     _ ->
-      Error(json.UnableToDecode([
-        decode.DecodeError(
-          expected: "known CRDT type",
-          found: type_tag,
-          path: ["type"],
-        ),
-      ]))
+      Error(
+        json.UnableToDecode([
+          decode.DecodeError(
+            expected: "known CRDT type",
+            found: type_tag,
+            path: ["type"],
+          ),
+        ]),
+      )
   }
 }

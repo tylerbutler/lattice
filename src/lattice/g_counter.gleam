@@ -49,10 +49,13 @@ pub fn to_json(counter: GCounter) -> json.Json {
   json.object([
     #("type", json.string("g_counter")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("self_id", json.string(self_id)),
-      #("counts", json.dict(d, fn(k) { k }, json.int)),
-    ])),
+    #(
+      "state",
+      json.object([
+        #("self_id", json.string(self_id)),
+        #("counts", json.dict(d, fn(k) { k }, json.int)),
+      ]),
+    ),
   ])
 }
 
@@ -61,7 +64,10 @@ pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
   let decoder = {
     use state <- decode.field("state", {
       use self_id <- decode.field("self_id", decode.string)
-      use counts <- decode.field("counts", decode.dict(decode.string, decode.int))
+      use counts <- decode.field(
+        "counts",
+        decode.dict(decode.string, decode.int),
+      )
       decode.success(GCounter(dict: counts, self_id: self_id))
     })
     decode.success(state)

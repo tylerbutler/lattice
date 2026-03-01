@@ -35,20 +35,16 @@ pub fn g_counter_bottom_identity__test() {
 }
 
 pub fn pn_counter_bottom_identity__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(-50, 50),
-    fn(n) {
-      let counter = case n >= 0 {
-        True -> pn_counter.new("A") |> pn_counter.increment(n)
-        False -> pn_counter.new("A") |> pn_counter.decrement(-n)
-      }
-      let bottom = pn_counter.new("B")
-      pn_counter.value(pn_counter.merge(counter, bottom))
-      |> expect.to_equal(pn_counter.value(counter))
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.bounded_int(-50, 50), fn(n) {
+    let counter = case n >= 0 {
+      True -> pn_counter.new("A") |> pn_counter.increment(n)
+      False -> pn_counter.new("A") |> pn_counter.decrement(-n)
+    }
+    let bottom = pn_counter.new("B")
+    pn_counter.value(pn_counter.merge(counter, bottom))
+    |> expect.to_equal(pn_counter.value(counter))
+    Nil
+  })
 }
 
 pub fn lww_register_bottom_identity__test() {
@@ -115,18 +111,14 @@ pub fn lww_map_bottom_identity__test() {
 }
 
 pub fn or_map_bottom_identity__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.small_non_negative_int(),
-    fn(_n) {
-      let spec = crdt.GCounterSpec
-      let m = or_map.new("A", spec) |> or_map.update("key", fn(c) { c })
-      let bottom = or_map.new("B", spec)
-      set.from_list(or_map.keys(or_map.merge(m, bottom)))
-      |> expect.to_equal(set.from_list(or_map.keys(m)))
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(_n) {
+    let spec = crdt.GCounterSpec
+    let m = or_map.new("A", spec) |> or_map.update("key", fn(c) { c })
+    let bottom = or_map.new("B", spec)
+    set.from_list(or_map.keys(or_map.merge(m, bottom)))
+    |> expect.to_equal(set.from_list(or_map.keys(m)))
+    Nil
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -160,11 +152,9 @@ pub fn g_counter_monotonicity__test() {
 pub fn pn_counter_monotonicity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 50),
-      qcheck.bounded_int(0, 50),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 50), qcheck.bounded_int(0, 50), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let counter_a = pn_counter.new("A") |> pn_counter.increment(a)
@@ -183,11 +173,9 @@ pub fn pn_counter_monotonicity__test() {
 pub fn g_set_monotonicity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 20),
-      qcheck.bounded_int(0, 20),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 20), qcheck.bounded_int(0, 20), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       let set_a = g_set.new() |> g_set.add(a)
@@ -205,11 +193,9 @@ pub fn g_set_monotonicity__test() {
 pub fn or_set_monotonicity__test() {
   qcheck.run(
     small_test_config(),
-    qcheck.map2(
-      qcheck.bounded_int(0, 20),
-      qcheck.bounded_int(0, 20),
-      fn(a, b) { #(a, b) },
-    ),
+    qcheck.map2(qcheck.bounded_int(0, 20), qcheck.bounded_int(0, 20), fn(a, b) {
+      #(a, b)
+    }),
     fn(pair) {
       let #(a, b) = pair
       // Add-only scenario: both inputs only add, no removes
@@ -385,24 +371,20 @@ pub fn lww_map_convergence__test() {
 // ---------------------------------------------------------------------------
 
 pub fn or_set_concurrent_add_wins__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(0, 20),
-    fn(elem) {
-      let elem_str = int.to_string(elem)
-      // Step 1: replica_a adds element
-      let replica_a = or_set.new("A") |> or_set.add(elem_str)
-      // Step 2: replica_b syncs with a, then removes element
-      let replica_b = or_set.merge(or_set.new("B"), replica_a)
-      let replica_b = or_set.remove(replica_b, elem_str)
-      // Step 3: replica_a concurrently re-adds element (new tag, after b's remove)
-      let replica_a = or_set.add(replica_a, elem_str)
-      // Step 4: merge — the concurrent add must win
-      let merged = or_set.merge(replica_a, replica_b)
-      or_set.contains(merged, elem_str) |> expect.to_be_true()
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 20), fn(elem) {
+    let elem_str = int.to_string(elem)
+    // Step 1: replica_a adds element
+    let replica_a = or_set.new("A") |> or_set.add(elem_str)
+    // Step 2: replica_b syncs with a, then removes element
+    let replica_b = or_set.merge(or_set.new("B"), replica_a)
+    let replica_b = or_set.remove(replica_b, elem_str)
+    // Step 3: replica_a concurrently re-adds element (new tag, after b's remove)
+    let replica_a = or_set.add(replica_a, elem_str)
+    // Step 4: merge — the concurrent add must win
+    let merged = or_set.merge(replica_a, replica_b)
+    or_set.contains(merged, elem_str) |> expect.to_be_true()
+    Nil
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -411,26 +393,22 @@ pub fn or_set_concurrent_add_wins__test() {
 // ---------------------------------------------------------------------------
 
 pub fn two_p_set_tombstone_permanence__test() {
-  qcheck.run(
-    small_test_config(),
-    qcheck.bounded_int(0, 20),
-    fn(elem) {
-      let elem_str = int.to_string(elem)
-      // set_a: adds then removes element (tombstoned)
-      let set_a =
-        two_p_set.new()
-        |> two_p_set.add(elem_str)
-        |> two_p_set.remove(elem_str)
-      // set_b: only adds element (concurrent with set_a's remove)
-      let set_b = two_p_set.new() |> two_p_set.add(elem_str)
-      // Merge in both orders — element must be absent in both
-      let merged_ab = two_p_set.merge(set_a, set_b)
-      let merged_ba = two_p_set.merge(set_b, set_a)
-      two_p_set.contains(merged_ab, elem_str) |> expect.to_be_false()
-      two_p_set.contains(merged_ba, elem_str) |> expect.to_be_false()
-      Nil
-    },
-  )
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 20), fn(elem) {
+    let elem_str = int.to_string(elem)
+    // set_a: adds then removes element (tombstoned)
+    let set_a =
+      two_p_set.new()
+      |> two_p_set.add(elem_str)
+      |> two_p_set.remove(elem_str)
+    // set_b: only adds element (concurrent with set_a's remove)
+    let set_b = two_p_set.new() |> two_p_set.add(elem_str)
+    // Merge in both orders — element must be absent in both
+    let merged_ab = two_p_set.merge(set_a, set_b)
+    let merged_ba = two_p_set.merge(set_b, set_a)
+    two_p_set.contains(merged_ab, elem_str) |> expect.to_be_false()
+    two_p_set.contains(merged_ba, elem_str) |> expect.to_be_false()
+    Nil
+  })
 }
 
 // ---------------------------------------------------------------------------

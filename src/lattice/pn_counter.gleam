@@ -45,16 +45,25 @@ pub fn to_json(counter: PNCounter) -> json.Json {
   json.object([
     #("type", json.string("pn_counter")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("positive", json.object([
-        #("self_id", json.string(pos_id)),
-        #("counts", json.dict(pos_dict, fn(k) { k }, json.int)),
-      ])),
-      #("negative", json.object([
-        #("self_id", json.string(neg_id)),
-        #("counts", json.dict(neg_dict, fn(k) { k }, json.int)),
-      ])),
-    ])),
+    #(
+      "state",
+      json.object([
+        #(
+          "positive",
+          json.object([
+            #("self_id", json.string(pos_id)),
+            #("counts", json.dict(pos_dict, fn(k) { k }, json.int)),
+          ]),
+        ),
+        #(
+          "negative",
+          json.object([
+            #("self_id", json.string(neg_id)),
+            #("counts", json.dict(neg_dict, fn(k) { k }, json.int)),
+          ]),
+        ),
+      ]),
+    ),
   ])
 }
 

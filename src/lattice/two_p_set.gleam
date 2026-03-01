@@ -16,20 +16,14 @@ pub fn new() -> TwoPSet(a) {
 /// Add an element to the set.
 /// Has no effect if the element has been tombstoned (previously removed).
 pub fn add(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
-  TwoPSet(
-    added: set.insert(tpset.added, element),
-    removed: tpset.removed,
-  )
+  TwoPSet(added: set.insert(tpset.added, element), removed: tpset.removed)
 }
 
 /// Remove an element from the set.
 /// Adds the element to the tombstone (removed) set.
 /// Once removed, the element cannot be re-added.
 pub fn remove(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
-  TwoPSet(
-    added: tpset.added,
-    removed: set.insert(tpset.removed, element),
-  )
+  TwoPSet(added: tpset.added, removed: set.insert(tpset.removed, element))
 }
 
 /// Check if the set currently contains the given element.
@@ -41,9 +35,7 @@ pub fn contains(tpset: TwoPSet(a), element: a) -> Bool {
 /// Return the set of all currently active elements.
 /// Active = added minus removed.
 pub fn value(tpset: TwoPSet(a)) -> set.Set(a) {
-  set.filter(tpset.added, fn(element) {
-    !set.contains(tpset.removed, element)
-  })
+  set.filter(tpset.added, fn(element) { !set.contains(tpset.removed, element) })
 }
 
 /// Encode a TwoPSet(String) as a self-describing JSON value.
@@ -52,10 +44,13 @@ pub fn to_json(tpset: TwoPSet(String)) -> json.Json {
   json.object([
     #("type", json.string("two_p_set")),
     #("v", json.int(1)),
-    #("state", json.object([
-      #("added", json.array(set.to_list(tpset.added), json.string)),
-      #("removed", json.array(set.to_list(tpset.removed), json.string)),
-    ])),
+    #(
+      "state",
+      json.object([
+        #("added", json.array(set.to_list(tpset.added), json.string)),
+        #("removed", json.array(set.to_list(tpset.removed), json.string)),
+      ]),
+    ),
   ])
 }
 
