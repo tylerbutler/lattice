@@ -1,7 +1,7 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
+milestone: v1.1
+milestone_name: production-ready
 status: unknown
 last_updated: "2026-03-01T22:27:02.409Z"
 progress:
@@ -19,16 +19,16 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** A comprehensive CRDT library for Gleam with correct merge semantics verified by property-based tests, providing developers with battle-tested data structures for building distributed, collaborative, or offline-first applications.
 
-**Current focus:** Phase 4: Advanced Testing
+**Current focus:** v1.1 Production Ready — JS target, docs, API polish, Hex.pm publishing
 
 ## Current Position
 
-Phase: 4 of 4 (Advanced Testing) — COMPLETE
-Plan: 3 of 3 in current phase — COMPLETE
-Status: All phases complete — project v1.0 done
-Last activity: 2026-03-01 — Plan 03 completed (Advanced property tests: bottom identity, monotonicity, convergence, OR-Set add-wins, 2P-Set tombstone, cross-target JSON)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for v1.1
+Last activity: 2026-03-01 — Milestone v1.1 started
 
-Progress: [██████████] 100% (All phases complete)
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 

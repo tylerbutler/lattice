@@ -8,6 +8,16 @@ A cross-platform CRDT (Conflict-free Replicated Data Type) library for Gleam pro
 
 A comprehensive CRDT library for Gleam with correct merge semantics verified by property-based tests, providing developers with battle-tested data structures for building distributed, collaborative, or offline-first applications.
 
+## Current Milestone: v1.1 Production Ready
+
+**Goal:** Polish, document, test on JS target, and publish lattice to Hex.pm.
+
+**Target features:**
+- Full JavaScript target testing (all 228+ tests pass on both Erlang and JS)
+- Documentation (/// doc comments on all public functions, hexdocs generation, usage examples)
+- API polish (review public surface for consistency, naming, ergonomics)
+- Hex.pm publishing (finalize metadata, README, license)
+
 ## Current State
 
 **Shipped:** v1.0 (2026-03-01)
@@ -90,4 +100,4 @@ A comprehensive CRDT library for Gleam with correct merge semantics verified by 
 | qcheck small_test_config | test_count: 10, seed: 42 prevents timeout issues | ✓ Good |
 
 ---
-*Last updated: 2026-03-01 after v1.0 milestone*
+*Last updated: 2026-03-01 after v1.1 milestone start*
