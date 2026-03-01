@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: active
-last_updated: "2026-03-01T22:15:21Z"
+status: complete
+last_updated: "2026-03-01T22:20:00Z"
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 12
+  completed_phases: 4
+  total_plans: 14
+  completed_plans: 14
 ---
 
 # Project State
@@ -24,9 +24,9 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 4 of 4 (Advanced Testing) — COMPLETE
-Plan: 1 of 1 in current phase — COMPLETE
-Status: All phases complete
-Last activity: 2026-03-01 — Plan 01 completed (DotContext module — CLOCK-06 through CLOCK-09)
+Plan: 3 of 3 in current phase — COMPLETE
+Status: All phases complete — project v1.0 done
+Last activity: 2026-03-01 — Plan 03 completed (Advanced property tests: bottom identity, monotonicity, convergence, OR-Set add-wins, 2P-Set tombstone, cross-target JSON)
 
 Progress: [██████████] 100% (All phases complete)
 
@@ -44,7 +44,7 @@ Progress: [██████████] 100% (All phases complete)
 | 1 - Foundation & Counters | 3/3 | 3 | 15 min |
 | 2 - Registers & Sets | 4/4 | 4 | 3 min |
 | 3 - Maps & Serialization | 4/4 | 4 | 5 min |
-| 4 - Advanced Testing | 1/1 | 1 | 1 min |
+| 4 - Advanced Testing | 3/3 | 3 | 2 min |
 
 **Recent Trend:**
 - Phase 1 plan 1: Completed in 28 min
@@ -57,6 +57,8 @@ Progress: [██████████] 100% (All phases complete)
 - Phase 3 plan 3: Completed in 3 min (Crdt union + OR-Map)
 - Phase 3 plan 4: Completed in 6 min (LWW-Map + OR-Map JSON, serialization property tests)
 - Phase 4 plan 1: Completed in 1 min (DotContext module — CLOCK-06 through CLOCK-09)
+- Phase 4 plan 2: Completed in 2 min (Map merge-law + remaining serialization round-trips — TEST-01/02/03/07)
+- Phase 4 plan 3: Completed in 2 min (Advanced property tests — TEST-04/05/06/08/09/10)
 
 *Updated after each plan completion*
 
@@ -102,6 +104,17 @@ Recent decisions affecting current work:
 - Phase 4 plan 01: DotContext backed by set.Set(Dot) for natural idempotency in add_dot
 - Phase 4 plan 01: contains_dots with empty list is vacuously True (standard list.all semantics)
 - Phase 4 plan 01: remove_dots with missing dot is safe no-op (set.delete handles missing elements)
+- Phase 4 plan 02: LWW-Map commutativity uses non-overlapping bounded_int ranges (1-50 / 51-100) to guarantee distinct timestamps
+- Phase 4 plan 02: OR-Map commutativity/idempotency uses set.from_list(or_map.keys(...)) for observable equality
+- Phase 4 plan 02: OR-Map associativity explicitly skipped with comment (constructing valid triples infeasible)
+- Phase 4 plan 02: MV-Register round-trip uses MVRegister(String) with int.to_string values (to_json/from_json only support String)
+- Phase 4 plan 02: VersionVector round-trip uses list.range + list.fold to increment N times
+- Phase 4 plan 03: LWW-Register bottom identity uses ts+1 to guarantee non-zero register beats zero-timestamp bottom element
+- Phase 4 plan 03: MV-Register bottom identity compares sorted value() lists (not structural equality)
+- Phase 4 plan 03: OR-Map bottom identity compares set.from_list(keys()) on both sides
+- Phase 4 plan 03: PN-Counter monotonicity uses increment-only (positive deltas) to ensure clean upward direction
+- Phase 4 plan 03: LWW-Map/LWWRegister convergence uses distinct timestamp ranges per replica (1-30, 31-60, 61-90) to avoid tie-break ambiguity
+- Phase 4 plan 03: Cross-target tests use deterministic fixed values, not qcheck generators (smoke tests verify JSON values, not statistical properties)
 
 ### Pending Todos
 
@@ -114,5 +127,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 04-advanced-testing-01-PLAN.md (DotContext module — CLOCK-06 through CLOCK-09, Phase 4 complete, all phases complete)
+Stopped at: Completed 04-advanced-testing-02-PLAN.md (Map merge-law + remaining serialization round-trip property tests — TEST-01/02/03/07)
 Resume file: None
