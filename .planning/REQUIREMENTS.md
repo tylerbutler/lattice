@@ -71,13 +71,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (populated by roadmapper) | | |
+| TARGET-01 | Phase 5 | Pending |
+| TARGET-02 | Phase 5 | Pending |
+| TARGET-03 | Phase 5 | Pending |
+| DOCS-01 | Phase 6 | Pending |
+| DOCS-02 | Phase 6 | Pending |
+| DOCS-03 | Phase 6 | Pending |
+| DOCS-04 | Phase 6 | Pending |
+| API-01 | Phase 6 | Pending |
+| API-02 | Phase 6 | Pending |
+| API-03 | Phase 6 | Pending |
+| PUB-01 | Phase 7 | Pending |
+| PUB-02 | Phase 7 | Pending |
+| PUB-03 | Phase 7 | Pending |
+| PUB-04 | Phase 7 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after milestone v1.1 start*
+*Last updated: 2026-03-01 after roadmap creation*
