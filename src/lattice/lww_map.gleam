@@ -1,4 +1,6 @@
 import gleam/dict
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 
@@ -76,6 +78,52 @@ pub fn values(map: LWWMap) -> List(String) {
       #(None, _) -> acc
     }
   })
+}
+
+/// Encode a LWW-Map as a self-describing JSON value.
+/// Entries (Dict(String, #(Option(String), Int))) are encoded as a JSON array
+/// where each element has key, value (nullable), and timestamp fields.
+/// Format: {"type": "lww_map", "v": 1, "state": {"entries": [...]}}
+pub fn to_json(map: LWWMap) -> json.Json {
+  let LWWMap(entries) = map
+  let entries_json =
+    json.array(dict.to_list(entries), fn(pair) {
+      let #(key, #(opt_value, timestamp)) = pair
+      json.object([
+        #("key", json.string(key)),
+        #(
+          "value",
+          case opt_value {
+            Some(v) -> json.string(v)
+            None -> json.null()
+          },
+        ),
+        #("timestamp", json.int(timestamp)),
+      ])
+    })
+  json.object([
+    #("type", json.string("lww_map")),
+    #("v", json.int(1)),
+    #("state", json.object([#("entries", entries_json)])),
+  ])
+}
+
+/// Decode a LWW-Map from a JSON string produced by to_json.
+pub fn from_json(json_string: String) -> Result(LWWMap, json.DecodeError) {
+  let entry_decoder = {
+    use key <- decode.field("key", decode.string)
+    use opt_value <- decode.field("value", decode.optional(decode.string))
+    use timestamp <- decode.field("timestamp", decode.int)
+    decode.success(#(key, #(opt_value, timestamp)))
+  }
+  let decoder = {
+    use state <- decode.field("state", {
+      use entries_list <- decode.field("entries", decode.list(entry_decoder))
+      decode.success(LWWMap(entries: dict.from_list(entries_list)))
+    })
+    decode.success(state)
+  }
+  json.parse(from: json_string, using: decoder)
 }
 
 /// Merge two LWW-Maps by resolving each key using the highest timestamp.
