@@ -18,7 +18,7 @@ Requirements for production-ready release. Each maps to roadmap phases.
 - [x] **DOCS-01**: All public functions have `///` doc comments with descriptions
 - [x] **DOCS-02**: All public types have `///` doc comments
 - [x] **DOCS-03**: Usage examples in module-level documentation
-- [ ] **DOCS-04**: `gleam docs build` generates clean hexdocs without warnings
+- [x] **DOCS-04**: `gleam docs build` generates clean hexdocs without warnings
 
 ### API Polish
 
@@ -77,7 +77,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DOCS-01 | Phase 6 | Complete (all 12 modules) |
 | DOCS-02 | Phase 6 | Complete (all 12 modules) |
 | DOCS-03 | Phase 6 | Complete (all 12 modules) |
-| DOCS-04 | Phase 6 | Pending |
+| DOCS-04 | Phase 6 | Complete |
 | API-01 | Phase 6 | Complete (all 12 modules) |
 | API-02 | Phase 6 | Complete (all 12 modules) |
 | API-03 | Phase 6 | Complete (gaps documented; deferred to future plan) |
