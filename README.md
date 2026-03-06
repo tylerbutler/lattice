@@ -1,8 +1,8 @@
-<h1 align="center">LATTICE</h1>
-
 <p align="center">
-  <img src="website/src/assets/lattice-min.webp" alt="lattice logo" />
+  <img src="website/src/assets/lattice-min.webp" alt="lattice logo" width="25%" />
 </p>
+
+<h1 align="center">LATTICE</h1>
 
 <p align="center">
   <a href="https://hex.pm/packages/lattice"><img src="https://img.shields.io/hexpm/v/lattice" alt="Package Version" /></a>
