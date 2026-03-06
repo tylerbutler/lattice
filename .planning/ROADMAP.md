@@ -62,7 +62,10 @@
   2. README.md covers installation, a quickstart example, and an overview of the CRDT types
   3. CHANGELOG.md documents the changes from v1.0 to v1.1
   4. `gleam publish` succeeds and the package appears on Hex.pm
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — Package metadata, README, and changelog
+- [ ] 07-02-PLAN.md — Pre-publish verification and Hex.pm publish
 
 ## Progress
 
@@ -74,7 +77,7 @@
 | 4. Advanced Testing | v1.0 | 3/3 | Complete | 2026-03-01 |
 | 5. JS Target | v1.1 | 2/2 | Complete | 2026-03-01 |
 | 6. Docs & API Polish | v1.1 | 2/2 | Complete | 2026-03-01 |
-| 7. Publishing | v1.1 | 0/? | Not started | - |
+| 7. Publishing | v1.1 | 0/2 | Not started | - |
 
 ---
 
