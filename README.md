@@ -1,7 +1,13 @@
-# lattice
+<h1 align="center">LATTICE</h1>
 
-[![Package Version](https://img.shields.io/hexpm/v/lattice)](https://hex.pm/packages/lattice)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice/)
+<p align="center">
+  <img src="website/src/assets/lattice-min.webp" alt="lattice logo" />
+</p>
+
+<p align="center">
+  <a href="https://hex.pm/packages/lattice"><img src="https://img.shields.io/hexpm/v/lattice" alt="Package Version" /></a>
+  <a href="https://hexdocs.pm/lattice/"><img src="https://img.shields.io/badge/hex-docs-ffaff3" alt="Hex Docs" /></a>
+</p>
 
 Conflict-free replicated data types (CRDTs) for Gleam. Battle-tested with property-based tests, targeting both Erlang and JavaScript runtimes.
 
