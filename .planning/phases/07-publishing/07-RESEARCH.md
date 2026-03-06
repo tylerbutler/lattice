@@ -1,6 +1,6 @@
 # Phase 7: Publishing - Research
 
-**Researched:** 2026-03-05
+**Researched:** 2026-03-05 (updated 2026-03-05)
 **Domain:** Hex.pm package publishing, Gleam project metadata, changelog management
 **Confidence:** HIGH
 
@@ -246,6 +246,64 @@ pub fn main() {
 }
 ```
 
+## Validation Architecture
+
+### Test Framework
+| Property | Value |
+|----------|-------|
+| Framework | gleeunit (via startest) + qcheck for property tests |
+| Config file | gleam.toml (test dependencies) |
+| Quick run command | `gleam test` |
+| Full suite command | `just ci` (format-check, check, test-all, build-strict-all) |
+
+### Phase Requirements -> Test Map
+
+This phase is metadata/documentation -- not code. Validation is primarily file-content checks and command exit codes, not automated unit tests.
+
+| Req ID | Behavior | Test Type | Automated Command | File Exists? |
+|--------|----------|-----------|-------------------|-------------|
+| PUB-01 | gleam.toml has name, description, repository, licences | smoke | `grep -q 'name = "lattice"' gleam.toml && grep -q 'description' gleam.toml && grep -q 'repository' gleam.toml && grep -q 'licences' gleam.toml` | N/A (file check) |
+| PUB-02 | README.md has installation, quickstart, type overview | smoke | `grep -q '## Installation' README.md && grep -q '## Quickstart' README.md && grep -q 'GCounter' README.md && ! grep -q 'my_gleam_project' README.md` | N/A (file check) |
+| PUB-03 | CHANGELOG.md documents v1.0 to v1.1 changes | smoke | `test -f CHANGELOG.md && grep -q '1.1.0' CHANGELOG.md` | N/A (file check) |
+| PUB-04 | `gleam publish` succeeds | smoke | `gleam build && gleam docs build` (pre-publish verification; actual publish is manual/CI) | N/A (command check) |
+
+### Acceptance Criteria Verification
+
+**Pre-publish checklist (run before `gleam publish`):**
+
+1. **Metadata completeness:**
+   - `gleam.toml` contains `name`, `description`, `licences`, `repository` fields
+   - `version` field matches intended release (`1.1.0`)
+   - No placeholder values remain
+
+2. **README quality:**
+   - Contains `## Installation` section with `gleam add lattice`
+   - Contains `## Quickstart` section with working code example
+   - Contains type overview listing all CRDT types
+   - No template boilerplate (`my_gleam_project`, `YOUR_NAME`, etc.)
+
+3. **Changelog completeness:**
+   - `CHANGELOG.md` exists
+   - Documents v1.1.0 changes (JS target, docs, API polish)
+   - Generated via changie (not hand-edited)
+
+4. **Build verification:**
+   - `gleam build` succeeds (both targets)
+   - `gleam test` passes (both targets)
+   - `gleam docs build` succeeds without warnings
+   - No `my_gleam_project` or `YOUR_NAME` references anywhere: `rg 'my_gleam_project|YOUR_NAME' src/ README.md LICENSE`
+
+5. **LICENSE file:**
+   - `YOUR_NAME` placeholder replaced with actual copyright holder
+
+### Sampling Rate
+- **Per task commit:** `gleam build && gleam check` (fast build verification)
+- **Per wave merge:** `just ci` (full CI checks on both targets)
+- **Phase gate:** Full pre-publish checklist above, then `gleam publish --yes`
+
+### Wave 0 Gaps
+None -- this phase does not add or modify library code. Existing test infrastructure (228 tests, both Erlang and JS targets) covers all library correctness. Phase 7 validation is file-content and metadata checks, not new test code.
+
 ## State of the Art
 
 | Old Approach | Current Approach | When Changed | Impact |
@@ -260,7 +318,7 @@ pub fn main() {
    - What's unclear: Whether the secret is configured in the GitHub repo
    - Recommendation: Verify before attempting CI publish; manual publish is fallback
 
-2. **Version strategy: 1.1.0 vs 0.1.0 → 1.1.0**
+2. **Version strategy: 1.1.0 vs 0.1.0 -> 1.1.0**
    - What we know: gleam.toml currently says `0.1.0`, tag `v1.0` exists
    - What's unclear: Whether the release workflow will handle the jump from 0.1.0 to 1.1.0 correctly
    - Recommendation: Manually set version to `1.1.0` in gleam.toml before creating changie batch, or let changie batch handle it
@@ -286,6 +344,7 @@ pub fn main() {
 - Standard stack: HIGH - gleam publish and changie are already configured in the project
 - Architecture: HIGH - all infrastructure (CI workflows, changie config) already exists
 - Pitfalls: HIGH - identified from direct inspection of current project state
+- Validation: HIGH - phase is metadata-only; validation is file checks, not new test code
 
 **Research date:** 2026-03-05
 **Valid until:** 2026-04-05 (stable domain, unlikely to change)
