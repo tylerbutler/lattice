@@ -2,21 +2,21 @@
 
 ## What This Is
 
-A cross-platform CRDT (Conflict-free Replicated Data Type) library for Gleam providing 10 data types (counters, registers, sets, maps), a Crdt union type for generic dispatch, JSON serialization for all types, and comprehensive property-based test coverage (228 tests). Works on Erlang and JavaScript targets.
+A cross-platform CRDT (Conflict-free Replicated Data Type) library for Gleam providing 10 data types (counters, registers, sets, maps), a Crdt union type for generic dispatch, JSON serialization for all types, and comprehensive property-based test coverage (228 tests). Works on both Erlang and JavaScript targets with full documentation and consistent API design.
 
 ## Core Value
 
 A comprehensive CRDT library for Gleam with correct merge semantics verified by property-based tests, providing developers with battle-tested data structures for building distributed, collaborative, or offline-first applications.
 
-## Current Milestone: v1.1 Production Ready
+## Latest Milestone: v1.1 Production Ready (shipped 2026-03-06)
 
-**Goal:** Polish, document, test on JS target, and publish lattice to Hex.pm.
+**Delivered:** Cross-target testing, full documentation, API polish, and Hex.pm publish preparation.
 
-**Target features:**
-- Full JavaScript target testing (all 228+ tests pass on both Erlang and JS)
-- Documentation (/// doc comments on all public functions, hexdocs generation, usage examples)
-- API polish (review public surface for consistency, naming, ergonomics)
-- Hex.pm publishing (finalize metadata, README, license)
+**What shipped:**
+- JavaScript target: all 228 tests pass, CI enforces dual-target
+- Documentation: all 12 modules with /// doc comments, module-level docs, clean hexdocs
+- API polish: opaque types, consistent naming, function ordering
+- Publishing: gleam.toml metadata, README with type catalog, CHANGELOG via changie
 
 ## Current State
 
@@ -50,15 +50,19 @@ A comprehensive CRDT library for Gleam with correct merge semantics verified by 
 - ✓ Composable types (CRDTs as values in maps) — v1.0 (OR-Map with Crdt union)
 - ✓ JSON serialization/deserialization — v1.0 (self-describing format with type tag + version)
 - ✓ Version vectors and causal context utilities — v1.0
+- ✓ Cross-target support (Erlang + JavaScript) — v1.1 (228 tests, dual-target CI)
+- ✓ Full API documentation with doc comments — v1.1 (all 12 modules)
+- ✓ Consistent API design with opaque types — v1.1
+- ✓ Package metadata and README for Hex.pm — v1.1
 
 ### Active
 
-- [ ] Cross-target support (Erlang + JavaScript) — smoke tests done, full JS target testing needed
 - [ ] Operation-based (CmRDT) variants for common types
 - [ ] Delta-state CRDT support for efficient replication
 - [ ] Sequence/list CRDTs (RGA or similar)
 - [ ] Text CRDT for collaborative editing
 - [ ] Erlang distribution helpers (gossip, anti-entropy)
+- [ ] Convenience functions (size/is_empty for sets and maps)
 
 ### Out of Scope
 
@@ -76,6 +80,8 @@ A comprehensive CRDT library for Gleam with correct merge semantics verified by 
 - Users: Application developers, library authors, distributed systems engineers
 - Runtime dependencies: gleam_stdlib, gleam_json
 - Dev dependencies: startest (test runner), qcheck (property-based testing)
+- Shipped v1.0 (2026-03-01): 10 CRDT types, 228 tests, 1,402 LOC
+- Shipped v1.1 (2026-03-06): JS target, docs, API polish, publish-ready
 
 ## Constraints
 
@@ -98,6 +104,12 @@ A comprehensive CRDT library for Gleam with correct merge semantics verified by 
 | startest over gleeunit | Better test runner with describe/it and expect matchers | ✓ Good |
 | TDD approach throughout | Property tests caught real MV-Register idempotency bug | ✓ Good |
 | qcheck small_test_config | test_count: 10, seed: 42 prevents timeout issues | ✓ Good |
+| Explicit CI jobs over matrix | Different setup for Erlang/JS; matrix obscures | ✓ Good |
+| Opaque types for internals | Tag, DotContext, VersionVector, MVRegister hidden | ✓ Good |
+| GCounter/PNCounter remain pub | pn_counter destructures GCounter for serialization | ✓ Good |
+| Crdt/CrdtSpec remain pub | or_map pattern-matches on CrdtSpec variants | ✓ Good |
+| API-03 gaps deferred | size/is_empty need tests; out of scope for v1.1 | — Pending |
+| TOML array-of-tables for links | gleam.toml requires [[links]] not [links] | ✓ Good |
 
 ---
-*Last updated: 2026-03-01 after v1.1 milestone start*
+*Last updated: 2026-03-06 after v1.1 milestone*
