@@ -1,6 +1,6 @@
 name = "lattice"
-version = "0.1.0"
-description = "A Gleam CRDT library"
+version = "1.1.0"
+description = "Conflict-free replicated data types (CRDTs) for Gleam, with property-based tested merge semantics"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
 gleam = ">= 1.7.0"
@@ -11,6 +11,9 @@ gleam = ">= 1.7.0"
 [dependencies]
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"
+
+[links]
+documentation = "https://hexdocs.pm/lattice"
 
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
