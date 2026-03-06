@@ -28,9 +28,9 @@ Requirements for production-ready release. Each maps to roadmap phases.
 
 ### Publishing
 
-- [ ] **PUB-01**: gleam.toml metadata complete (name, description, repository, licenses)
-- [ ] **PUB-02**: README.md with installation, quickstart, and type overview
-- [ ] **PUB-03**: CHANGELOG.md or equivalent for v1.0 → v1.1
+- [x] **PUB-01**: gleam.toml metadata complete (name, description, repository, licenses)
+- [x] **PUB-02**: README.md with installation, quickstart, and type overview
+- [x] **PUB-03**: CHANGELOG.md or equivalent for v1.0 → v1.1
 - [ ] **PUB-04**: Package published to Hex.pm via `gleam publish`
 
 ## Future Requirements
@@ -81,9 +81,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | API-01 | Phase 6 | Complete (all 12 modules) |
 | API-02 | Phase 6 | Complete (all 12 modules) |
 | API-03 | Phase 6 | Complete (gaps documented; deferred to future plan) |
-| PUB-01 | Phase 7 | Pending |
-| PUB-02 | Phase 7 | Pending |
-| PUB-03 | Phase 7 | Pending |
+| PUB-01 | Phase 7 | Complete |
+| PUB-02 | Phase 7 | Complete |
+| PUB-03 | Phase 7 | Complete |
 | PUB-04 | Phase 7 | Pending |
 
 **Coverage:**
