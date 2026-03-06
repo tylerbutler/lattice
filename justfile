@@ -75,8 +75,8 @@ clean:
 
 # === CI ===
 
-# Run all CI checks (format, check, test, build)
-ci: format-check check test build-strict
+# Run all CI checks (format, check, test all targets, build strict all targets)
+ci: format-check check test-all build-strict-all
 
 # Alias for PR checks
 alias pr := ci
@@ -85,33 +85,33 @@ alias pr := ci
 main: ci docs
 
 # =============================================================================
-# MULTI-TARGET SUPPORT (Uncomment if targeting JavaScript)
+# MULTI-TARGET SUPPORT
 # =============================================================================
 
-# # Build for JavaScript target
-# build-js:
-#     gleam build --target javascript
+# Build for JavaScript target
+build-js:
+    gleam build --target javascript
 
-# # Build all targets
-# build-all: build build-js
+# Build all targets
+build-all: build build-js
 
-# # Build JavaScript with warnings as errors
-# build-strict-js:
-#     gleam build --target javascript --warnings-as-errors
+# Build JavaScript with warnings as errors
+build-strict-js:
+    gleam build --target javascript --warnings-as-errors
 
-# # Build all targets strictly
-# build-strict-all: build-strict build-strict-js
+# Build all targets strictly
+build-strict-all: build-strict build-strict-js
 
-# # Test on Erlang target
-# test-erlang:
-#     gleam test
+# Test on Erlang target
+test-erlang:
+    gleam test
 
-# # Test on JavaScript target
-# test-js:
-#     gleam test --target javascript
+# Test on JavaScript target
+test-js:
+    gleam test --target javascript
 
-# # Test on all targets
-# test-all: test-erlang test-js
+# Test on all targets
+test-all: test-erlang test-js
 
 # =============================================================================
 # JAVASCRIPT INTEGRATION TESTS (Uncomment if needed)

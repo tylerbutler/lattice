@@ -8,9 +8,9 @@ on:
   workflow_call:
 
 jobs:
-  test:
+  test-erlang:
     runs-on: ubuntu-latest
-    name: Test
+    name: Test (Erlang)
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
 
@@ -28,6 +28,23 @@ jobs:
 
       - name: Run tests
         run: just test
+
+  test-js:
+    runs-on: ubuntu-latest
+    name: Test (JavaScript)
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+        with:
+          node: 'true'
+
+      - name: Build (warnings as errors)
+        run: just build-strict-js
+
+      - name: Run tests
+        run: just test-js
 
   docs:
     runs-on: ubuntu-latest

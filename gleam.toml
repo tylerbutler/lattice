@@ -1,15 +1,21 @@
-name = "my_gleam_project"
+name = "lattice"
 version = "0.1.0"
-description = "A Gleam project"
+description = "Conflict-free replicated data types (CRDTs) for Gleam, with property-based tested merge semantics"
 licences = ["MIT"]
-repository = { type = "github", user = "YOUR_USERNAME", repo = "my_gleam_project" }
+repository = { type = "github", user = "tylerbutler", repo = "lattice" }
 gleam = ">= 1.7.0"
 
 # Uncomment to mark internal modules (not exported in public API):
-# internal_modules = ["my_gleam_project/internal", "my_gleam_project/internal/*"]
+# internal_modules = ["lattice/internal", "lattice/internal/*"]
+
+[[links]]
+title = "Documentation"
+href = "https://hexdocs.pm/lattice"
 
 [dependencies]
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
+gleam_json = ">= 3.1.0 and < 4.0.0"
 
 [dev-dependencies]
-gleeunit = ">= 1.0.0 and < 2.0.0"
+startest = ">= 0.8.0 and < 1.0.0"
+qcheck = ">= 1.0.0 and < 2.0.0"
