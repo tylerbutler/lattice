@@ -1,3 +1,5 @@
 kind: Added
-body: G-Counter and PN-Counter CRDTs with merge semantics
+body: |-
+  Counter types
+  Grow-only counters (`g_counter`) and positive-negative counters (`pn_counter`) that automatically converge across replicas.
 time: 2026-03-06T07:59:01.000000-08:00

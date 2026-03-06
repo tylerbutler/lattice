@@ -5,8 +5,8 @@
 <h1 align="center">LATTICE</h1>
 
 <p align="center">
-  <a href="https://hex.pm/packages/lattice"><img src="https://img.shields.io/hexpm/v/lattice" alt="Package Version" /></a>
-  <a href="https://hexdocs.pm/lattice/"><img src="https://img.shields.io/badge/hex-docs-ffaff3" alt="Hex Docs" /></a>
+  <a href="https://hex.pm/packages/lattice_crdt"><img src="https://img.shields.io/hexpm/v/lattice_crdt" alt="Package Version" /></a>
+  <a href="https://hexdocs.pm/lattice_crdt/"><img src="https://img.shields.io/badge/hex-docs-ffaff3" alt="Hex Docs" /></a>
 </p>
 
 Conflict-free replicated data types (CRDTs) for Gleam. Battle-tested with property-based tests, targeting both Erlang and JavaScript runtimes.
@@ -14,7 +14,7 @@ Conflict-free replicated data types (CRDTs) for Gleam. Battle-tested with proper
 ## Installation
 
 ```sh
-gleam add lattice
+gleam add lattice_crdt
 ```
 
 ## Quickstart
@@ -81,7 +81,7 @@ pub fn main() {
 
 ## Documentation
 
-Full API documentation is available at <https://hexdocs.pm/lattice>.
+Full API documentation is available at <https://hexdocs.pm/lattice_crdt>.
 
 ## License
 

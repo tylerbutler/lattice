@@ -1,3 +1,5 @@
 kind: Added
-body: JSON serialization (to_json/from_json) for all CRDT types
+body: |-
+  JSON serialization
+  All CRDT types include `to_json` and `from_json` functions for persisting and transmitting state between nodes.
 time: 2026-03-06T07:59:11.000000-08:00
