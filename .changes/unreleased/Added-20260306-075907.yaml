@@ -1,5 +1,0 @@
-kind: Added
-body: |-
-  Map types
-  Last-writer-wins maps (`lww_map`) and observed-remove maps (`or_map`) for key-value storage with automatic conflict resolution.
-time: 2026-03-06T07:59:07.000000-08:00

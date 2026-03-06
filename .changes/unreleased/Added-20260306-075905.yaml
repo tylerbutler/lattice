@@ -1,5 +1,0 @@
-kind: Added
-body: |-
-  Set types
-  Grow-only sets (`g_set`), two-phase sets with remove-once semantics (`two_p_set`), and observed-remove sets (`or_set`) for managing collections across replicas.
-time: 2026-03-06T07:59:05.000000-08:00
