@@ -8,12 +8,13 @@ gleam = ">= 1.7.0"
 # Uncomment to mark internal modules (not exported in public API):
 # internal_modules = ["lattice/internal", "lattice/internal/*"]
 
+[[links]]
+title = "Documentation"
+href = "https://hexdocs.pm/lattice"
+
 [dependencies]
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"
-
-[links]
-documentation = "https://hexdocs.pm/lattice"
 
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
