@@ -1,106 +1,81 @@
-# my_gleam_project
+# lattice
 
-[![Package Version](https://img.shields.io/hexpm/v/my_gleam_project)](https://hex.pm/packages/my_gleam_project)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/my_gleam_project/)
+[![Package Version](https://img.shields.io/hexpm/v/lattice)](https://hex.pm/packages/lattice)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice/)
 
-A Gleam project.
+Conflict-free replicated data types (CRDTs) for Gleam. Battle-tested with property-based tests, targeting both Erlang and JavaScript runtimes.
 
 ## Installation
 
 ```sh
-gleam add my_gleam_project
+gleam add lattice
 ```
 
-## Usage
+## Quickstart
 
 ```gleam
-import my_gleam_project
+import lattice/g_counter
 
 pub fn main() {
-  my_gleam_project.hello("World")
-  // -> "Hello, World!"
+  // Create counters for two replicas
+  let counter_a = g_counter.new() |> g_counter.increment("node-a", 1)
+  let counter_b = g_counter.new() |> g_counter.increment("node-b", 3)
+
+  // Merge replicas -- CRDTs converge automatically
+  let merged = g_counter.merge(counter_a, counter_b)
+  g_counter.value(merged)
+  // -> 4
 }
 ```
 
-## Development
+## Available Types
 
-### Setup Options
+### Counters
 
-#### Changelog Kinds
-
-By default, changie is configured with **kinds** (Added, Changed, Fixed, etc.) which categorize changelog entries. If you prefer a simpler changelog without kind categorization:
-
-1. Replace `.changie.yaml` with `.changie.no-kinds.yaml`:
-   ```sh
-   mv .changie.no-kinds.yaml .changie.yaml
-   ```
-
-To keep kinds (the default), just delete the alternative config:
-```sh
-rm .changie.no-kinds.yaml
-```
-
-#### CI Options
-
-This template includes two CI options:
-
-1. **Local setup action** (default): Self-contained, no external dependencies
-   - Uses `.github/actions/setup/action.yml`
-
-2. **Shared actions**: Uses [tylerbutler/actions](https://github.com/tylerbutler/actions)
-   - Rename `ci-shared-actions.yml.template` to `ci.yml`
-   - Delete `.github/actions/` directory
-
-### Prerequisites
-
-- [Erlang](https://www.erlang.org/) 27+
-- [Gleam](https://gleam.run/) 1.7+
-- [just](https://github.com/casey/just) (task runner)
-
-Install tools via [mise](https://mise.jdx.dev/) or [asdf](https://asdf-vm.com/):
-
-```sh
-mise install
-# or
-asdf install
-```
-
-### Commands
-
-```sh
-just deps      # Download dependencies
-just build     # Build the project
-just test      # Run tests
-just format    # Format code
-just check     # Type check
-just docs      # Build documentation
-just ci        # Run all CI checks
-```
-
-### CI/CD
-
-This project uses GitHub Actions for CI and automated releases:
-
-- **CI**: Runs on every push/PR to main
-- **Release**: Uses [release-please](https://github.com/googleapis/release-please) for automated versioning
-- **Publish**: Automatically publishes to [Hex.pm](https://hex.pm) on release
-
-### GitHub Secrets Required
-
-| Secret | Description |
+| Module | Description |
 |--------|-------------|
-| `RELEASE_TOKEN` | GitHub PAT with `contents:write` and `pull-requests:write` permissions |
-| `HEXPM_API_KEY` | API key from [hex.pm](https://hex.pm) for publishing |
+| `lattice/g_counter` | GCounter -- grow-only counter |
+| `lattice/pn_counter` | PNCounter -- positive-negative counter |
 
-### Commit Convention
+### Registers
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/):
+| Module | Description |
+|--------|-------------|
+| `lattice/lww_register` | LWWRegister -- last-writer-wins register |
+| `lattice/mv_register` | MVRegister -- multi-value register |
 
-- `feat:` - New features (minor version bump)
-- `fix:` - Bug fixes (patch version bump)
-- `docs:` - Documentation changes
-- `chore:` - Maintenance tasks
-- `BREAKING CHANGE:` in commit body - Major version bump
+### Sets
+
+| Module | Description |
+|--------|-------------|
+| `lattice/g_set` | GSet -- grow-only set |
+| `lattice/two_p_set` | TwoPSet -- two-phase set with add/remove-once |
+| `lattice/or_set` | ORSet -- observed-remove set |
+
+### Maps
+
+| Module | Description |
+|--------|-------------|
+| `lattice/lww_map` | LWWMap -- last-writer-wins map |
+| `lattice/or_map` | ORMap -- observed-remove map |
+
+### Supporting
+
+| Module | Description |
+|--------|-------------|
+| `lattice/version_vector` | VersionVector -- logical clocks for causality tracking |
+| `lattice/dot_context` | DotContext -- causal context for OR-types |
+
+## Features
+
+- Property-based tested merge semantics (commutativity, associativity, idempotency)
+- Erlang and JavaScript target support
+- JSON serialization for all types
+- Comprehensive documentation with examples
+
+## Documentation
+
+Full API documentation is available at <https://hexdocs.pm/lattice>.
 
 ## License
 
