@@ -1,0 +1,49 @@
+---
+title: lattice
+description: Conflict-free replicated data types (CRDTs) for Gleam.
+template: splash
+hero:
+  tagline: Conflict-free replicated data types (CRDTs) for Gleam, with property-based tested merge semantics.
+  actions:
+    - text: Get started
+      link: /quick-start/
+      icon: right-arrow
+      variant: primary
+    - text: What is lattice?
+      link: /introduction/
+      variant: secondary
+---
+
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Pre-1.0 Software">
+lattice is not yet 1.0. The API is unstable, features may be removed in minor releases, and quality should not be considered production-ready. We welcome usage and feedback in the meantime!
+</Aside>
+
+## Features
+
+<style lang="css">{`
+  // Add a gradient to the heading on the splash page.
+  #_top {
+    background: linear-gradient(90deg, var(--sl-color-gray-2), var(--sl-color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+`}
+</style>
+
+<CardGrid>
+	<Card title="Counters" icon="rocket">
+		Grow-only and positive-negative counters for distributed counting with automatic convergence across replicas.
+	</Card>
+	<Card title="Registers" icon="document">
+		Last-writer-wins and multi-value registers for storing values with conflict resolution strategies.
+	</Card>
+	<Card title="Sets" icon="approve-check-circle">
+		Grow-only, two-phase, and observed-remove sets for managing collections across distributed nodes.
+	</Card>
+	<Card title="Maps" icon="setting">
+		Last-writer-wins and observed-remove maps for key-value storage with CRDT merge semantics.
+	</Card>
+</CardGrid>
