@@ -1,3 +1,5 @@
 kind: Added
-body: Version Vector and DotContext clock types
+body: |-
+  Causal context primitives
+  Version vectors (`version_vector`) and dot contexts (`dot_context`) for tracking causality between replicas.
 time: 2026-03-06T07:59:09.000000-08:00
