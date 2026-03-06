@@ -1,8 +1,8 @@
-name = "lattice"
+name = "lattice_crdt"
 version = "0.1.0"
 description = "Conflict-free replicated data types (CRDTs) for Gleam, with property-based tested merge semantics"
 licences = ["MIT"]
-repository = { type = "github", user = "tylerbutler", repo = "lattice" }
+repository = { type = "github", user = "tylerbutler", repo = "lattice_crdt" }
 gleam = ">= 1.7.0"
 
 # Uncomment to mark internal modules (not exported in public API):
@@ -10,7 +10,7 @@ gleam = ">= 1.7.0"
 
 [[links]]
 title = "Documentation"
-href = "https://hexdocs.pm/lattice"
+href = "https://hexdocs.pm/lattice_crdt"
 
 [dependencies]
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
