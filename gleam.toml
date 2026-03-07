@@ -1,5 +1,5 @@
 name = "lattice_crdt"
-version = "0.1.0"
+version = "1.0.0"
 description = "Conflict-free replicated data types (CRDTs) for Gleam, with property-based tested merge semantics"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice_crdt" }
