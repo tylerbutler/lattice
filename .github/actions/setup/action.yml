@@ -6,6 +6,10 @@ inputs:
     description: "Whether to setup Node.js for JavaScript target"
     required: false
     default: "false"
+  registry-url:
+    description: "npm registry URL (used with node input for publishing)"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -24,6 +28,7 @@ runs:
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # ratchet:actions/setup-node@v4
       with:
         node-version: "22"
+        registry-url: ${{ inputs.registry-url }}
 
     - name: Cache Gleam dependencies
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # ratchet:actions/cache@v4

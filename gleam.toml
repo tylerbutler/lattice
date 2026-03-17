@@ -19,3 +19,4 @@ gleam_json = ">= 3.1.0 and < 4.0.0"
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
 qcheck = ">= 1.0.0 and < 2.0.0"
+talc = { git = "https://github.com/tylerbutler/talc.git", ref = "main" }
