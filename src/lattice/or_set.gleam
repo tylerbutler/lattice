@@ -18,8 +18,8 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
-import gleam/list
 import gleam/result
 import gleam/set
 
@@ -41,7 +41,7 @@ pub opaque type Tag {
 /// so stale replicas cannot resurrect elements that were already observed and
 /// removed elsewhere. A concurrent add on another replica will have created a
 /// new tag that survives the remove.
-pub type ORSet(a) {
+pub opaque type ORSet(a) {
   ORSet(
     replica_id: String,
     counter: Int,
@@ -112,12 +112,10 @@ pub fn contains(orset: ORSet(a), element: a) -> Bool {
 ///
 /// An element is included only when its tag set is non-empty.
 pub fn value(orset: ORSet(a)) -> set.Set(a) {
-  dict.fold(orset.entries, set.new(), fn(acc, element, tags) {
-    case set.is_empty(tags) {
-      True -> acc
-      False -> set.insert(acc, element)
-    }
-  })
+  // We maintain the invariant that entries only contains keys with non-empty tag sets
+  // (via merge/remove logic).
+  dict.keys(orset.entries)
+  |> set.from_list
 }
 
 /// Merge two OR-Sets.
@@ -131,26 +129,32 @@ pub fn value(orset: ORSet(a)) -> set.Set(a) {
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
   let merged_tombstones = set.union(a.tombstones, b.tombstones)
-  let a_keys = dict.keys(a.entries)
-  let b_keys = dict.keys(b.entries)
-  let all_keys = list.unique(list.append(a_keys, b_keys))
+  let merged_counter = int.max(a.counter, b.counter)
 
-  let merged_entries =
-    list.fold(all_keys, dict.new(), fn(acc, element) {
-      let a_tags = result.unwrap(dict.get(a.entries, element), set.new())
-      let b_tags = result.unwrap(dict.get(b.entries, element), set.new())
-      let combined =
-        set.difference(set.union(a_tags, b_tags), merged_tombstones)
-      case set.is_empty(combined) {
+  // Filter B entries against tombstones
+  let clean_b =
+    dict.fold(b.entries, dict.new(), fn(acc, key, tags) {
+      let remaining = set.difference(tags, merged_tombstones)
+      case set.is_empty(remaining) {
         True -> acc
-        False -> dict.insert(acc, element, combined)
+        False -> dict.insert(acc, key, remaining)
       }
     })
 
-  let merged_counter = case a.counter > b.counter {
-    True -> a.counter
-    False -> b.counter
-  }
+  // Merge A entries
+  let merged_entries =
+    dict.fold(a.entries, clean_b, fn(acc, key, tags) {
+      let remaining = set.difference(tags, merged_tombstones)
+      case set.is_empty(remaining) {
+        True -> acc
+        False ->
+          case dict.get(acc, key) {
+            Ok(existing) ->
+              dict.insert(acc, key, set.union(existing, remaining))
+            Error(_) -> dict.insert(acc, key, remaining)
+          }
+      }
+    })
 
   ORSet(
     replica_id: a.replica_id,

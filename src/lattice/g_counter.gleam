@@ -21,17 +21,17 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
-import gleam/list
 import gleam/result
 
 /// A grow-only counter that tracks per-replica counts.
 ///
 /// Each replica identified by a `String` ID maintains its own count.
 /// The global value is the sum of all per-replica counts.
-/// The type is non-opaque so that `pn_counter` can access fields for
-/// serialization; do not rely on internal field names in application code.
-pub type GCounter {
+/// The type is opaque to enforce encapsulation; internal helpers are provided
+/// for paired types like `pn_counter`.
+pub opaque type GCounter {
   GCounter(dict: dict.Dict(String, Int), self_id: String)
 }
 
@@ -41,6 +41,20 @@ pub type GCounter {
 /// The `replica_id` identifies this node and is used when incrementing.
 pub fn new(replica_id: String) -> GCounter {
   GCounter(dict.new(), replica_id)
+}
+
+/// Internal: Expose state for `pn_counter` serialization.
+@internal
+pub fn to_state(counter: GCounter) -> #(dict.Dict(String, Int), String) {
+  let GCounter(d, id) = counter
+  #(d, id)
+}
+
+/// Internal: Reconstruct from state for `pn_counter` deserialization.
+@internal
+pub fn from_state(state: #(dict.Dict(String, Int), String)) -> GCounter {
+  let #(d, id) = state
+  GCounter(d, id)
 }
 
 /// Increment the counter by `delta`.
@@ -76,11 +90,7 @@ pub fn merge(a: GCounter, b: GCounter) -> GCounter {
   let GCounter(dict_a, self_id_a) = a
   let GCounter(dict_b, _) = b
 
-  let a_keys = dict.keys(dict_a)
-  let b_keys = dict.keys(dict_b)
-  let all_keys = list.unique(list.append(a_keys, b_keys))
-
-  let merged_dict = merge_helper(dict_a, dict_b, all_keys, dict.new())
+  let merged_dict = dict.combine(dict_a, dict_b, int.max)
 
   // Keep the self_id from the first counter
   GCounter(merged_dict, self_id_a)
@@ -126,26 +136,7 @@ pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
   json.parse(from: json_string, using: decoder)
 }
 
-fn merge_helper(
-  a: dict.Dict(String, Int),
-  b: dict.Dict(String, Int),
-  keys: List(String),
-  acc: dict.Dict(String, Int),
-) -> dict.Dict(String, Int) {
-  case keys {
-    [] -> acc
-    [key, ..rest] -> {
-      let a_val = result.unwrap(dict.get(a, key), 0)
-      let b_val = result.unwrap(dict.get(b, key), 0)
-      let merged_val = case a_val > b_val {
-        True -> a_val
-        False -> b_val
-      }
-      let new_acc = dict.insert(acc, key, merged_val)
-      merge_helper(a, b, rest, new_acc)
-    }
-  }
-}
+
 
 fn require_non_negative_delta(delta: Int) -> Nil {
   case delta < 0 {

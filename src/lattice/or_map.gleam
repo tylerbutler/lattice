@@ -164,19 +164,14 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   let _ = validate_values_against_spec(b.values, b.crdt_spec)
 
   let merged_key_set = or_set.merge(a.key_set, b.key_set)
-  let all_value_keys =
-    list.unique(list.append(dict.keys(a.values), dict.keys(b.values)))
-  let merged_values =
-    list.fold(all_value_keys, dict.new(), fn(acc, key) {
-      let merged_crdt = case dict.get(a.values, key), dict.get(b.values, key) {
-        Ok(ca), Ok(cb) -> crdt.merge(ca, cb)
-        Ok(ca), Error(_) -> ca
-        Error(_), Ok(cb) -> cb
-        Error(_), Error(_) ->
-          panic as "unreachable: key must exist in at least one map"
-      }
-      dict.insert(acc, key, merged_crdt)
-    })
+  
+  let merged_values = dict.fold(b.values, a.values, fn(acc, key, val_b) {
+    case dict.get(acc, key) {
+      Ok(val_a) -> dict.insert(acc, key, crdt.merge(val_a, val_b))
+      Error(Nil) -> dict.insert(acc, key, val_b)
+    }
+  })
+
   ORMap(
     replica_id: a.replica_id,
     crdt_spec: a.crdt_spec,
@@ -256,27 +251,14 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
           case or_set.from_json(key_set_str) {
             Error(e) -> Error(e)
             Ok(key_set) -> {
-              let values_result =
-                list.try_map(values_list, fn(pair) {
-                  let #(key, crdt_str) = pair
-                  case crdt.from_json(crdt_str) {
-                    Ok(c) ->
-                      case crdt.matches_spec(c, crdt_spec) {
-                        True -> Ok(#(key, c))
-                        False ->
-                          Error(value_spec_decode_error(key, crdt_spec, c))
-                      }
-                    Error(e) -> Error(e)
-                  }
-                })
-              case values_result {
+              case decode_values(values_list, crdt_spec) {
                 Error(e) -> Error(e)
-                Ok(pairs) ->
+                Ok(values) ->
                   Ok(ORMap(
                     replica_id: replica_id,
                     crdt_spec: crdt_spec,
                     key_set: key_set,
-                    values: dict.from_list(pairs),
+                    values: values,
                   ))
               }
             }
@@ -284,6 +266,29 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
         }
       }
     }
+  }
+}
+
+fn decode_values(
+  values_list: List(#(String, String)),
+  crdt_spec: CrdtSpec,
+) -> Result(dict.Dict(String, Crdt), json.DecodeError) {
+  let values_result =
+    list.try_map(values_list, fn(pair) {
+      let #(key, crdt_str) = pair
+      case crdt.from_json(crdt_str) {
+        Ok(c) ->
+          case crdt.matches_spec(c, crdt_spec) {
+            True -> Ok(#(key, c))
+            False -> Error(value_spec_decode_error(key, crdt_spec, c))
+          }
+        Error(e) -> Error(e)
+      }
+    })
+
+  case values_result {
+    Ok(pairs) -> Ok(dict.from_list(pairs))
+    Error(e) -> Error(e)
   }
 }
 

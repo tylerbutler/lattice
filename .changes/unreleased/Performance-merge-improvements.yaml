@@ -1,0 +1,5 @@
+kind: Performance
+body: |-
+    Optimized merge operations for multiple CRDTs
+    Improved performance of `merge` and `compare` operations for `VersionVector`, `ORSet`, `LWWMap`, and `ORMap` by using `dict.fold` instead of `list.unique`.
+time: 2026-03-20T21:00:00.000000000-07:00

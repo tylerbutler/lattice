@@ -18,8 +18,8 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
-import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order.{type Order, Eq, Gt, Lt}
 import gleam/string
@@ -115,20 +115,17 @@ pub fn values(map: LWWMap) -> List(String) {
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
-  let all_keys =
-    list.unique(list.append(dict.keys(a.entries), dict.keys(b.entries)))
-  let merged =
-    list.fold(all_keys, dict.new(), fn(acc, key) {
-      let winner = case dict.get(a.entries, key), dict.get(b.entries, key) {
-        Ok(ea), Ok(eb) -> pick_winner(ea, eb)
-        Ok(ea), Error(_) -> ea
-        Error(_), Ok(eb) -> eb
-        Error(_), Error(_) ->
-          panic as "unreachable: key in all_keys but not in either dict"
-      }
-      dict.insert(acc, key, winner)
-    })
-  LWWMap(entries: merged)
+  let LWWMap(da) = a
+  let LWWMap(db) = b
+  
+  let merged = dict.fold(db, da, fn(acc, key, b_entry) {
+    case dict.get(acc, key) {
+      Ok(a_entry) -> dict.insert(acc, key, pick_winner(a_entry, b_entry))
+      Error(Nil) -> dict.insert(acc, key, b_entry)
+    }
+  })
+  
+  LWWMap(merged)
 }
 
 fn pick_winner(
@@ -138,17 +135,13 @@ fn pick_winner(
   let #(_, ts_a) = a
   let #(_, ts_b) = b
 
-  case ts_a > ts_b {
-    True -> a
-    False ->
-      case ts_a < ts_b {
-        True -> b
-        False ->
-          case compare_entries(a, b) {
-            Gt -> a
-            Lt -> b
-            Eq -> a
-          }
+  case int.compare(ts_a, ts_b) {
+    Gt -> a
+    Lt -> b
+    Eq ->
+      case compare_entries(a, b) {
+        Gt | Eq -> a
+        Lt -> b
       }
   }
 }
@@ -164,7 +157,7 @@ fn compare_entries(
     None, None -> Eq
     None, Some(_) -> Gt
     Some(_), None -> Lt
-    Some(a), Some(b) -> string.compare(a, b)
+    Some(val_a), Some(val_b) -> string.compare(val_a, val_b)
   }
 }
 
