@@ -299,6 +299,40 @@ pub fn merge_add_wins_keys_in_or_set_test() {
   |> expect.to_be_true
 }
 
+pub fn stale_replica_does_not_resurrect_removed_key_test() {
+  let original =
+    or_map.new("A", GCounterSpec)
+    |> or_map.update("x", fn(c) {
+      case c {
+        CrdtGCounter(counter) -> CrdtGCounter(g_counter.increment(counter, 1))
+        _ -> c
+      }
+    })
+  let removed =
+    or_map.new("B", GCounterSpec)
+    |> or_map.merge(original)
+    |> or_map.remove("x")
+
+  or_map.merge(original, removed)
+  |> or_map.get("x")
+  |> expect.to_equal(Error(Nil))
+}
+
+pub fn update_rejects_values_that_do_not_match_spec_test() {
+  let map = or_map.new("A", GCounterSpec)
+
+  expect.to_throw(fn() {
+    or_map.update(map, "x", fn(_) { crdt.CrdtGSet(g_set.new()) })
+  })
+}
+
+pub fn merge_rejects_maps_with_different_specs_test() {
+  let counters = or_map.new("A", GCounterSpec)
+  let sets = or_map.new("B", GSetSpec)
+
+  expect.to_throw(fn() { or_map.merge(counters, sets) })
+}
+
 // --- OR-Set key access via or_set ---
 
 pub fn key_set_can_be_accessed_directly_test() {

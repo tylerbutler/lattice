@@ -21,13 +21,16 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/order.{type Order, Eq, Gt, Lt}
+import gleam/string
 
 /// A Last-Writer-Wins Map (LWW-Map) CRDT.
 ///
 /// Internally stores each key with an `Option(String)` value and an `Int`
 /// timestamp. A `None` value represents a tombstone (removed key). On merge,
-/// the entry with the higher timestamp wins for each key; on ties, the first
-/// argument's entry is kept as a consistent tiebreak.
+/// the entry with the higher timestamp wins for each key. Equal timestamps are
+/// resolved deterministically: tombstones win over active values, and active
+/// values use lexicographic string order as a tiebreak.
 pub type LWWMap {
   LWWMap(entries: dict.Dict(String, #(Option(String), Int)))
 }
@@ -107,7 +110,8 @@ pub fn values(map: LWWMap) -> List(String) {
 ///
 /// Tombstones participate in merge: if a tombstone has a higher timestamp
 /// than the active entry for a key, the key remains removed after merging.
-/// On equal timestamps, the first argument's entry wins (consistent tiebreak).
+/// On equal timestamps, tombstones win over active values and active values
+/// use lexicographic string order as a deterministic tiebreak.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
@@ -116,14 +120,7 @@ pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
   let merged =
     list.fold(all_keys, dict.new(), fn(acc, key) {
       let winner = case dict.get(a.entries, key), dict.get(b.entries, key) {
-        Ok(ea), Ok(eb) -> {
-          let #(_, ts_a) = ea
-          let #(_, ts_b) = eb
-          case ts_a >= ts_b {
-            True -> ea
-            False -> eb
-          }
-        }
+        Ok(ea), Ok(eb) -> pick_winner(ea, eb)
         Ok(ea), Error(_) -> ea
         Error(_), Ok(eb) -> eb
         Error(_), Error(_) ->
@@ -132,6 +129,43 @@ pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
       dict.insert(acc, key, winner)
     })
   LWWMap(entries: merged)
+}
+
+fn pick_winner(
+  a: #(Option(String), Int),
+  b: #(Option(String), Int),
+) -> #(Option(String), Int) {
+  let #(_, ts_a) = a
+  let #(_, ts_b) = b
+
+  case ts_a > ts_b {
+    True -> a
+    False ->
+      case ts_a < ts_b {
+        True -> b
+        False ->
+          case compare_entries(a, b) {
+            Gt -> a
+            Lt -> b
+            Eq -> a
+          }
+      }
+  }
+}
+
+fn compare_entries(
+  a: #(Option(String), Int),
+  b: #(Option(String), Int),
+) -> Order {
+  let #(value_a, _) = a
+  let #(value_b, _) = b
+
+  case value_a, value_b {
+    None, None -> Eq
+    None, Some(_) -> Gt
+    Some(_), None -> Lt
+    Some(a), Some(b) -> string.compare(a, b)
+  }
 }
 
 /// Encode a `LWWMap` as a self-describing JSON value.

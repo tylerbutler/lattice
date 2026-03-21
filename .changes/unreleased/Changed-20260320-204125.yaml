@@ -1,0 +1,5 @@
+kind: Changed
+body: |-
+    Documentation and example updates
+    Refreshed user-facing docs and examples to reflect the corrected CRDT behavior and validation rules.
+time: 2026-03-20T20:41:25.588768413-07:00

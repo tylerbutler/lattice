@@ -43,10 +43,11 @@ pub fn new(replica_id: String) -> PNCounter {
 
 /// Increment the counter by `delta`.
 ///
-/// Adds `delta` to the positive G-Counter. `delta` should be a non-negative
-/// integer; the positive G-Counter is grow-only so passing a negative value
-/// violates the invariant.
+/// Adds `delta` to the positive G-Counter. `delta` must be non-negative;
+/// passing a negative value throws because the positive G-Counter is
+/// grow-only.
 pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
+  require_non_negative_delta(delta, "pn_counter.increment")
   let PNCounter(positive, negative) = counter
   PNCounter(positive: g_counter.increment(positive, delta), negative: negative)
 }
@@ -54,9 +55,10 @@ pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
 /// Decrement the counter by `delta`.
 ///
 /// Adds `delta` to the negative G-Counter (which reduces the visible value).
-/// `delta` should be a non-negative integer; the negative G-Counter is
-/// grow-only so passing a negative value violates the invariant.
+/// `delta` must be non-negative; passing a negative value throws because the
+/// negative G-Counter is grow-only.
 pub fn decrement(counter: PNCounter, delta: Int) -> PNCounter {
+  require_non_negative_delta(delta, "pn_counter.decrement")
   let PNCounter(positive, negative) = counter
   PNCounter(positive: positive, negative: g_counter.increment(negative, delta))
 }
@@ -141,4 +143,11 @@ pub fn from_json(json_string: String) -> Result(PNCounter, json.DecodeError) {
     decode.success(state)
   }
   json.parse(from: json_string, using: decoder)
+}
+
+fn require_non_negative_delta(delta: Int, operation: String) -> Nil {
+  case delta < 0 {
+    True -> panic as { operation <> " delta must be non-negative" }
+    False -> Nil
+  }
 }

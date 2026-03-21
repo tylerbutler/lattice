@@ -23,16 +23,24 @@ gleam add lattice_crdt
 import lattice/g_counter
 
 pub fn main() {
-  // Create counters for two replicas
-  let counter_a = g_counter.new() |> g_counter.increment("node-a", 1)
-  let counter_b = g_counter.new() |> g_counter.increment("node-b", 3)
+  let counter_a =
+    g_counter.new("node-a")
+    |> g_counter.increment(1)
 
-  // Merge replicas -- CRDTs converge automatically
+  let counter_b =
+    g_counter.new("node-b")
+    |> g_counter.increment(3)
+
   let merged = g_counter.merge(counter_a, counter_b)
+
   g_counter.value(merged)
   // -> 4
 }
 ```
+
+`g_counter.increment` only accepts non-negative deltas. If you need both
+increments and decrements, use `lattice/pn_counter`; its `increment` and
+`decrement` operations also require non-negative deltas.
 
 ## Available Types
 

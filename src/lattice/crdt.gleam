@@ -96,12 +96,25 @@ pub fn default_crdt(spec: CrdtSpec, replica_id: String) -> Crdt {
   }
 }
 
+/// Return `True` when a wrapped CRDT matches the expected `CrdtSpec`.
+pub fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
+  case value, spec {
+    CrdtGCounter(_), GCounterSpec -> True
+    CrdtPnCounter(_), PnCounterSpec -> True
+    CrdtLwwRegister(_), LwwRegisterSpec -> True
+    CrdtMvRegister(_), MvRegisterSpec -> True
+    CrdtGSet(_), GSetSpec -> True
+    CrdtTwoPSet(_), TwoPSetSpec -> True
+    CrdtOrSet(_), OrSetSpec -> True
+    _, _ -> False
+  }
+}
+
 /// Dispatch merge to the type-specific merge function for matching variants.
 ///
 /// If `a` and `b` hold the same variant, their inner values are merged using
 /// the type-specific merge function. On type mismatch (different variants),
-/// `a` is returned unchanged. Type mismatches should not occur in a
-/// well-formed system, but this behavior avoids a crash.
+/// merge panics to make invalid state explicit rather than silently hiding it.
 pub fn merge(a: Crdt, b: Crdt) -> Crdt {
   case a, b {
     CrdtGCounter(ca), CrdtGCounter(cb) -> CrdtGCounter(g_counter.merge(ca, cb))
@@ -116,8 +129,7 @@ pub fn merge(a: Crdt, b: Crdt) -> Crdt {
     CrdtOrSet(ca), CrdtOrSet(cb) -> CrdtOrSet(or_set.merge(ca, cb))
     CrdtVersionVector(ca), CrdtVersionVector(cb) ->
       CrdtVersionVector(version_vector.merge(ca, cb))
-    _, _ -> a
-    // Type mismatch: return first argument
+    _, _ -> panic as "Cannot merge different CRDT variants"
   }
 }
 

@@ -83,6 +83,18 @@ pub fn concurrent_add_wins_test() {
   |> expect.to_be_true
 }
 
+pub fn stale_replica_does_not_resurrect_removed_element_test() {
+  let original = or_set.new("A") |> or_set.add("x")
+  let removed =
+    or_set.new("B")
+    |> or_set.merge(original)
+    |> or_set.remove("x")
+
+  or_set.merge(original, removed)
+  |> or_set.contains("x")
+  |> expect.to_be_false
+}
+
 pub fn merge_empty_left_test() {
   let s = or_set.new("A") |> or_set.add("x")
 

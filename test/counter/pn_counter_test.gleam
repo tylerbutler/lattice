@@ -28,6 +28,14 @@ pub fn increment_by_five_test() {
   |> expect.to_equal(5)
 }
 
+pub fn increment_negative_delta_throws_test() {
+  fn() {
+    pn_counter.new("A")
+    |> pn_counter.increment(-1)
+  }
+  |> expect.to_throw
+}
+
 // Tests for decrement
 
 pub fn decrement_adds_to_negative_test() {
@@ -44,6 +52,14 @@ pub fn decrement_by_three_test() {
   counter
   |> pn_counter.value
   |> expect.to_equal(-3)
+}
+
+pub fn decrement_negative_delta_throws_test() {
+  fn() {
+    pn_counter.new("A")
+    |> pn_counter.decrement(-1)
+  }
+  |> expect.to_throw
 }
 
 // Tests combining increment and decrement

@@ -2,7 +2,8 @@
 ////
 //// Stores a single value with an associated timestamp. When two replicas
 //// conflict, the value with the strictly higher timestamp wins. On equal
-//// timestamps, the second argument to `merge` wins (consistent tiebreak).
+//// timestamps, the lexicographically greater string wins as a deterministic,
+//// replica-order-independent tiebreak.
 ////
 //// ## Example
 ////
@@ -17,6 +18,8 @@
 
 import gleam/dynamic/decode
 import gleam/json
+import gleam/order.{Eq, Gt, Lt}
+import gleam/string
 
 /// A register holding a single value alongside its write timestamp.
 ///
@@ -57,18 +60,24 @@ pub fn value(register: LWWRegister(a)) -> a {
 
 /// Merge two LWW-Registers by returning the one with the higher timestamp.
 ///
-/// When `a.timestamp > b.timestamp`, returns `a`. Otherwise returns `b`.
-/// On equal timestamps, `b` is returned as a consistent tiebreak.
-///
-/// Commutativity holds when timestamps differ: both `merge(a, b)` and
-/// `merge(b, a)` return the register with the higher timestamp.
-/// When timestamps are equal both calls return their respective `b` argument,
-/// so callers should use distinct timestamps or ensure both replicas hold
-/// the same value when timestamps match.
-pub fn merge(a: LWWRegister(a), b: LWWRegister(a)) -> LWWRegister(a) {
+/// When timestamps are equal, the lexicographically greater string wins.
+/// If both values are equal either input may be returned.
+pub fn merge(
+  a: LWWRegister(String),
+  b: LWWRegister(String),
+) -> LWWRegister(String) {
   case a.timestamp > b.timestamp {
     True -> a
-    False -> b
+    False ->
+      case a.timestamp < b.timestamp {
+        True -> b
+        False ->
+          case string.compare(a.value, b.value) {
+            Gt -> a
+            Lt -> b
+            Eq -> a
+          }
+      }
   }
 }
 

@@ -45,10 +45,11 @@ pub fn new(replica_id: String) -> GCounter {
 
 /// Increment the counter by `delta`.
 ///
-/// Adds `delta` to this replica's count. `delta` should be a non-negative
-/// integer; passing a negative value will decrease the local count, which
-/// violates the grow-only invariant and may cause incorrect merge results.
+/// Adds `delta` to this replica's count. `delta` must be non-negative;
+/// passing a negative value throws because it would violate the grow-only
+/// invariant and may cause incorrect merge results.
 pub fn increment(counter: GCounter, delta: Int) -> GCounter {
+  require_non_negative_delta(delta)
   let GCounter(dict, self_id) = counter
   let current = result.unwrap(dict.get(dict, self_id), 0)
   GCounter(dict.insert(dict, self_id, current + delta), self_id)
@@ -143,5 +144,12 @@ fn merge_helper(
       let new_acc = dict.insert(acc, key, merged_val)
       merge_helper(a, b, rest, new_acc)
     }
+  }
+}
+
+fn require_non_negative_delta(delta: Int) -> Nil {
+  case delta < 0 {
+    True -> panic as "g_counter.increment delta must be non-negative"
+    False -> Nil
   }
 }
