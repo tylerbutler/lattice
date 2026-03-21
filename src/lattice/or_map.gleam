@@ -160,8 +160,8 @@ pub fn values(map: ORMap) -> List(Crdt) {
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   assert_matching_specs(a.crdt_spec, b.crdt_spec)
-  validate_values_against_spec(a.values, a.crdt_spec)
-  validate_values_against_spec(b.values, b.crdt_spec)
+  let _ = validate_values_against_spec(a.values, a.crdt_spec)
+  let _ = validate_values_against_spec(b.values, b.crdt_spec)
 
   let merged_key_set = or_set.merge(a.key_set, b.key_set)
   let all_value_keys =
