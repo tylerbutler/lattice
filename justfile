@@ -38,10 +38,12 @@ test:
 # Format source code
 format:
     gleam format src test
+    cd examples && gleam format src
 
 # Check formatting without changes
 format-check:
     gleam format --check src test
+    cd examples && gleam format --check src
 
 # Type check without building
 check:
@@ -73,10 +75,41 @@ changelog:
 clean:
     rm -rf build
 
+# === EXAMPLES ===
+
+# Build examples (Erlang)
+examples-build:
+    cd examples && gleam build --warnings-as-errors
+
+# Build examples (JavaScript)
+examples-build-js:
+    cd examples && gleam build --target javascript --warnings-as-errors
+
+# Run all examples (Erlang)
+examples-run: examples-build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd examples
+    for mod in g_counter_example pn_counter_example lww_register_example mv_register_example g_set_example two_p_set_example or_set_example lww_map_example or_map_example version_vector_example; do
+        gleam run -m "$mod"
+    done
+
+# Run all examples (JavaScript)
+examples-run-js: examples-build-js
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd examples
+    for mod in g_counter_example pn_counter_example lww_register_example mv_register_example g_set_example two_p_set_example or_set_example lww_map_example or_map_example version_vector_example; do
+        gleam run -m "$mod" --target javascript
+    done
+
+# Run all examples on all targets
+examples: examples-run examples-run-js
+
 # === CI ===
 
-# Run all CI checks (format, check, test all targets, build strict all targets)
-ci: format-check check test-all build-strict-all
+# Run all CI checks (format, check, test all targets, build strict all targets, examples)
+ci: format-check check test-all build-strict-all examples
 
 # Alias for PR checks
 alias pr := ci
