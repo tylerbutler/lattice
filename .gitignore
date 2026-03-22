@@ -1,7 +1,7 @@
 # Build artifacts
 *.beam
 *.ez
-/build
+**/build
 examples/*/build/
 erl_crash.dump
 
