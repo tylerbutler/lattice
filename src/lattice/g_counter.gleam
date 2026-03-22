@@ -136,8 +136,6 @@ pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
   json.parse(from: json_string, using: decoder)
 }
 
-
-
 fn require_non_negative_delta(delta: Int) -> Nil {
   case delta < 0 {
     True -> panic as "g_counter.increment delta must be non-negative"

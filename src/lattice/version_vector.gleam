@@ -84,23 +84,25 @@ pub fn get(vv: VersionVector, replica_id: String) -> Int {
 pub fn compare(a: VersionVector, b: VersionVector) -> Order {
   let VersionVector(da) = a
   let VersionVector(db) = b
-  
+
   // Pass 1: Check keys in A against B
-  let #(greater, less) = dict.fold(da, #(False, False), fn(acc, k, v_a) {
-    let #(g, l) = acc
-    let v_b = result.unwrap(dict.get(db, k), 0)
-    #(g || v_a > v_b, l || v_a < v_b)
-  })
+  let #(greater, less) =
+    dict.fold(da, #(False, False), fn(acc, k, v_a) {
+      let #(g, l) = acc
+      let v_b = result.unwrap(dict.get(db, k), 0)
+      #(g || v_a > v_b, l || v_a < v_b)
+    })
 
   // Pass 2: Check keys in B that are NOT in A
   // If k is in B but not A, then v_b > 0 (implicitly v_a=0), so A < B => less=True
-  let #(greater, less) = dict.fold(db, #(greater, less), fn(acc, k, _v_b) {
-    let #(g, _) = acc
-    case dict.has_key(da, k) {
-      True -> acc
-      False -> #(g, True)
-    }
-  })
+  let #(greater, less) =
+    dict.fold(db, #(greater, less), fn(acc, k, _v_b) {
+      let #(g, _) = acc
+      case dict.has_key(da, k) {
+        True -> acc
+        False -> #(g, True)
+      }
+    })
 
   case greater, less {
     False, False -> Equal
@@ -117,14 +119,15 @@ pub fn compare(a: VersionVector, b: VersionVector) -> Order {
 pub fn merge(a: VersionVector, b: VersionVector) -> VersionVector {
   let VersionVector(da) = a
   let VersionVector(db) = b
-  
-  let merged = dict.fold(db, da, fn(acc, k, v_b) {
-    case dict.get(acc, k) {
-      Ok(v_a) -> dict.insert(acc, k, int.max(v_a, v_b))
-      Error(Nil) -> dict.insert(acc, k, v_b)
-    }
-  })
-  
+
+  let merged =
+    dict.fold(db, da, fn(acc, k, v_b) {
+      case dict.get(acc, k) {
+        Ok(v_a) -> dict.insert(acc, k, int.max(v_a, v_b))
+        Error(Nil) -> dict.insert(acc, k, v_b)
+      }
+    })
+
   VersionVector(merged)
 }
 

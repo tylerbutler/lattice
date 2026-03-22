@@ -117,14 +117,15 @@ pub fn values(map: LWWMap) -> List(String) {
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
   let LWWMap(da) = a
   let LWWMap(db) = b
-  
-  let merged = dict.fold(db, da, fn(acc, key, b_entry) {
-    case dict.get(acc, key) {
-      Ok(a_entry) -> dict.insert(acc, key, pick_winner(a_entry, b_entry))
-      Error(Nil) -> dict.insert(acc, key, b_entry)
-    }
-  })
-  
+
+  let merged =
+    dict.fold(db, da, fn(acc, key, b_entry) {
+      case dict.get(acc, key) {
+        Ok(a_entry) -> dict.insert(acc, key, pick_winner(a_entry, b_entry))
+        Error(Nil) -> dict.insert(acc, key, b_entry)
+      }
+    })
+
   LWWMap(merged)
 }
 

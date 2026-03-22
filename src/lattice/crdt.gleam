@@ -173,20 +173,16 @@ fn dispatch_decode(
   json_string: String,
 ) -> Result(Crdt, json.DecodeError) {
   case type_tag {
-    "g_counter" ->
-      g_counter.from_json(json_string) |> result.map(CrdtGCounter)
+    "g_counter" -> g_counter.from_json(json_string) |> result.map(CrdtGCounter)
     "pn_counter" ->
       pn_counter.from_json(json_string) |> result.map(CrdtPnCounter)
     "lww_register" ->
       lww_register.from_json(json_string) |> result.map(CrdtLwwRegister)
     "mv_register" ->
       mv_register.from_json(json_string) |> result.map(CrdtMvRegister)
-    "g_set" ->
-      g_set.from_json(json_string) |> result.map(CrdtGSet)
-    "two_p_set" ->
-      two_p_set.from_json(json_string) |> result.map(CrdtTwoPSet)
-    "or_set" ->
-      or_set.from_json(json_string) |> result.map(CrdtOrSet)
+    "g_set" -> g_set.from_json(json_string) |> result.map(CrdtGSet)
+    "two_p_set" -> two_p_set.from_json(json_string) |> result.map(CrdtTwoPSet)
+    "or_set" -> or_set.from_json(json_string) |> result.map(CrdtOrSet)
     "version_vector" ->
       version_vector.from_json(json_string) |> result.map(CrdtVersionVector)
     _ ->

@@ -164,13 +164,14 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   let _ = validate_values_against_spec(b.values, b.crdt_spec)
 
   let merged_key_set = or_set.merge(a.key_set, b.key_set)
-  
-  let merged_values = dict.fold(b.values, a.values, fn(acc, key, val_b) {
-    case dict.get(acc, key) {
-      Ok(val_a) -> dict.insert(acc, key, crdt.merge(val_a, val_b))
-      Error(Nil) -> dict.insert(acc, key, val_b)
-    }
-  })
+
+  let merged_values =
+    dict.fold(b.values, a.values, fn(acc, key, val_b) {
+      case dict.get(acc, key) {
+        Ok(val_a) -> dict.insert(acc, key, crdt.merge(val_a, val_b))
+        Error(Nil) -> dict.insert(acc, key, val_b)
+      }
+    })
 
   ORMap(
     replica_id: a.replica_id,
