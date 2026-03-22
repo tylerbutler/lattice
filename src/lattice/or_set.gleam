@@ -41,7 +41,12 @@ pub opaque type Tag {
 /// so stale replicas cannot resurrect elements that were already observed and
 /// removed elsewhere. A concurrent add on another replica will have created a
 /// new tag that survives the remove.
-pub opaque type ORSet(a) {
+///
+/// **Note:** Do not pattern-match on the constructor fields directly in
+/// application code. The internal representation may change in a future
+/// major version. Use the provided public API (`new`, `add`, `remove`,
+/// `contains`, `merge`, `value`, `to_json`, `from_json`) for all operations.
+pub type ORSet(a) {
   ORSet(
     replica_id: String,
     counter: Int,

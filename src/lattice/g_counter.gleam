@@ -29,9 +29,12 @@ import gleam/result
 ///
 /// Each replica identified by a `String` ID maintains its own count.
 /// The global value is the sum of all per-replica counts.
-/// The type is opaque to enforce encapsulation; internal helpers are provided
-/// for paired types like `pn_counter`.
-pub opaque type GCounter {
+///
+/// **Note:** Do not pattern-match on the constructor fields directly in
+/// application code. The internal representation may change in a future
+/// major version. Use the provided public API (`new`, `increment`, `merge`,
+/// `value`, `to_json`, `from_json`) for all operations.
+pub type GCounter {
   GCounter(dict: dict.Dict(String, Int), self_id: String)
 }
 
@@ -41,20 +44,6 @@ pub opaque type GCounter {
 /// The `replica_id` identifies this node and is used when incrementing.
 pub fn new(replica_id: String) -> GCounter {
   GCounter(dict.new(), replica_id)
-}
-
-/// Internal: Expose state for `pn_counter` serialization.
-@internal
-pub fn to_state(counter: GCounter) -> #(dict.Dict(String, Int), String) {
-  let GCounter(d, id) = counter
-  #(d, id)
-}
-
-/// Internal: Reconstruct from state for `pn_counter` deserialization.
-@internal
-pub fn from_state(state: #(dict.Dict(String, Int), String)) -> GCounter {
-  let #(d, id) = state
-  GCounter(d, id)
 }
 
 /// Increment the counter by `delta`.

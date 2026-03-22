@@ -97,8 +97,8 @@ pub fn merge(a: PNCounter, b: PNCounter) -> PNCounter {
 /// Use `from_json` to decode the result back into a `PNCounter`.
 pub fn to_json(counter: PNCounter) -> json.Json {
   let PNCounter(positive, negative) = counter
-  let #(pos_dict, pos_id) = g_counter.to_state(positive)
-  let #(neg_dict, neg_id) = g_counter.to_state(negative)
+  let g_counter.GCounter(pos_dict, pos_id) = positive
+  let g_counter.GCounter(neg_dict, neg_id) = negative
   json.object([
     #("type", json.string("pn_counter")),
     #("v", json.int(1)),
@@ -132,7 +132,7 @@ pub fn from_json(json_string: String) -> Result(PNCounter, json.DecodeError) {
   let g_counter_state_decoder = {
     use self_id <- decode.field("self_id", decode.string)
     use counts <- decode.field("counts", decode.dict(decode.string, decode.int))
-    decode.success(g_counter.from_state(#(counts, self_id)))
+    decode.success(g_counter.GCounter(dict: counts, self_id: self_id))
   }
   let decoder = {
     use state <- decode.field("state", {
