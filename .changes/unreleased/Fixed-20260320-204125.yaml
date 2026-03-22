@@ -1,5 +1,5 @@
 kind: Fixed
 body: |-
     CRDT correctness fixes
-    Improved last-writer-wins tie handling, enforced non-negative PN-counter deltas, preserved OR-Set tombstones to prevent stale resurrection, and tightened ORMap spec/type validation.
+    Improved LWW tie-breaking to be deterministic and commutative. Enforced non-negative deltas in `GCounter.increment` and `PNCounter.increment`/`decrement` (panics on violation). Preserved OR-Set tombstones across merges to prevent stale replicas from resurrecting removed elements. Tightened ORMap spec and type validation during `update` and `merge`.
 time: 2026-03-20T20:41:25.580469006-07:00
