@@ -143,13 +143,13 @@ pub fn value(orset: ORSet(a)) -> set.Set(a) {
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
   let merged_pruned = version_vector.merge(a.pruned, b.pruned)
-  let merged_tombstones = 
+  let merged_tombstones =
     set.union(a.tombstones, b.tombstones)
     |> set.filter(fn(tag) {
       let Tag(rid, c) = tag
       version_vector.get(merged_pruned, rid) < c
     })
-  
+
   let a_keys = dict.keys(a.entries)
   let b_keys = dict.keys(b.entries)
   let all_keys = list.unique(list.append(a_keys, b_keys))
@@ -158,13 +158,14 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     list.fold(all_keys, dict.new(), fn(acc, element) {
       let a_tags = result.unwrap(dict.get(a.entries, element), set.new())
       let b_tags = result.unwrap(dict.get(b.entries, element), set.new())
-      
+
       let combined =
         set.union(a_tags, b_tags)
         |> set.filter(fn(tag) {
           let Tag(rid, c) = tag
           // Filter out if in tombstones OR dominated by pruned vector
-          !set.contains(merged_tombstones, tag) && version_vector.get(merged_pruned, rid) < c
+          !set.contains(merged_tombstones, tag)
+          && version_vector.get(merged_pruned, rid) < c
         })
 
       case set.is_empty(combined) {
@@ -195,16 +196,13 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
 /// replicas (causally stable), otherwise "zombie" updates might be incorrectly ignored.
 pub fn prune(orset: ORSet(a), stable_vv: VersionVector) -> ORSet(a) {
   let new_pruned = version_vector.merge(orset.pruned, stable_vv)
-  let pruned_tombstones = set.filter(orset.tombstones, fn(tag) {
-    let Tag(rid, c) = tag
-    version_vector.get(new_pruned, rid) < c
-  })
-  
-  ORSet(
-    ..orset,
-    tombstones: pruned_tombstones,
-    pruned: new_pruned,
-  )
+  let pruned_tombstones =
+    set.filter(orset.tombstones, fn(tag) {
+      let Tag(rid, c) = tag
+      version_vector.get(new_pruned, rid) < c
+    })
+
+  ORSet(..orset, tombstones: pruned_tombstones, pruned: new_pruned)
 }
 
 /// Encode an `ORSet(String)` as a self-describing JSON value.
@@ -257,7 +255,7 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
     decode.success(#(type_tag, version))
   }
   let envelope_result = json.parse(from: json_string, using: envelope_decoder)
-  
+
   let tag_decoder = {
     use r <- decode.field("r", decode.string)
     use c <- decode.field("c", decode.int)
@@ -275,7 +273,7 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
         decode.dict(decode.string, tag_set_decoder),
       )
       use tombstones <- decode.field("tombstones", tag_set_decoder)
-      
+
       decode.success(ORSet(
         replica_id: replica_id,
         counter: counter,
@@ -295,7 +293,7 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
         "entries",
         decode.dict(decode.string, tag_set_decoder),
       )
-      
+
       decode.success(ORSet(
         replica_id: replica_id,
         counter: counter,
@@ -317,18 +315,21 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
         decode.dict(decode.string, tag_set_decoder),
       )
       use tombstones <- decode.field("tombstones", tag_set_decoder)
-      
+
       // Decode pruned version vector
       use pruned_state <- decode.field("pruned", {
-         use _type <- decode.field("type", decode.string)
-         use _v <- decode.field("v", decode.int)
-         use vv_state <- decode.field("state", {
-           use clocks <- decode.field("clocks", decode.dict(decode.string, decode.int))
-           decode.success(clocks)
-         })
-         decode.success(vv_state)
+        use _type <- decode.field("type", decode.string)
+        use _v <- decode.field("v", decode.int)
+        use vv_state <- decode.field("state", {
+          use clocks <- decode.field(
+            "clocks",
+            decode.dict(decode.string, decode.int),
+          )
+          decode.success(clocks)
+        })
+        decode.success(vv_state)
       })
-      
+
       let pruned_vv = version_vector.from_dict(pruned_state)
 
       decode.success(ORSet(
@@ -346,21 +347,37 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
       case type_tag == "or_set" {
-        False -> Error(json.UnableToDecode([
-          decode.DecodeError(expected: "type=or_set", found: type_tag, path: [])
-        ]))
-        True -> case version {
-          1 -> {
-             case json.parse(from: json_string, using: v1_decoder_full) {
-               Ok(res) -> Ok(res)
-               Error(_) -> json.parse(from: json_string, using: v1_decoder_compat)
-             }
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=or_set",
+                found: type_tag,
+                path: [],
+              ),
+            ]),
+          )
+        True ->
+          case version {
+            1 -> {
+              case json.parse(from: json_string, using: v1_decoder_full) {
+                Ok(res) -> Ok(res)
+                Error(_) ->
+                  json.parse(from: json_string, using: v1_decoder_compat)
+              }
+            }
+            2 -> json.parse(from: json_string, using: v2_decoder)
+            _ ->
+              Error(
+                json.UnableToDecode([
+                  decode.DecodeError(
+                    expected: "v=1 or v=2",
+                    found: int.to_string(version),
+                    path: ["v"],
+                  ),
+                ]),
+              )
           }
-          2 -> json.parse(from: json_string, using: v2_decoder)
-          _ -> Error(json.UnableToDecode([
-            decode.DecodeError(expected: "v=1 or v=2", found: int.to_string(version), path: ["v"])
-          ]))
-        }
       }
   }
 }

@@ -273,43 +273,43 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
           case json.parse(from: json_string, using: state_decoder) {
             Error(e) -> Error(e)
             Ok(#(replica_id, crdt_spec_str, key_set_str, values_list)) -> {
-      case string_to_spec(crdt_spec_str) {
-        Error(_) ->
-          Error(
-            json.UnableToDecode([
-              decode.DecodeError(
-                expected: "known CrdtSpec",
-                found: crdt_spec_str,
-                path: ["state", "crdt_spec"],
-              ),
-            ]),
-          )
-        Ok(crdt_spec) -> {
-          case or_set.from_json(key_set_str) {
-            Error(e) -> Error(e)
-            Ok(key_set) -> {
-              let values_result =
-                list.try_map(values_list, fn(pair) {
-                  let #(key, crdt_str) = pair
-                  case crdt.from_json(crdt_str) {
-                    Ok(c) -> Ok(#(key, c))
+              case string_to_spec(crdt_spec_str) {
+                Error(_) ->
+                  Error(
+                    json.UnableToDecode([
+                      decode.DecodeError(
+                        expected: "known CrdtSpec",
+                        found: crdt_spec_str,
+                        path: ["state", "crdt_spec"],
+                      ),
+                    ]),
+                  )
+                Ok(crdt_spec) -> {
+                  case or_set.from_json(key_set_str) {
                     Error(e) -> Error(e)
+                    Ok(key_set) -> {
+                      let values_result =
+                        list.try_map(values_list, fn(pair) {
+                          let #(key, crdt_str) = pair
+                          case crdt.from_json(crdt_str) {
+                            Ok(c) -> Ok(#(key, c))
+                            Error(e) -> Error(e)
+                          }
+                        })
+                      case values_result {
+                        Error(e) -> Error(e)
+                        Ok(pairs) ->
+                          Ok(ORMap(
+                            replica_id: replica_id,
+                            crdt_spec: crdt_spec,
+                            key_set: key_set,
+                            values: dict.from_list(pairs),
+                          ))
+                      }
+                    }
                   }
-                })
-              case values_result {
-                Error(e) -> Error(e)
-                Ok(pairs) ->
-                  Ok(ORMap(
-                    replica_id: replica_id,
-                    crdt_spec: crdt_spec,
-                    key_set: key_set,
-                    values: dict.from_list(pairs),
-                  ))
+                }
               }
-            }
-          }
-        }
-      }
             }
           }
       }
