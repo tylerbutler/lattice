@@ -21,6 +21,14 @@ pub fn increment_increases_value_by_five_test() {
   |> expect.to_equal(5)
 }
 
+pub fn increment_negative_delta_throws_test() {
+  fn() {
+    g_counter.new("A")
+    |> g_counter.increment(-1)
+  }
+  |> expect.to_throw
+}
+
 pub fn value_returns_sum_of_all_replicas_test() {
   let a_counter = g_counter.new("A")
   let a_counter = g_counter.increment(a_counter, 3)

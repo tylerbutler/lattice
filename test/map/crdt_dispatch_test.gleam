@@ -124,11 +124,11 @@ pub fn merge_version_vector_dispatches_test() {
   }
 }
 
-pub fn merge_type_mismatch_returns_first_test() {
+pub fn merge_type_mismatch_throws_test() {
   let a = CrdtGCounter(g_counter.new("A"))
   let b = CrdtGSet(g_set.new())
-  crdt.merge(a, b)
-  |> expect.to_equal(a)
+
+  expect.to_throw(fn() { crdt.merge(a, b) })
 }
 
 // --- to_json / from_json round-trip tests ---

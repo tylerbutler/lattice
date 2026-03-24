@@ -1,0 +1,5 @@
+kind: Changed
+body: |-
+    Documentation updates
+    Refreshed website guides and serialization docs to reflect corrected CRDT behavior and validation rules. Added doc comments warning that internal type representations may change in a future major version.
+time: 2026-03-20T20:41:25.588768413-07:00

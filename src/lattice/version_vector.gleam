@@ -20,8 +20,8 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
-import gleam/list
 import gleam/result
 
 /// The causal ordering relationship between two version vectors.
@@ -82,13 +82,34 @@ pub fn get(vv: VersionVector, replica_id: String) -> Int {
 /// by `b`, `After` if `a` strictly dominates `b`, or `Concurrent` if neither
 /// dominates the other.
 pub fn compare(a: VersionVector, b: VersionVector) -> Order {
-  let VersionVector(dict_a) = a
-  let VersionVector(dict_b) = b
-  let a_keys = dict.keys(dict_a)
-  let b_keys = dict.keys(dict_b)
-  let all_keys = list.unique(list.append(a_keys, b_keys))
+  let VersionVector(da) = a
+  let VersionVector(db) = b
 
-  compare_helper(dict_a, dict_b, all_keys, False, False)
+  // Pass 1: Check keys in A against B
+  let #(greater, less) =
+    dict.fold(da, #(False, False), fn(acc, k, v_a) {
+      let #(g, l) = acc
+      let v_b = result.unwrap(dict.get(db, k), 0)
+      #(g || v_a > v_b, l || v_a < v_b)
+    })
+
+  // Pass 2: Check keys in B that are NOT in A
+  // If k is in B but not A, then v_b > 0 (implicitly v_a=0), so A < B => less=True
+  let #(greater, less) =
+    dict.fold(db, #(greater, less), fn(acc, k, _v_b) {
+      let #(g, _) = acc
+      case dict.has_key(da, k) {
+        True -> acc
+        False -> #(g, True)
+      }
+    })
+
+  case greater, less {
+    False, False -> Equal
+    True, False -> After
+    False, True -> Before
+    True, True -> Concurrent
+  }
 }
 
 /// Merge two version vectors using pairwise maximum.
@@ -96,13 +117,18 @@ pub fn compare(a: VersionVector, b: VersionVector) -> Order {
 /// For each replica, the merged clock is the maximum of the two inputs.
 /// This operation is commutative, associative, and idempotent.
 pub fn merge(a: VersionVector, b: VersionVector) -> VersionVector {
-  let VersionVector(dict_a) = a
-  let VersionVector(dict_b) = b
-  let a_keys = dict.keys(dict_a)
-  let b_keys = dict.keys(dict_b)
-  let all_keys = list.unique(list.append(a_keys, b_keys))
+  let VersionVector(da) = a
+  let VersionVector(db) = b
 
-  VersionVector(merge_helper(dict_a, dict_b, all_keys, dict.new()))
+  let merged =
+    dict.fold(db, da, fn(acc, k, v_b) {
+      case dict.get(acc, k) {
+        Ok(v_a) -> dict.insert(acc, k, int.max(v_a, v_b))
+        Error(Nil) -> dict.insert(acc, k, v_b)
+      }
+    })
+
+  VersionVector(merged)
 }
 
 /// Encode a VersionVector as a self-describing JSON value.
@@ -159,57 +185,4 @@ pub fn to_dict(vv: VersionVector) -> dict.Dict(String, Int) {
 /// `mv_register`). Prefer `new` and `increment` for all other use cases.
 pub fn from_dict(d: dict.Dict(String, Int)) -> VersionVector {
   VersionVector(d)
-}
-
-fn compare_helper(
-  a: dict.Dict(String, Int),
-  b: dict.Dict(String, Int),
-  keys: List(String),
-  found_less: Bool,
-  found_greater: Bool,
-) -> Order {
-  case keys {
-    [] -> {
-      case found_less, found_greater {
-        False, False -> Equal
-        True, False -> Before
-        False, True -> After
-        _, _ -> Concurrent
-      }
-    }
-    [key, ..rest] -> {
-      let a_val = result.unwrap(dict.get(a, key), 0)
-      let b_val = result.unwrap(dict.get(b, key), 0)
-      case a_val < b_val {
-        True -> compare_helper(a, b, rest, True, found_greater)
-        False -> {
-          case a_val > b_val {
-            True -> compare_helper(a, b, rest, found_less, True)
-            False -> compare_helper(a, b, rest, found_less, found_greater)
-          }
-        }
-      }
-    }
-  }
-}
-
-fn merge_helper(
-  a: dict.Dict(String, Int),
-  b: dict.Dict(String, Int),
-  keys: List(String),
-  acc: dict.Dict(String, Int),
-) -> dict.Dict(String, Int) {
-  case keys {
-    [] -> acc
-    [key, ..rest] -> {
-      let a_val = result.unwrap(dict.get(a, key), 0)
-      let b_val = result.unwrap(dict.get(b, key), 0)
-      let merged_val = case a_val > b_val {
-        True -> a_val
-        False -> b_val
-      }
-      let new_acc = dict.insert(acc, key, merged_val)
-      merge_helper(a, b, rest, new_acc)
-    }
-  }
 }

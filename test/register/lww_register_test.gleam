@@ -52,13 +52,24 @@ pub fn merge_is_commutative_on_higher_timestamp_test() {
   |> expect.to_equal("second")
 }
 
-pub fn merge_tiebreak_favors_second_argument_test() {
+pub fn merge_equal_timestamp_uses_lexicographically_greater_value_test() {
   let reg_a = lww_register.new("aaa", 5)
   let reg_b = lww_register.new("bbb", 5)
 
   lww_register.merge(reg_a, reg_b)
   |> lww_register.value
   |> expect.to_equal("bbb")
+}
+
+pub fn merge_equal_timestamp_is_commutative_test() {
+  let reg_a = lww_register.new("aaa", 5)
+  let reg_b = lww_register.new("bbb", 5)
+
+  let merged_ab = lww_register.merge(reg_a, reg_b) |> lww_register.value
+  let merged_ba = lww_register.merge(reg_b, reg_a) |> lww_register.value
+
+  expect.to_equal(merged_ab, "bbb")
+  expect.to_equal(merged_ab, merged_ba)
 }
 
 pub fn merge_commutativity_on_value_test() {

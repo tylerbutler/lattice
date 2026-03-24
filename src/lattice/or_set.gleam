@@ -18,8 +18,8 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
-import gleam/list
 import gleam/result
 import gleam/set
 
@@ -37,11 +37,22 @@ pub opaque type Tag {
 ///
 /// Each element maps to a set of tags representing the add operations that
 /// are currently "live" for that element. An element is present in the set
-/// when its tag set is non-empty. Removing an element clears all its tags;
-/// a concurrent add on another replica will have created a new tag that
-/// survives the remove.
+/// when its tag set is non-empty. Removed tags are retained in `tombstones`
+/// so stale replicas cannot resurrect elements that were already observed and
+/// removed elsewhere. A concurrent add on another replica will have created a
+/// new tag that survives the remove.
+///
+/// **Note:** Do not pattern-match on the constructor fields directly in
+/// application code. The internal representation may change in a future
+/// major version. Use the provided public API (`new`, `add`, `remove`,
+/// `contains`, `merge`, `value`, `to_json`, `from_json`) for all operations.
 pub type ORSet(a) {
-  ORSet(replica_id: String, counter: Int, entries: dict.Dict(a, set.Set(Tag)))
+  ORSet(
+    replica_id: String,
+    counter: Int,
+    entries: dict.Dict(a, set.Set(Tag)),
+    tombstones: set.Set(Tag),
+  )
 }
 
 /// Create a new empty OR-Set for the given replica.
@@ -49,7 +60,12 @@ pub type ORSet(a) {
 /// Each replica should have a unique `replica_id` to ensure that tags
 /// generated on different replicas never collide.
 pub fn new(replica_id: String) -> ORSet(a) {
-  ORSet(replica_id: replica_id, counter: 0, entries: dict.new())
+  ORSet(
+    replica_id: replica_id,
+    counter: 0,
+    entries: dict.new(),
+    tombstones: set.new(),
+  )
 }
 
 /// Add an element to the set.
@@ -66,6 +82,7 @@ pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
     replica_id: orset.replica_id,
     counter: new_counter,
     entries: dict.insert(orset.entries, element, new_tags),
+    tombstones: orset.tombstones,
   )
 }
 
@@ -75,10 +92,12 @@ pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
 /// semantics). Any concurrent add on another replica that created a new tag
 /// not yet observed here will survive this remove after merging.
 pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
+  let removed_tags = result.unwrap(dict.get(orset.entries, element), set.new())
   ORSet(
     replica_id: orset.replica_id,
     counter: orset.counter,
     entries: dict.delete(orset.entries, element),
+    tombstones: set.union(orset.tombstones, removed_tags),
   )
 }
 
@@ -98,56 +117,65 @@ pub fn contains(orset: ORSet(a), element: a) -> Bool {
 ///
 /// An element is included only when its tag set is non-empty.
 pub fn value(orset: ORSet(a)) -> set.Set(a) {
-  dict.fold(orset.entries, set.new(), fn(acc, element, tags) {
-    case set.is_empty(tags) {
-      True -> acc
-      False -> set.insert(acc, element)
-    }
-  })
+  // We maintain the invariant that entries only contains keys with non-empty tag sets
+  // (via merge/remove logic).
+  dict.keys(orset.entries)
+  |> set.from_list
 }
 
 /// Merge two OR-Sets.
 ///
-/// For each element, the merged tag set is the union of both sides' tags.
-/// An element is present if it has at least one tag in the merged result.
-/// The merged counter is the maximum of both sides, ensuring future adds
-/// on either replica generate unique tags.
+/// For each element, the merged tag set is the union of both sides' tags with
+/// any tombstoned tags removed. This prevents stale replicas from
+/// reintroducing tags that have already been observed and removed elsewhere.
+/// The merged counter is the maximum of both sides, ensuring future adds on
+/// either replica generate unique tags.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
-  let a_keys = dict.keys(a.entries)
-  let b_keys = dict.keys(b.entries)
-  let all_keys = list.unique(list.append(a_keys, b_keys))
+  let merged_tombstones = set.union(a.tombstones, b.tombstones)
+  let merged_counter = int.max(a.counter, b.counter)
 
-  let merged_entries =
-    list.fold(all_keys, dict.new(), fn(acc, element) {
-      let a_tags = result.unwrap(dict.get(a.entries, element), set.new())
-      let b_tags = result.unwrap(dict.get(b.entries, element), set.new())
-      let combined = set.union(a_tags, b_tags)
-      case set.is_empty(combined) {
+  // Filter B entries against tombstones
+  let clean_b =
+    dict.fold(b.entries, dict.new(), fn(acc, key, tags) {
+      let remaining = set.difference(tags, merged_tombstones)
+      case set.is_empty(remaining) {
         True -> acc
-        False -> dict.insert(acc, element, combined)
+        False -> dict.insert(acc, key, remaining)
       }
     })
 
-  let merged_counter = case a.counter > b.counter {
-    True -> a.counter
-    False -> b.counter
-  }
+  // Merge A entries
+  let merged_entries =
+    dict.fold(a.entries, clean_b, fn(acc, key, tags) {
+      let remaining = set.difference(tags, merged_tombstones)
+      case set.is_empty(remaining) {
+        True -> acc
+        False ->
+          case dict.get(acc, key) {
+            Ok(existing) ->
+              dict.insert(acc, key, set.union(existing, remaining))
+            Error(_) -> dict.insert(acc, key, remaining)
+          }
+      }
+    })
 
   ORSet(
     replica_id: a.replica_id,
     counter: merged_counter,
     entries: merged_entries,
+    tombstones: merged_tombstones,
   )
 }
 
 /// Encode an `ORSet(String)` as a self-describing JSON value.
 ///
 /// Entries are encoded as a JSON dict where values are arrays of tag objects
-/// `{"r": replica_id, "c": counter}`.
+/// `{"r": replica_id, "c": counter}`. Removed tags are encoded separately in
+/// `tombstones`.
 ///
-/// Format: `{"type": "or_set", "v": 1, "state": {"replica_id": "...", "counter": N, "entries": {...}}}`
+/// Format: `{"type": "or_set", "v": 1, "state": {"replica_id": "...", "counter": N, "entries": {...}, "tombstones": [...]}}`
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(orset: ORSet(String)) -> json.Json {
@@ -162,12 +190,10 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
         #(
           "entries",
           json.dict(orset.entries, fn(k) { k }, fn(tag_set) {
-            json.array(set.to_list(tag_set), fn(tag) {
-              let Tag(rid, c) = tag
-              json.object([#("r", json.string(rid)), #("c", json.int(c))])
-            })
+            json.array(set.to_list(tag_set), encode_tag)
           }),
         ),
+        #("tombstones", json.array(set.to_list(orset.tombstones), encode_tag)),
       ]),
     ),
   ])
@@ -192,13 +218,24 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
         "entries",
         decode.dict(decode.string, tag_set_decoder),
       )
+      use tombstones <- decode.optional_field(
+        "tombstones",
+        [],
+        decode.list(tag_decoder),
+      )
       decode.success(ORSet(
         replica_id: replica_id,
         counter: counter,
         entries: entries,
+        tombstones: set.from_list(tombstones),
       ))
     })
     decode.success(state)
   }
   json.parse(from: json_string, using: decoder)
+}
+
+fn encode_tag(tag: Tag) -> json.Json {
+  let Tag(rid, c) = tag
+  json.object([#("r", json.string(rid)), #("c", json.int(c))])
 }

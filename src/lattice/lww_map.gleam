@@ -18,16 +18,19 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
-import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/order.{type Order, Eq, Gt, Lt}
+import gleam/string
 
 /// A Last-Writer-Wins Map (LWW-Map) CRDT.
 ///
 /// Internally stores each key with an `Option(String)` value and an `Int`
 /// timestamp. A `None` value represents a tombstone (removed key). On merge,
-/// the entry with the higher timestamp wins for each key; on ties, the first
-/// argument's entry is kept as a consistent tiebreak.
+/// the entry with the higher timestamp wins for each key. Equal timestamps are
+/// resolved deterministically: tombstones win over active values, and active
+/// values use lexicographic string order as a tiebreak.
 pub type LWWMap {
   LWWMap(entries: dict.Dict(String, #(Option(String), Int)))
 }
@@ -107,31 +110,56 @@ pub fn values(map: LWWMap) -> List(String) {
 ///
 /// Tombstones participate in merge: if a tombstone has a higher timestamp
 /// than the active entry for a key, the key remains removed after merging.
-/// On equal timestamps, the first argument's entry wins (consistent tiebreak).
+/// On equal timestamps, tombstones win over active values and active values
+/// use lexicographic string order as a deterministic tiebreak.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
-  let all_keys =
-    list.unique(list.append(dict.keys(a.entries), dict.keys(b.entries)))
+  let LWWMap(da) = a
+  let LWWMap(db) = b
+
   let merged =
-    list.fold(all_keys, dict.new(), fn(acc, key) {
-      let winner = case dict.get(a.entries, key), dict.get(b.entries, key) {
-        Ok(ea), Ok(eb) -> {
-          let #(_, ts_a) = ea
-          let #(_, ts_b) = eb
-          case ts_a >= ts_b {
-            True -> ea
-            False -> eb
-          }
-        }
-        Ok(ea), Error(_) -> ea
-        Error(_), Ok(eb) -> eb
-        Error(_), Error(_) ->
-          panic as "unreachable: key in all_keys but not in either dict"
+    dict.fold(db, da, fn(acc, key, b_entry) {
+      case dict.get(acc, key) {
+        Ok(a_entry) -> dict.insert(acc, key, pick_winner(a_entry, b_entry))
+        Error(Nil) -> dict.insert(acc, key, b_entry)
       }
-      dict.insert(acc, key, winner)
     })
-  LWWMap(entries: merged)
+
+  LWWMap(merged)
+}
+
+fn pick_winner(
+  a: #(Option(String), Int),
+  b: #(Option(String), Int),
+) -> #(Option(String), Int) {
+  let #(_, ts_a) = a
+  let #(_, ts_b) = b
+
+  case int.compare(ts_a, ts_b) {
+    Gt -> a
+    Lt -> b
+    Eq ->
+      case compare_entries(a, b) {
+        Gt | Eq -> a
+        Lt -> b
+      }
+  }
+}
+
+fn compare_entries(
+  a: #(Option(String), Int),
+  b: #(Option(String), Int),
+) -> Order {
+  let #(value_a, _) = a
+  let #(value_b, _) = b
+
+  case value_a, value_b {
+    None, None -> Eq
+    None, Some(_) -> Gt
+    Some(_), None -> Lt
+    Some(val_a), Some(val_b) -> string.compare(val_a, val_b)
+  }
 }
 
 /// Encode a `LWWMap` as a self-describing JSON value.

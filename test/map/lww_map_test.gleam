@@ -181,6 +181,40 @@ pub fn merge_tombstone_lower_ts_key_survives_test() {
   |> expect.to_equal(Ok("alive"))
 }
 
+pub fn merge_equal_timestamp_uses_lexicographically_greater_value_test() {
+  let a = lww_map.new() |> lww_map.set("key", "aaa", 10)
+  let b = lww_map.new() |> lww_map.set("key", "bbb", 10)
+
+  lww_map.get(lww_map.merge(a, b), "key")
+  |> expect.to_equal(Ok("bbb"))
+}
+
+pub fn merge_equal_timestamp_is_commutative_test() {
+  let a = lww_map.new() |> lww_map.set("key", "aaa", 10)
+  let b = lww_map.new() |> lww_map.set("key", "bbb", 10)
+
+  let merged_ab = lww_map.merge(a, b)
+  let merged_ba = lww_map.merge(b, a)
+
+  lww_map.get(merged_ab, "key")
+  |> expect.to_equal(Ok("bbb"))
+  lww_map.get(merged_ab, "key")
+  |> expect.to_equal(lww_map.get(merged_ba, "key"))
+}
+
+pub fn merge_equal_timestamp_tombstone_wins_test() {
+  let a = lww_map.new() |> lww_map.set("key", "alive", 10)
+  let b = lww_map.new() |> lww_map.remove("key", 10)
+
+  let merged_ab = lww_map.merge(a, b)
+  let merged_ba = lww_map.merge(b, a)
+
+  lww_map.get(merged_ab, "key")
+  |> expect.to_equal(Error(Nil))
+  lww_map.get(merged_ab, "key")
+  |> expect.to_equal(lww_map.get(merged_ba, "key"))
+}
+
 pub fn merge_commutativity_test() {
   // merge(a, b) and merge(b, a) produce same value for active keys
   let a =

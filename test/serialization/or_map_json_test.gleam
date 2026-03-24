@@ -101,3 +101,13 @@ pub fn or_map_from_json_invalid_test() {
     Error(_) -> expect.to_be_true(True)
   }
 }
+
+pub fn or_map_from_json_rejects_values_that_do_not_match_spec_test() {
+  let invalid_json =
+    "{\"type\":\"or_map\",\"v\":1,\"state\":{\"replica_id\":\"A\",\"crdt_spec\":\"g_counter\",\"key_set\":\"{\\\"type\\\":\\\"or_set\\\",\\\"v\\\":1,\\\"state\\\":{\\\"replica_id\\\":\\\"A\\\",\\\"counter\\\":1,\\\"entries\\\":{\\\"x\\\":[{\\\"r\\\":\\\"A\\\",\\\"c\\\":1}]}}}\",\"values\":[{\"key\":\"x\",\"crdt\":\"{\\\"type\\\":\\\"g_set\\\",\\\"v\\\":1,\\\"state\\\":{\\\"elements\\\":[\\\"x\\\"]}}\"}]}}"
+
+  let _ =
+    or_map.from_json(invalid_json)
+    |> expect.to_be_error
+  Nil
+}
