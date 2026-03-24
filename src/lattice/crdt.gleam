@@ -109,7 +109,8 @@ pub fn default_crdt(spec: CrdtSpec, replica_id: String) -> Crdt {
 /// an explicit `Error(TypeMismatch(...))` is returned.
 pub fn merge(a: Crdt, b: Crdt) -> Result(Crdt, MergeError) {
   case a, b {
-    CrdtGCounter(ca), CrdtGCounter(cb) -> Ok(CrdtGCounter(g_counter.merge(ca, cb)))
+    CrdtGCounter(ca), CrdtGCounter(cb) ->
+      Ok(CrdtGCounter(g_counter.merge(ca, cb)))
     CrdtPnCounter(ca), CrdtPnCounter(cb) ->
       Ok(CrdtPnCounter(pn_counter.merge(ca, cb)))
     CrdtLwwRegister(ca), CrdtLwwRegister(cb) ->
@@ -121,8 +122,7 @@ pub fn merge(a: Crdt, b: Crdt) -> Result(Crdt, MergeError) {
     CrdtOrSet(ca), CrdtOrSet(cb) -> Ok(CrdtOrSet(or_set.merge(ca, cb)))
     CrdtVersionVector(ca), CrdtVersionVector(cb) ->
       Ok(CrdtVersionVector(version_vector.merge(ca, cb)))
-    _, _ ->
-      Error(TypeMismatch(expected: crdt_name(a), found: crdt_name(b)))
+    _, _ -> Error(TypeMismatch(expected: crdt_name(a), found: crdt_name(b)))
   }
 }
 
