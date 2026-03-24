@@ -102,9 +102,7 @@ pub fn to_json(register: LWWRegister) -> json.Json {
 ///
 /// Returns `Ok(LWWRegister)` on success, or `Error(json.DecodeError)`
 /// if the input is not a valid LWW-Register JSON envelope.
-pub fn from_json(
-  json_string: String,
-) -> Result(LWWRegister, json.DecodeError) {
+pub fn from_json(json_string: String) -> Result(LWWRegister, json.DecodeError) {
   let state_decoder = {
     use state <- decode.field("state", {
       use value <- decode.field("value", decode.string)
