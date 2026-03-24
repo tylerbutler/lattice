@@ -21,6 +21,7 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/set
@@ -163,7 +164,12 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   let merged_values =
     list.fold(all_value_keys, dict.new(), fn(acc, key) {
       let merged_crdt = case dict.get(a.values, key), dict.get(b.values, key) {
-        Ok(ca), Ok(cb) -> crdt.merge(ca, cb)
+        Ok(ca), Ok(cb) ->
+          case crdt.merge(ca, cb) {
+            Ok(c) -> c
+            Error(crdt.TypeMismatch(_, _)) ->
+              panic as "ORMap value type mismatch while merging values"
+          }
         Ok(ca), Error(_) -> ca
         Error(_), Ok(cb) -> cb
         Error(_), Error(_) ->
@@ -222,7 +228,7 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
     use crdt_str <- decode.field("crdt", decode.string)
     decode.success(#(key, crdt_str))
   }
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use replica_id <- decode.field("replica_id", decode.string)
       use crdt_spec_str <- decode.field("crdt_spec", decode.string)
@@ -232,9 +238,29 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
     })
     decode.success(state)
   }
-  case json.parse(from: json_string, using: decoder) {
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
-    Ok(#(replica_id, crdt_spec_str, key_set_str, values_list)) -> {
+    Ok(#(type_tag, version)) ->
+      case type_tag == "or_map" && version == 1 {
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=or_map and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+        True ->
+          case json.parse(from: json_string, using: state_decoder) {
+            Error(e) -> Error(e)
+            Ok(#(replica_id, crdt_spec_str, key_set_str, values_list)) -> {
       case string_to_spec(crdt_spec_str) {
         Error(_) ->
           Error(
@@ -272,6 +298,8 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
           }
         }
       }
-    }
+            }
+          }
+      }
   }
 }

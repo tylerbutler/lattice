@@ -21,6 +21,24 @@ pub fn lww_register_round_trip_updated_test() {
   |> expect.to_equal(Ok(reg))
 }
 
+pub fn lww_register_from_json_wrong_type_rejected_test() {
+  let payload =
+    "{\"type\":\"mv_register\",\"v\":1,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
+  case lww_register.from_json(payload) {
+    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
+pub fn lww_register_from_json_wrong_version_rejected_test() {
+  let payload =
+    "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
+  case lww_register.from_json(payload) {
+    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
 // MV-Register round-trip tests
 
 pub fn mv_register_to_json_simple_test() {

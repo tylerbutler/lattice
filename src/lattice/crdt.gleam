@@ -16,10 +16,11 @@
 ////
 //// let a = crdt.CrdtGCounter(g_counter.new("node-a") |> g_counter.increment(1))
 //// let b = crdt.CrdtGCounter(g_counter.new("node-b") |> g_counter.increment(2))
-//// let merged = crdt.merge(a, b)
+//// let assert Ok(merged) = crdt.merge(a, b)
 //// ```
 
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import lattice/g_counter.{type GCounter}
 import lattice/g_set.{type GSet}
@@ -48,12 +49,17 @@ import lattice/version_vector.{type VersionVector}
 pub type Crdt {
   CrdtGCounter(GCounter)
   CrdtPnCounter(PNCounter)
-  CrdtLwwRegister(LWWRegister(String))
+  CrdtLwwRegister(LWWRegister)
   CrdtMvRegister(MVRegister(String))
   CrdtGSet(GSet(String))
   CrdtTwoPSet(TwoPSet(String))
   CrdtOrSet(ORSet(String))
   CrdtVersionVector(VersionVector)
+}
+
+/// Error returned when attempting to merge mismatched CRDT variants.
+pub type MergeError {
+  TypeMismatch(expected: String, found: String)
 }
 
 /// Specifies which leaf CRDT type an `ORMap` holds as its values.
@@ -100,24 +106,36 @@ pub fn default_crdt(spec: CrdtSpec, replica_id: String) -> Crdt {
 ///
 /// If `a` and `b` hold the same variant, their inner values are merged using
 /// the type-specific merge function. On type mismatch (different variants),
-/// `a` is returned unchanged. Type mismatches should not occur in a
-/// well-formed system, but this behavior avoids a crash.
-pub fn merge(a: Crdt, b: Crdt) -> Crdt {
+/// an explicit `Error(TypeMismatch(...))` is returned.
+pub fn merge(a: Crdt, b: Crdt) -> Result(Crdt, MergeError) {
   case a, b {
-    CrdtGCounter(ca), CrdtGCounter(cb) -> CrdtGCounter(g_counter.merge(ca, cb))
+    CrdtGCounter(ca), CrdtGCounter(cb) -> Ok(CrdtGCounter(g_counter.merge(ca, cb)))
     CrdtPnCounter(ca), CrdtPnCounter(cb) ->
-      CrdtPnCounter(pn_counter.merge(ca, cb))
+      Ok(CrdtPnCounter(pn_counter.merge(ca, cb)))
     CrdtLwwRegister(ca), CrdtLwwRegister(cb) ->
-      CrdtLwwRegister(lww_register.merge(ca, cb))
+      Ok(CrdtLwwRegister(lww_register.merge(ca, cb)))
     CrdtMvRegister(ca), CrdtMvRegister(cb) ->
-      CrdtMvRegister(mv_register.merge(ca, cb))
-    CrdtGSet(ca), CrdtGSet(cb) -> CrdtGSet(g_set.merge(ca, cb))
-    CrdtTwoPSet(ca), CrdtTwoPSet(cb) -> CrdtTwoPSet(two_p_set.merge(ca, cb))
-    CrdtOrSet(ca), CrdtOrSet(cb) -> CrdtOrSet(or_set.merge(ca, cb))
+      Ok(CrdtMvRegister(mv_register.merge(ca, cb)))
+    CrdtGSet(ca), CrdtGSet(cb) -> Ok(CrdtGSet(g_set.merge(ca, cb)))
+    CrdtTwoPSet(ca), CrdtTwoPSet(cb) -> Ok(CrdtTwoPSet(two_p_set.merge(ca, cb)))
+    CrdtOrSet(ca), CrdtOrSet(cb) -> Ok(CrdtOrSet(or_set.merge(ca, cb)))
     CrdtVersionVector(ca), CrdtVersionVector(cb) ->
-      CrdtVersionVector(version_vector.merge(ca, cb))
-    _, _ -> a
-    // Type mismatch: return first argument
+      Ok(CrdtVersionVector(version_vector.merge(ca, cb)))
+    _, _ ->
+      Error(TypeMismatch(expected: crdt_name(a), found: crdt_name(b)))
+  }
+}
+
+fn crdt_name(c: Crdt) -> String {
+  case c {
+    CrdtGCounter(_) -> "g_counter"
+    CrdtPnCounter(_) -> "pn_counter"
+    CrdtLwwRegister(_) -> "lww_register"
+    CrdtMvRegister(_) -> "mv_register"
+    CrdtGSet(_) -> "g_set"
+    CrdtTwoPSet(_) -> "two_p_set"
+    CrdtOrSet(_) -> "or_set"
+    CrdtVersionVector(_) -> "version_vector"
   }
 }
 
@@ -145,13 +163,27 @@ pub fn to_json(crdt: Crdt) -> json.Json {
 /// use. Returns `Error` if the string is not valid JSON, the `"type"` field
 /// is missing, or the type tag is not recognized.
 pub fn from_json(json_string: String) -> Result(Crdt, json.DecodeError) {
-  let type_decoder = {
+  let envelope_decoder = {
     use type_tag <- decode.field("type", decode.string)
-    decode.success(type_tag)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
   }
-  case json.parse(from: json_string, using: type_decoder) {
+  case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
-    Ok(type_tag) -> dispatch_decode(type_tag, json_string)
+    Ok(#(type_tag, version)) ->
+      case version == 1 {
+        True -> dispatch_decode(type_tag, json_string)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "v=1",
+                found: int.to_string(version),
+                path: ["v"],
+              ),
+            ]),
+          )
+      }
   }
 }
 

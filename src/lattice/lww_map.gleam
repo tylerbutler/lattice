@@ -18,9 +18,12 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/order.{Eq, Gt, Lt}
+import gleam/string
 
 /// A Last-Writer-Wins Map (LWW-Map) CRDT.
 ///
@@ -107,7 +110,9 @@ pub fn values(map: LWWMap) -> List(String) {
 ///
 /// Tombstones participate in merge: if a tombstone has a higher timestamp
 /// than the active entry for a key, the key remains removed after merging.
-/// On equal timestamps, the first argument's entry wins (consistent tiebreak).
+/// On equal timestamps, a deterministic tie-break is used:
+/// tombstones win over active values, otherwise the lexicographically greater
+/// value wins.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
@@ -117,12 +122,7 @@ pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
     list.fold(all_keys, dict.new(), fn(acc, key) {
       let winner = case dict.get(a.entries, key), dict.get(b.entries, key) {
         Ok(ea), Ok(eb) -> {
-          let #(_, ts_a) = ea
-          let #(_, ts_b) = eb
-          case ts_a >= ts_b {
-            True -> ea
-            False -> eb
-          }
+          choose_winner(ea, eb)
         }
         Ok(ea), Error(_) -> ea
         Error(_), Ok(eb) -> eb
@@ -132,6 +132,33 @@ pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
       dict.insert(acc, key, winner)
     })
   LWWMap(entries: merged)
+}
+
+fn choose_winner(
+  a: #(Option(String), Int),
+  b: #(Option(String), Int),
+) -> #(Option(String), Int) {
+  let #(_, ts_a) = a
+  let #(_, ts_b) = b
+  case ts_a > ts_b {
+    True -> a
+    False ->
+      case ts_b > ts_a {
+        True -> b
+        False ->
+          case a, b {
+            #(None, _), #(Some(_), _) -> a
+            #(Some(_), _), #(None, _) -> b
+            #(None, _), #(None, _) -> a
+            #(Some(a_val), _), #(Some(b_val), _) ->
+              case string.compare(a_val, b_val) {
+                Gt -> a
+                Eq -> a
+                Lt -> b
+              }
+          }
+      }
+  }
 }
 
 /// Encode a `LWWMap` as a self-describing JSON value.
@@ -174,12 +201,33 @@ pub fn from_json(json_string: String) -> Result(LWWMap, json.DecodeError) {
     use timestamp <- decode.field("timestamp", decode.int)
     decode.success(#(key, #(opt_value, timestamp)))
   }
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use entries_list <- decode.field("entries", decode.list(entry_decoder))
       decode.success(LWWMap(entries: dict.from_list(entries_list)))
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "lww_map" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=lww_map and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }

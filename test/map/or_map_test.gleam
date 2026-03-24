@@ -299,6 +299,19 @@ pub fn merge_add_wins_keys_in_or_set_test() {
   |> expect.to_be_true
 }
 
+pub fn remove_prevents_key_resurrection_without_concurrent_update_test() {
+  // A creates key x, B observes and removes x, A stays stale (pre-remove).
+  // Merge must keep x removed because there is no concurrent re-add/update.
+  let map_a = or_map.new("A", GCounterSpec) |> or_map.update("x", fn(c) { c })
+  let map_b = or_map.merge(or_map.new("B", GCounterSpec), map_a)
+  let map_b = or_map.remove(map_b, "x")
+
+  let merged = or_map.merge(map_a, map_b)
+
+  or_map.get(merged, "x")
+  |> expect.to_equal(Error(Nil))
+}
+
 // --- OR-Set key access via or_set ---
 
 pub fn key_set_can_be_accessed_directly_test() {

@@ -21,6 +21,7 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/result
@@ -33,6 +34,10 @@ import gleam/result
 /// serialization; do not rely on internal field names in application code.
 pub type GCounter {
   GCounter(dict: dict.Dict(String, Int), self_id: String)
+}
+
+pub type IncrementError {
+  NegativeDelta(Int)
 }
 
 /// Create a new G-Counter for the given replica.
@@ -49,9 +54,25 @@ pub fn new(replica_id: String) -> GCounter {
 /// integer; passing a negative value will decrease the local count, which
 /// violates the grow-only invariant and may cause incorrect merge results.
 pub fn increment(counter: GCounter, delta: Int) -> GCounter {
-  let GCounter(dict, self_id) = counter
-  let current = result.unwrap(dict.get(dict, self_id), 0)
-  GCounter(dict.insert(dict, self_id, current + delta), self_id)
+  let assert Ok(updated) = try_increment(counter, delta)
+  updated
+}
+
+/// Safely increment the counter by `delta`.
+///
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+pub fn try_increment(
+  counter: GCounter,
+  delta: Int,
+) -> Result(GCounter, IncrementError) {
+  case delta < 0 {
+    True -> Error(NegativeDelta(delta))
+    False -> {
+      let GCounter(dict, self_id) = counter
+      let current = result.unwrap(dict.get(dict, self_id), 0)
+      Ok(GCounter(dict.insert(dict, self_id, current + delta), self_id))
+    }
+  }
 }
 
 /// Get the current value of the counter.
@@ -111,7 +132,7 @@ pub fn to_json(counter: GCounter) -> json.Json {
 /// Returns `Ok(GCounter)` on success, or `Error(json.DecodeError)` if the
 /// input is not a valid G-Counter JSON envelope.
 pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use self_id <- decode.field("self_id", decode.string)
       use counts <- decode.field(
@@ -122,7 +143,28 @@ pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "g_counter" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=g_counter and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }
 
 fn merge_helper(

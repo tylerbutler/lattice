@@ -18,6 +18,7 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import lattice/version_vector.{type VersionVector}
@@ -188,7 +189,7 @@ pub fn from_json(
     use value <- decode.field("value", decode.string)
     decode.success(#(tag, value))
   }
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use replica_id <- decode.field("replica_id", decode.string)
       use entries_list <- decode.field("entries", decode.list(entry_decoder))
@@ -206,5 +207,26 @@ pub fn from_json(
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "mv_register" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=mv_register and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }

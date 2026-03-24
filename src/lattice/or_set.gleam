@@ -18,6 +18,7 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/result
@@ -41,7 +42,12 @@ pub opaque type Tag {
 /// a concurrent add on another replica will have created a new tag that
 /// survives the remove.
 pub type ORSet(a) {
-  ORSet(replica_id: String, counter: Int, entries: dict.Dict(a, set.Set(Tag)))
+  ORSet(
+    replica_id: String,
+    counter: Int,
+    entries: dict.Dict(a, set.Set(Tag)),
+    tombstones: set.Set(Tag),
+  )
 }
 
 /// Create a new empty OR-Set for the given replica.
@@ -49,7 +55,12 @@ pub type ORSet(a) {
 /// Each replica should have a unique `replica_id` to ensure that tags
 /// generated on different replicas never collide.
 pub fn new(replica_id: String) -> ORSet(a) {
-  ORSet(replica_id: replica_id, counter: 0, entries: dict.new())
+  ORSet(
+    replica_id: replica_id,
+    counter: 0,
+    entries: dict.new(),
+    tombstones: set.new(),
+  )
 }
 
 /// Add an element to the set.
@@ -66,6 +77,7 @@ pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
     replica_id: orset.replica_id,
     counter: new_counter,
     entries: dict.insert(orset.entries, element, new_tags),
+    tombstones: orset.tombstones,
   )
 }
 
@@ -75,10 +87,12 @@ pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
 /// semantics). Any concurrent add on another replica that created a new tag
 /// not yet observed here will survive this remove after merging.
 pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
+  let observed_tags = result.unwrap(dict.get(orset.entries, element), set.new())
   ORSet(
     replica_id: orset.replica_id,
     counter: orset.counter,
     entries: dict.delete(orset.entries, element),
+    tombstones: set.union(orset.tombstones, observed_tags),
   )
 }
 
@@ -108,13 +122,15 @@ pub fn value(orset: ORSet(a)) -> set.Set(a) {
 
 /// Merge two OR-Sets.
 ///
-/// For each element, the merged tag set is the union of both sides' tags.
+  /// For each element, the merged tag set is the union of both sides' tags,
+  /// minus merged tombstones.
 /// An element is present if it has at least one tag in the merged result.
 /// The merged counter is the maximum of both sides, ensuring future adds
 /// on either replica generate unique tags.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
+  let merged_tombstones = set.union(a.tombstones, b.tombstones)
   let a_keys = dict.keys(a.entries)
   let b_keys = dict.keys(b.entries)
   let all_keys = list.unique(list.append(a_keys, b_keys))
@@ -123,7 +139,9 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     list.fold(all_keys, dict.new(), fn(acc, element) {
       let a_tags = result.unwrap(dict.get(a.entries, element), set.new())
       let b_tags = result.unwrap(dict.get(b.entries, element), set.new())
-      let combined = set.union(a_tags, b_tags)
+      let combined =
+        set.union(a_tags, b_tags)
+        |> set.filter(fn(tag) { !set.contains(merged_tombstones, tag) })
       case set.is_empty(combined) {
         True -> acc
         False -> dict.insert(acc, element, combined)
@@ -139,6 +157,7 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     replica_id: a.replica_id,
     counter: merged_counter,
     entries: merged_entries,
+    tombstones: merged_tombstones,
   )
 }
 
@@ -168,6 +187,13 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
             })
           }),
         ),
+        #(
+          "tombstones",
+          json.array(set.to_list(orset.tombstones), fn(tag) {
+            let Tag(rid, c) = tag
+            json.object([#("r", json.string(rid)), #("c", json.int(c))])
+          }),
+        ),
       ]),
     ),
   ])
@@ -178,27 +204,74 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
 /// Returns `Error` if the string is not valid JSON or does not match the
 /// expected format.
 pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError) {
-  let tag_decoder = {
-    use r <- decode.field("r", decode.string)
-    use c <- decode.field("c", decode.int)
-    decode.success(Tag(replica_id: r, counter: c))
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
   }
-  let tag_set_decoder = decode.map(decode.list(tag_decoder), set.from_list)
-  let decoder = {
-    use state <- decode.field("state", {
-      use replica_id <- decode.field("replica_id", decode.string)
-      use counter <- decode.field("counter", decode.int)
-      use entries <- decode.field(
-        "entries",
-        decode.dict(decode.string, tag_set_decoder),
-      )
-      decode.success(ORSet(
-        replica_id: replica_id,
-        counter: counter,
-        entries: entries,
-      ))
-    })
-    decode.success(state)
+  let envelope_result = json.parse(from: json_string, using: envelope_decoder)
+  case envelope_result {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "or_set" && version == 1 {
+        True -> {
+          let tag_decoder = {
+            use r <- decode.field("r", decode.string)
+            use c <- decode.field("c", decode.int)
+            decode.success(Tag(replica_id: r, counter: c))
+          }
+          let tag_set_decoder = decode.map(decode.list(tag_decoder), set.from_list)
+          let decoder_with_tombstones = {
+            use state <- decode.field("state", {
+              use replica_id <- decode.field("replica_id", decode.string)
+              use counter <- decode.field("counter", decode.int)
+              use entries <- decode.field(
+                "entries",
+                decode.dict(decode.string, tag_set_decoder),
+              )
+              use tombstones <- decode.field("tombstones", tag_set_decoder)
+              decode.success(ORSet(
+                replica_id: replica_id,
+                counter: counter,
+                entries: entries,
+                tombstones: tombstones,
+              ))
+            })
+            decode.success(state)
+          }
+          let decoder_without_tombstones = {
+            use state <- decode.field("state", {
+              use replica_id <- decode.field("replica_id", decode.string)
+              use counter <- decode.field("counter", decode.int)
+              use entries <- decode.field(
+                "entries",
+                decode.dict(decode.string, tag_set_decoder),
+              )
+              decode.success(ORSet(
+                replica_id: replica_id,
+                counter: counter,
+                entries: entries,
+                tombstones: set.new(),
+              ))
+            })
+            decode.success(state)
+          }
+          case json.parse(from: json_string, using: decoder_with_tombstones) {
+            Ok(parsed) -> Ok(parsed)
+            Error(_) ->
+              json.parse(from: json_string, using: decoder_without_tombstones)
+          }
+        }
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=or_set and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
   }
-  json.parse(from: json_string, using: decoder)
 }

@@ -17,6 +17,7 @@
 //// ```
 
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import lattice/g_counter
 
@@ -28,6 +29,10 @@ import lattice/g_counter
 /// G-Counter fields; do not rely on internal field names in application code.
 pub type PNCounter {
   PNCounter(positive: g_counter.GCounter, negative: g_counter.GCounter)
+}
+
+pub type UpdateError {
+  NegativeDelta(Int)
 }
 
 /// Create a new PN-Counter for the given replica.
@@ -47,8 +52,23 @@ pub fn new(replica_id: String) -> PNCounter {
 /// integer; the positive G-Counter is grow-only so passing a negative value
 /// violates the invariant.
 pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
+  let assert Ok(updated) = try_increment(counter, delta)
+  updated
+}
+
+/// Safely increment the counter by `delta`.
+///
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+pub fn try_increment(
+  counter: PNCounter,
+  delta: Int,
+) -> Result(PNCounter, UpdateError) {
   let PNCounter(positive, negative) = counter
-  PNCounter(positive: g_counter.increment(positive, delta), negative: negative)
+  case g_counter.try_increment(positive, delta) {
+    Ok(updated_positive) ->
+      Ok(PNCounter(positive: updated_positive, negative: negative))
+    Error(g_counter.NegativeDelta(d)) -> Error(NegativeDelta(d))
+  }
 }
 
 /// Decrement the counter by `delta`.
@@ -57,8 +77,23 @@ pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
 /// `delta` should be a non-negative integer; the negative G-Counter is
 /// grow-only so passing a negative value violates the invariant.
 pub fn decrement(counter: PNCounter, delta: Int) -> PNCounter {
+  let assert Ok(updated) = try_decrement(counter, delta)
+  updated
+}
+
+/// Safely decrement the counter by `delta`.
+///
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+pub fn try_decrement(
+  counter: PNCounter,
+  delta: Int,
+) -> Result(PNCounter, UpdateError) {
   let PNCounter(positive, negative) = counter
-  PNCounter(positive: positive, negative: g_counter.increment(negative, delta))
+  case g_counter.try_increment(negative, delta) {
+    Ok(updated_negative) ->
+      Ok(PNCounter(positive: positive, negative: updated_negative))
+    Error(g_counter.NegativeDelta(d)) -> Error(NegativeDelta(d))
+  }
 }
 
 /// Get the current value of the counter.
@@ -132,7 +167,7 @@ pub fn from_json(json_string: String) -> Result(PNCounter, json.DecodeError) {
     use counts <- decode.field("counts", decode.dict(decode.string, decode.int))
     decode.success(g_counter.GCounter(dict: counts, self_id: self_id))
   }
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use positive <- decode.field("positive", g_counter_state_decoder)
       use negative <- decode.field("negative", g_counter_state_decoder)
@@ -140,5 +175,26 @@ pub fn from_json(json_string: String) -> Result(PNCounter, json.DecodeError) {
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "pn_counter" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=pn_counter and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }

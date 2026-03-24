@@ -205,3 +205,14 @@ pub fn merge_commutativity_test() {
   lww_map.get(merged_ab, "y") |> expect.to_equal(lww_map.get(merged_ba, "y"))
   lww_map.get(merged_ab, "z") |> expect.to_equal(lww_map.get(merged_ba, "z"))
 }
+
+pub fn merge_equal_timestamp_is_commutative_test() {
+  let a = lww_map.new() |> lww_map.set("k", "aaa", 10)
+  let b = lww_map.new() |> lww_map.set("k", "bbb", 10)
+
+  let merged_ab = lww_map.merge(a, b)
+  let merged_ba = lww_map.merge(b, a)
+
+  lww_map.get(merged_ab, "k")
+  |> expect.to_equal(lww_map.get(merged_ba, "k"))
+}
