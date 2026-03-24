@@ -15,6 +15,13 @@
 //// let merged = lww_map.merge(a, b)
 //// lww_map.get(merged, "name")  // -> Ok("Bob")
 //// ```
+////
+//// ## Tombstone Management
+////
+//// Removing a key creates a tombstone that persists until pruned. Use
+//// `tombstone_count` to monitor growth and `prune` to reclaim space once all
+//// replicas have synced past a stable timestamp.
+//// See [#18](https://github.com/tylerbutler/lattice/issues/18) for details.
 
 import gleam/dict
 import gleam/dynamic/decode
@@ -32,9 +39,11 @@ import gleam/string
 /// the entry with the higher timestamp wins for each key; on ties, the first
 /// argument's entry is kept as a consistent tiebreak.
 ///
-/// Note: Tombstones accumulate indefinitely. A dot matrix (or similar causal
-/// context) will be used in the future to safely prune them.
-/// (See https://github.com/tylerbutler/lattice/issues/18)
+/// Note: Tombstones accumulate until pruned. Use `prune` with a stable
+/// timestamp to remove them. See the `prune` function documentation for
+/// the safety contract. A future version will embed a `pruned_timestamp` in
+/// the type for automatic zombie detection on merge; see
+/// [#18](https://github.com/tylerbutler/lattice/issues/18).
 pub type LWWMap {
   LWWMap(entries: dict.Dict(String, #(Option(String), Int)))
 }
@@ -76,8 +85,9 @@ pub fn get(map: LWWMap, key: String) -> Result(String, Nil) {
 /// If the key already has an entry with an equal or higher timestamp, the
 /// remove is rejected and the existing entry wins.
 ///
-/// Note: This operation creates a tombstone that is currently retained indefinitely.
-/// Future versions will use a dot matrix to support safe pruning.
+/// Note: This operation creates a tombstone. Use `tombstone_count` to monitor
+/// growth and `prune` with a stable timestamp to remove tombstones once all
+/// replicas have observed them.
 /// (See https://github.com/tylerbutler/lattice/issues/18)
 pub fn remove(map: LWWMap, key: String, timestamp: Int) -> LWWMap {
   let should_remove = case dict.get(map.entries, key) {
@@ -100,6 +110,71 @@ pub fn keys(map: LWWMap) -> List(String) {
       #(None, _) -> acc
     }
   })
+}
+
+/// Return the number of tombstoned (removed) entries in the map.
+///
+/// Useful for monitoring tombstone growth and deciding when to call `prune`.
+/// (See https://github.com/tylerbutler/lattice/issues/18)
+///
+/// ## Examples
+///
+/// ```gleam
+/// let m = lww_map.new()
+///   |> lww_map.set("a", "1", 1)
+///   |> lww_map.set("b", "2", 1)
+///   |> lww_map.remove("a", 10)
+/// lww_map.tombstone_count(m)  // -> 1
+/// ```
+pub fn tombstone_count(map: LWWMap) -> Int {
+  dict.fold(map.entries, 0, fn(acc, _key, entry) {
+    case entry {
+      #(None, _) -> acc + 1
+      #(Some(_), _) -> acc
+    }
+  })
+}
+
+/// Prune tombstones at or below the given stable timestamp.
+///
+/// Removes all tombstone entries (keys with `None` value) whose timestamp is
+/// less than or equal to `stable_timestamp`. Active entries are never removed.
+///
+/// **Safety contract:** The caller must ensure that all replicas have merged
+/// all operations with timestamps up to `stable_timestamp` before pruning.
+/// If this invariant is violated, a pruned tombstone may fail to suppress an
+/// older `set` arriving later via merge, causing the key to reappear with its
+/// old value — known as the "zombie problem" in CRDT literature. If you cannot
+/// guarantee all replicas have synced, prefer a conservative (older)
+/// `stable_timestamp` or wait for the zombie-safe v2 API
+/// ([#18](https://github.com/tylerbutler/lattice/issues/18)).
+///
+/// **Future:** A v2 of this function will add a `pruned_timestamp` field to the
+/// `LWWMap` type, enabling automatic zombie detection on merge. This is a
+/// breaking change tracked in
+/// [#18](https://github.com/tylerbutler/lattice/issues/18). The current
+/// `prune` function is safe to use today with proper coordination.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let m = lww_map.new()
+///   |> lww_map.set("a", "alive", 1)
+///   |> lww_map.remove("b", 5)
+///   |> lww_map.remove("c", 15)
+/// let pruned = lww_map.prune(m, 10)
+/// lww_map.tombstone_count(pruned)  // -> 1 (only "c" at ts=15 remains)
+/// lww_map.get(pruned, "a")         // -> Ok("alive")
+/// ```
+pub fn prune(map: LWWMap, stable_timestamp: Int) -> LWWMap {
+  LWWMap(
+    entries: dict.filter(map.entries, fn(_key, entry) {
+      case entry {
+        #(None, ts) -> ts > stable_timestamp
+        #(Some(_), _) -> True
+      }
+    }),
+  )
 }
 
 /// Return all active (non-tombstoned) values in the map.
