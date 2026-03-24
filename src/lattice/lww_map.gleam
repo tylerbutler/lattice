@@ -31,6 +31,10 @@ import gleam/string
 /// timestamp. A `None` value represents a tombstone (removed key). On merge,
 /// the entry with the higher timestamp wins for each key; on ties, the first
 /// argument's entry is kept as a consistent tiebreak.
+///
+/// Note: Tombstones accumulate indefinitely. A dot matrix (or similar causal
+/// context) will be used in the future to safely prune them.
+/// (See https://github.com/tylerbutler/lattice/issues/18)
 pub type LWWMap {
   LWWMap(entries: dict.Dict(String, #(Option(String), Int)))
 }
@@ -71,6 +75,10 @@ pub fn get(map: LWWMap, key: String) -> Result(String, Nil) {
 ///
 /// If the key already has an entry with an equal or higher timestamp, the
 /// remove is rejected and the existing entry wins.
+///
+/// Note: This operation creates a tombstone that is currently retained indefinitely.
+/// Future versions will use a dot matrix to support safe pruning.
+/// (See https://github.com/tylerbutler/lattice/issues/18)
 pub fn remove(map: LWWMap, key: String, timestamp: Int) -> LWWMap {
   let should_remove = case dict.get(map.entries, key) {
     Error(_) -> True
