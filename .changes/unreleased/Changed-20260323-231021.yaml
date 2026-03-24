@@ -1,0 +1,7 @@
+kind: Changed
+body: |-
+    Return explicit errors for CRDT type mismatch merges
+
+    crdt.merge now returns a Result with MergeError on variant mismatch instead of silently keeping one side.
+    This surfaces invalid mixed-type states explicitly and avoids hidden divergence behavior.
+time: 2026-03-23T23:10:21.673834-07:00

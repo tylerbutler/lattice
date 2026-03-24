@@ -1,0 +1,6 @@
+kind: Added
+body: |-
+    Add safe counter update APIs for negative-delta validation
+
+    Added g_counter.try_increment and pn_counter.try_increment/try_decrement returning explicit errors for invalid negative deltas.
+time: 2026-03-23T23:10:22.678416-07:00

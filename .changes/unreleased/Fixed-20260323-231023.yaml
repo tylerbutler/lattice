@@ -1,0 +1,7 @@
+kind: Fixed
+body: |-
+    Enforce type and version checks in CRDT JSON deserialization
+
+    from_json decoders now validate the envelope type discriminator and schema version before decoding state.
+    Existing OR-Set payloads without tombstones remain backward-compatible.
+time: 2026-03-23T23:10:23.682797-07:00

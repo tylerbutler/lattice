@@ -1,8 +1,0 @@
-kind: Fixed
-body: |-
-    fix CRDT merge correctness and deserialization hardening
-
-    Prevented OR-Set/OR-Map remove resurrection with tombstones, made LWW tie-breaking deterministic under equal timestamps,
-    replaced silent CRDT type-mismatch merge fallback with explicit error handling, added safe counter delta APIs,
-    and enforced strict type/version envelope validation in from_json decoders.
-time: 2026-03-23T23:04:13.993233-07:00
