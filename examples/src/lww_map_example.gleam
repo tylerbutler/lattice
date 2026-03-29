@@ -1,3 +1,4 @@
+import gleam/int
 import gleam/io
 import gleam/json
 import gleam/list
@@ -48,6 +49,38 @@ pub fn main() {
     Ok(_) -> io.println("  → 'theme' still present (unexpected)")
     Error(_) -> io.println("  → 'theme' is gone ✓")
   }
+  io.println("")
+
+  // --- Tombstone management ---
+  // Removing keys creates tombstones. Monitor growth with tombstone_count
+  // and reclaim space with prune once all replicas have synced.
+  let map_with_tombstones =
+    lww_map.new()
+    |> lww_map.set("a", "1", 1)
+    |> lww_map.set("b", "2", 2)
+    |> lww_map.set("c", "3", 3)
+    |> lww_map.remove("a", 10)
+    |> lww_map.remove("b", 20)
+
+  io.println("--- Tombstone Management ---")
+  io.println(
+    "Tombstone count: "
+    <> int.to_string(lww_map.tombstone_count(map_with_tombstones)),
+  )
+
+  // Prune tombstones at or below timestamp 15
+  // Safety: only prune after ALL replicas have synced past this timestamp
+  let pruned = lww_map.prune(map_with_tombstones, 15)
+  io.println(
+    "After prune(ts=15): "
+    <> int.to_string(lww_map.tombstone_count(pruned))
+    <> " tombstone(s) remain",
+  )
+  io.println(
+    "Active keys after prune: ["
+    <> string.join(list.sort(lww_map.keys(pruned), string.compare), ", ")
+    <> "]",
+  )
   io.println("")
 
   // JSON round-trip
