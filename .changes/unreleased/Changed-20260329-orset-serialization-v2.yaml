@@ -1,0 +1,10 @@
+kind: Changed
+body: |-
+    Bump OR-Set serialization format to v2
+
+    `or_set.to_json` now emits `"v": 2` envelopes that include `tombstones`
+    and `pruned` fields. `or_set.from_json` accepts both v1 (no tombstones or
+    pruned data) and v2 payloads, so existing persisted state can still be
+    loaded without migration. New serialized output is not readable by older
+    versions of the library that only understand v1.
+time: 2026-03-29T10:02:00.000000-07:00

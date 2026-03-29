@@ -172,12 +172,7 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   let merged_values =
     list.fold(all_value_keys, dict.new(), fn(acc, key) {
       let merged_crdt = case valid_value(a, key), valid_value(b, key) {
-        Ok(ca), Ok(cb) ->
-          case crdt.merge(ca, cb) {
-            Ok(c) -> c
-            Error(crdt.TypeMismatch(_, _)) ->
-              crdt.default_crdt(a.crdt_spec, a.replica_id)
-          }
+        Ok(ca), Ok(cb) -> crdt.merge(ca, cb)
         Ok(ca), Error(_) -> ca
         Error(_), Ok(cb) -> cb
         Error(_), Error(_) ->

@@ -1,7 +1,9 @@
 kind: Fixed
 body: |-
-    Prevent OR-Set and OR-Map remove resurrection under merge
+    Prevent removed elements from reappearing after OR-Set and OR-Map merge
 
-    OR-Set now tracks observed removed tags as tombstones and filters them during merge.
-    This preserves observed-remove semantics and prevents stale replicas from reviving removed keys in OR-Map.
+    Merging an OR-Set with a stale replica could resurrect elements that had
+    already been removed. OR-Set now tracks tombstones for removed tags and
+    filters them during merge, preserving add-wins / observed-remove semantics.
+    OR-Map inherits this fix for its internal key set.
 time: 2026-03-23T23:10:19.664269-07:00

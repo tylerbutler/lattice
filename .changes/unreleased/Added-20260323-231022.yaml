@@ -1,6 +1,9 @@
 kind: Added
 body: |-
-    Add safe counter update APIs for negative-delta validation
+    Add `try_increment` and `try_decrement` for safe counter updates
 
-    Added g_counter.try_increment and pn_counter.try_increment/try_decrement returning explicit errors for invalid negative deltas.
+    `g_counter.try_increment` and `pn_counter.try_increment` /
+    `pn_counter.try_decrement` return `Result` values, returning
+    `Error(NegativeDelta(n))` when passed a negative delta. The existing
+    `increment` / `decrement` functions are unchanged.
 time: 2026-03-23T23:10:22.678416-07:00
