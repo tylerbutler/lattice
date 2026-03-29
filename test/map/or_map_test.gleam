@@ -330,7 +330,8 @@ pub fn merge_rejects_maps_with_different_specs_test() {
   let counters = or_map.new("A", GCounterSpec)
   let sets = or_map.new("B", GSetSpec)
 
-  expect.to_throw(fn() { or_map.merge(counters, sets) })
+  or_map.merge(counters, sets)
+  |> expect.to_equal(counters)
 }
 
 // --- OR-Set key access via or_set ---

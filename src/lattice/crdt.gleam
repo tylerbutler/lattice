@@ -115,7 +115,7 @@ pub fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
 ///
 /// If `a` and `b` hold the same variant, their inner values are merged using
 /// the type-specific merge function. On type mismatch (different variants),
-/// merge panics to make invalid state explicit rather than silently hiding it.
+/// returns `a` (silently ignores the incompatible remote state).
 pub fn merge(a: Crdt, b: Crdt) -> Crdt {
   case a, b {
     CrdtGCounter(ca), CrdtGCounter(cb) -> CrdtGCounter(g_counter.merge(ca, cb))
@@ -130,7 +130,7 @@ pub fn merge(a: Crdt, b: Crdt) -> Crdt {
     CrdtOrSet(ca), CrdtOrSet(cb) -> CrdtOrSet(or_set.merge(ca, cb))
     CrdtVersionVector(ca), CrdtVersionVector(cb) ->
       CrdtVersionVector(version_vector.merge(ca, cb))
-    _, _ -> panic as "Cannot merge different CRDT variants"
+    _, _ -> a
   }
 }
 

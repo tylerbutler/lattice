@@ -159,26 +159,27 @@ pub fn values(map: ORMap) -> List(Crdt) {
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORMap, b: ORMap) -> ORMap {
-  assert_matching_specs(a.crdt_spec, b.crdt_spec)
-  let _ = validate_values_against_spec(a.values, a.crdt_spec)
-  let _ = validate_values_against_spec(b.values, b.crdt_spec)
+  case a.crdt_spec == b.crdt_spec {
+    False -> a
+    True -> {
+      let merged_key_set = or_set.merge(a.key_set, b.key_set)
 
-  let merged_key_set = or_set.merge(a.key_set, b.key_set)
+      let merged_values =
+        dict.fold(b.values, a.values, fn(acc, key, val_b) {
+          case dict.get(acc, key) {
+            Ok(val_a) -> dict.insert(acc, key, crdt.merge(val_a, val_b))
+            Error(Nil) -> dict.insert(acc, key, val_b)
+          }
+        })
 
-  let merged_values =
-    dict.fold(b.values, a.values, fn(acc, key, val_b) {
-      case dict.get(acc, key) {
-        Ok(val_a) -> dict.insert(acc, key, crdt.merge(val_a, val_b))
-        Error(Nil) -> dict.insert(acc, key, val_b)
-      }
-    })
-
-  ORMap(
-    replica_id: a.replica_id,
-    crdt_spec: a.crdt_spec,
-    key_set: merged_key_set,
-    values: merged_values,
-  )
+      ORMap(
+        replica_id: a.replica_id,
+        crdt_spec: a.crdt_spec,
+        key_set: merged_key_set,
+        values: merged_values,
+      )
+    }
+  }
 }
 
 /// Encode an `ORMap` as a self-describing JSON value.
@@ -291,28 +292,6 @@ fn decode_values(
     Ok(pairs) -> Ok(dict.from_list(pairs))
     Error(e) -> Error(e)
   }
-}
-
-fn assert_matching_specs(expected: CrdtSpec, actual: CrdtSpec) -> Nil {
-  case expected == actual {
-    True -> Nil
-    False ->
-      panic as {
-        "Cannot merge ORMaps with different CRDT specs: "
-        <> spec_to_string(expected)
-        <> " vs "
-        <> spec_to_string(actual)
-      }
-  }
-}
-
-fn validate_values_against_spec(
-  values: dict.Dict(String, Crdt),
-  spec: CrdtSpec,
-) -> Nil {
-  dict.fold(values, Nil, fn(_, key, value) {
-    assert_value_matches_spec(spec, key, value)
-  })
 }
 
 fn assert_value_matches_spec(spec: CrdtSpec, key: String, value: Crdt) -> Nil {

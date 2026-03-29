@@ -131,7 +131,18 @@ pub fn to_json(counter: PNCounter) -> json.Json {
 pub fn from_json(json_string: String) -> Result(PNCounter, json.DecodeError) {
   let g_counter_state_decoder = {
     use self_id <- decode.field("self_id", decode.string)
-    use counts <- decode.field("counts", decode.dict(decode.string, decode.int))
+    let non_negative_int =
+      decode.int
+      |> decode.then(fn(val) {
+        case val >= 0 {
+          True -> decode.success(val)
+          False -> decode.failure(val, "a non-negative integer")
+        }
+      })
+    use counts <- decode.field(
+      "counts",
+      decode.dict(decode.string, non_negative_int),
+    )
     decode.success(g_counter.GCounter(dict: counts, self_id: self_id))
   }
   let decoder = {
