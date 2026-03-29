@@ -92,11 +92,17 @@ pub fn new(replica_id: String, crdt_spec: CrdtSpec) -> ORMap {
 /// and passed to `f`. The key is added to the OR-Set, marking it active.
 /// The return value of `f` replaces (or sets) the value for that key.
 pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
-  let current = case dict.get(map.values, key) {
-    Ok(crdt_val) -> crdt_val
-    Error(_) -> crdt.default_crdt(map.crdt_spec, map.replica_id)
+  let current = case
+    or_set.contains(map.key_set, key),
+    dict.get(map.values, key)
+  {
+    True, Ok(crdt_val) -> crdt_val
+    _, _ -> crdt.default_crdt(map.crdt_spec, map.replica_id)
   }
-  let updated = f(current)
+  let updated = case matches_spec(f(current), map.crdt_spec) {
+    True -> f(current)
+    False -> current
+  }
   ORMap(
     replica_id: map.replica_id,
     crdt_spec: map.crdt_spec,
@@ -165,12 +171,12 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
     list.unique(list.append(dict.keys(a.values), dict.keys(b.values)))
   let merged_values =
     list.fold(all_value_keys, dict.new(), fn(acc, key) {
-      let merged_crdt = case dict.get(a.values, key), dict.get(b.values, key) {
+      let merged_crdt = case valid_value(a, key), valid_value(b, key) {
         Ok(ca), Ok(cb) ->
           case crdt.merge(ca, cb) {
             Ok(c) -> c
             Error(crdt.TypeMismatch(_, _)) ->
-              panic as "ORMap value type mismatch while merging values"
+              crdt.default_crdt(a.crdt_spec, a.replica_id)
           }
         Ok(ca), Error(_) -> ca
         Error(_), Ok(cb) -> cb
@@ -292,7 +298,20 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
                         list.try_map(values_list, fn(pair) {
                           let #(key, crdt_str) = pair
                           case crdt.from_json(crdt_str) {
-                            Ok(c) -> Ok(#(key, c))
+                            Ok(c) ->
+                              case matches_spec(c, crdt_spec) {
+                                True -> Ok(#(key, c))
+                                False ->
+                                  Error(
+                                    json.UnableToDecode([
+                                      decode.DecodeError(
+                                        expected: spec_to_string(crdt_spec),
+                                        found: crdt_name(c),
+                                        path: ["state", "values"],
+                                      ),
+                                    ]),
+                                  )
+                              }
                             Error(e) -> Error(e)
                           }
                         })
@@ -313,5 +332,42 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
             }
           }
       }
+  }
+}
+
+fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
+  case value, spec {
+    crdt.CrdtGCounter(_), crdt.GCounterSpec -> True
+    crdt.CrdtPnCounter(_), crdt.PnCounterSpec -> True
+    crdt.CrdtLwwRegister(_), crdt.LwwRegisterSpec -> True
+    crdt.CrdtMvRegister(_), crdt.MvRegisterSpec -> True
+    crdt.CrdtGSet(_), crdt.GSetSpec -> True
+    crdt.CrdtTwoPSet(_), crdt.TwoPSetSpec -> True
+    crdt.CrdtOrSet(_), crdt.OrSetSpec -> True
+    _, _ -> False
+  }
+}
+
+fn valid_value(map: ORMap, key: String) -> Result(Crdt, Nil) {
+  case dict.get(map.values, key) {
+    Ok(value) ->
+      case matches_spec(value, map.crdt_spec) {
+        True -> Ok(value)
+        False -> Ok(crdt.default_crdt(map.crdt_spec, map.replica_id))
+      }
+    Error(_) -> Error(Nil)
+  }
+}
+
+fn crdt_name(value: Crdt) -> String {
+  case value {
+    crdt.CrdtGCounter(_) -> "g_counter"
+    crdt.CrdtPnCounter(_) -> "pn_counter"
+    crdt.CrdtLwwRegister(_) -> "lww_register"
+    crdt.CrdtMvRegister(_) -> "mv_register"
+    crdt.CrdtGSet(_) -> "g_set"
+    crdt.CrdtTwoPSet(_) -> "two_p_set"
+    crdt.CrdtOrSet(_) -> "or_set"
+    crdt.CrdtVersionVector(_) -> "version_vector"
   }
 }

@@ -20,7 +20,6 @@
 //// ```
 
 import gleam/dynamic/decode
-import gleam/int
 import gleam/json
 import lattice/g_counter.{type GCounter}
 import lattice/g_set.{type GSet}
@@ -163,27 +162,13 @@ pub fn to_json(crdt: Crdt) -> json.Json {
 /// use. Returns `Error` if the string is not valid JSON, the `"type"` field
 /// is missing, or the type tag is not recognized.
 pub fn from_json(json_string: String) -> Result(Crdt, json.DecodeError) {
-  let envelope_decoder = {
+  let type_decoder = {
     use type_tag <- decode.field("type", decode.string)
-    use version <- decode.field("v", decode.int)
-    decode.success(#(type_tag, version))
+    decode.success(type_tag)
   }
-  case json.parse(from: json_string, using: envelope_decoder) {
+  case json.parse(from: json_string, using: type_decoder) {
     Error(e) -> Error(e)
-    Ok(#(type_tag, version)) ->
-      case version == 1 {
-        True -> dispatch_decode(type_tag, json_string)
-        False ->
-          Error(
-            json.UnableToDecode([
-              decode.DecodeError(
-                expected: "v=1",
-                found: int.to_string(version),
-                path: ["v"],
-              ),
-            ]),
-          )
-      }
+    Ok(type_tag) -> dispatch_decode(type_tag, json_string)
   }
 }
 

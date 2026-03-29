@@ -176,6 +176,19 @@ pub fn to_json_from_json_two_p_set_test() {
   |> expect.to_equal(Ok(c))
 }
 
+pub fn to_json_from_json_or_set_test() {
+  let c =
+    CrdtOrSet(
+      or_set.new("A")
+      |> or_set.add("x")
+      |> or_set.remove("x")
+      |> or_set.prune(version_vector.new() |> version_vector.increment("A")),
+    )
+  let json_str = json.to_string(crdt.to_json(c))
+  crdt.from_json(json_str)
+  |> expect.to_equal(Ok(c))
+}
+
 pub fn to_json_from_json_version_vector_test() {
   let c =
     CrdtVersionVector(

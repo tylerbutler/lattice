@@ -162,10 +162,8 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
       let combined =
         set.union(a_tags, b_tags)
         |> set.filter(fn(tag) {
-          let Tag(rid, c) = tag
-          // Filter out if in tombstones OR dominated by pruned vector
           !set.contains(merged_tombstones, tag)
-          && version_vector.get(merged_pruned, rid) < c
+          && !is_pruned_zombie(tag, a_tags, a.pruned, b_tags, b.pruned)
         })
 
       case set.is_empty(combined) {
@@ -186,6 +184,26 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     tombstones: merged_tombstones,
     pruned: merged_pruned,
   )
+}
+
+fn is_pruned_zombie(
+  tag: Tag,
+  a_tags: set.Set(Tag),
+  a_pruned: VersionVector,
+  b_tags: set.Set(Tag),
+  b_pruned: VersionVector,
+) -> Bool {
+  pruned_on_side_without_live_tag(tag, a_tags, a_pruned)
+  || pruned_on_side_without_live_tag(tag, b_tags, b_pruned)
+}
+
+fn pruned_on_side_without_live_tag(
+  tag: Tag,
+  live_tags: set.Set(Tag),
+  pruned: VersionVector,
+) -> Bool {
+  let Tag(rid, c) = tag
+  version_vector.get(pruned, rid) >= c && !set.contains(live_tags, tag)
 }
 
 /// Prune tombstones based on a stable version vector.

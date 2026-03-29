@@ -1,5 +1,4 @@
 import gleam/json
-import gleam/set
 import lattice/or_set
 import lattice/version_vector
 import startest/expect
@@ -76,6 +75,19 @@ pub fn active_items_survive_pruning_test() {
 
   // item1 should still be there
   or_set.contains(s_pruned, "item1") |> expect.to_be_true()
+}
+
+pub fn active_items_survive_pruning_after_merge_test() {
+  let pruned =
+    or_set.new("A")
+    |> or_set.add("item1")
+    |> or_set.prune(version_vector.new() |> version_vector.increment("A"))
+
+  let stale = or_set.new("B")
+
+  let merged = or_set.merge(pruned, stale)
+
+  or_set.contains(merged, "item1") |> expect.to_be_true()
 }
 
 pub fn json_serialization_v2_test() {
