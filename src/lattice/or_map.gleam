@@ -21,6 +21,7 @@
 
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/set
@@ -90,13 +91,17 @@ pub fn new(replica_id: String, crdt_spec: CrdtSpec) -> ORMap {
 /// and passed to `f`. The key is added to the OR-Set, marking it active.
 /// The return value of `f` replaces (or sets) the value for that key.
 pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
-  let current = case dict.get(map.values, key) {
-    Ok(crdt_val) -> crdt_val
-    Error(_) -> crdt.default_crdt(map.crdt_spec, map.replica_id)
+  let current = case
+    or_set.contains(map.key_set, key),
+    dict.get(map.values, key)
+  {
+    True, Ok(crdt_val) -> crdt_val
+    _, _ -> crdt.default_crdt(map.crdt_spec, map.replica_id)
   }
-  assert_value_matches_spec(map.crdt_spec, key, current)
-  let updated = f(current)
-  assert_value_matches_spec(map.crdt_spec, key, updated)
+  let updated = case matches_spec(f(current), map.crdt_spec) {
+    True -> f(current)
+    False -> current
+  }
   ORMap(
     replica_id: map.replica_id,
     crdt_spec: map.crdt_spec,
@@ -126,6 +131,7 @@ pub fn get(map: ORMap, key: String) -> Result(Crdt, Nil) {
 /// Removes the key from the OR-Set (marking it inactive). The underlying
 /// CRDT value is retained in the values dict so it can participate in
 /// per-key merge if the key is concurrently re-added on another replica.
+/// (See https://github.com/tylerbutler/lattice/issues/17)
 pub fn remove(map: ORMap, key: String) -> ORMap {
   ORMap(..map, key_set: or_set.remove(map.key_set, key))
 }
@@ -159,20 +165,20 @@ pub fn values(map: ORMap) -> List(Crdt) {
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORMap, b: ORMap) -> ORMap {
-  assert_matching_specs(a.crdt_spec, b.crdt_spec)
-  let _ = validate_values_against_spec(a.values, a.crdt_spec)
-  let _ = validate_values_against_spec(b.values, b.crdt_spec)
-
   let merged_key_set = or_set.merge(a.key_set, b.key_set)
-
+  let all_value_keys =
+    list.unique(list.append(dict.keys(a.values), dict.keys(b.values)))
   let merged_values =
-    dict.fold(b.values, a.values, fn(acc, key, val_b) {
-      case dict.get(acc, key) {
-        Ok(val_a) -> dict.insert(acc, key, crdt.merge(val_a, val_b))
-        Error(Nil) -> dict.insert(acc, key, val_b)
+    list.fold(all_value_keys, dict.new(), fn(acc, key) {
+      let merged_crdt = case valid_value(a, key), valid_value(b, key) {
+        Ok(ca), Ok(cb) -> crdt.merge(ca, cb)
+        Ok(ca), Error(_) -> ca
+        Error(_), Ok(cb) -> cb
+        Error(_), Error(_) ->
+          panic as "unreachable: key must exist in at least one map"
       }
+      dict.insert(acc, key, merged_crdt)
     })
-
   ORMap(
     replica_id: a.replica_id,
     crdt_spec: a.crdt_spec,
@@ -224,7 +230,7 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
     use crdt_str <- decode.field("crdt", decode.string)
     decode.success(#(key, crdt_str))
   }
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use replica_id <- decode.field("replica_id", decode.string)
       use crdt_spec_str <- decode.field("crdt_spec", decode.string)
@@ -234,115 +240,110 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
     })
     decode.success(state)
   }
-  case json.parse(from: json_string, using: decoder) {
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
-    Ok(#(replica_id, crdt_spec_str, key_set_str, values_list)) -> {
-      case string_to_spec(crdt_spec_str) {
-        Error(_) ->
+    Ok(#(type_tag, version)) ->
+      case type_tag == "or_map" && version == 1 {
+        False ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
-                expected: "known CrdtSpec",
-                found: crdt_spec_str,
-                path: ["state", "crdt_spec"],
+                expected: "type=or_map and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
               ),
             ]),
           )
-        Ok(crdt_spec) -> {
-          case or_set.from_json(key_set_str) {
+        True ->
+          case json.parse(from: json_string, using: state_decoder) {
             Error(e) -> Error(e)
-            Ok(key_set) -> {
-              case decode_values(values_list, crdt_spec) {
-                Error(e) -> Error(e)
-                Ok(values) ->
-                  Ok(ORMap(
-                    replica_id: replica_id,
-                    crdt_spec: crdt_spec,
-                    key_set: key_set,
-                    values: values,
-                  ))
+            Ok(#(replica_id, crdt_spec_str, key_set_str, values_list)) -> {
+              case string_to_spec(crdt_spec_str) {
+                Error(_) ->
+                  Error(
+                    json.UnableToDecode([
+                      decode.DecodeError(
+                        expected: "known CrdtSpec",
+                        found: crdt_spec_str,
+                        path: ["state", "crdt_spec"],
+                      ),
+                    ]),
+                  )
+                Ok(crdt_spec) -> {
+                  case or_set.from_json(key_set_str) {
+                    Error(e) -> Error(e)
+                    Ok(key_set) -> {
+                      let values_result =
+                        list.try_map(values_list, fn(pair) {
+                          let #(key, crdt_str) = pair
+                          case crdt.from_json(crdt_str) {
+                            Ok(c) ->
+                              case matches_spec(c, crdt_spec) {
+                                True -> Ok(#(key, c))
+                                False ->
+                                  Error(
+                                    json.UnableToDecode([
+                                      decode.DecodeError(
+                                        expected: spec_to_string(crdt_spec),
+                                        found: crdt_name(c),
+                                        path: ["state", "values"],
+                                      ),
+                                    ]),
+                                  )
+                              }
+                            Error(e) -> Error(e)
+                          }
+                        })
+                      case values_result {
+                        Error(e) -> Error(e)
+                        Ok(pairs) ->
+                          Ok(ORMap(
+                            replica_id: replica_id,
+                            crdt_spec: crdt_spec,
+                            key_set: key_set,
+                            values: dict.from_list(pairs),
+                          ))
+                      }
+                    }
+                  }
+                }
               }
             }
           }
-        }
-      }
-    }
-  }
-}
-
-fn decode_values(
-  values_list: List(#(String, String)),
-  crdt_spec: CrdtSpec,
-) -> Result(dict.Dict(String, Crdt), json.DecodeError) {
-  let values_result =
-    list.try_map(values_list, fn(pair) {
-      let #(key, crdt_str) = pair
-      case crdt.from_json(crdt_str) {
-        Ok(c) ->
-          case crdt.matches_spec(c, crdt_spec) {
-            True -> Ok(#(key, c))
-            False -> Error(value_spec_decode_error(key, crdt_spec, c))
-          }
-        Error(e) -> Error(e)
-      }
-    })
-
-  case values_result {
-    Ok(pairs) -> Ok(dict.from_list(pairs))
-    Error(e) -> Error(e)
-  }
-}
-
-fn assert_matching_specs(expected: CrdtSpec, actual: CrdtSpec) -> Nil {
-  case expected == actual {
-    True -> Nil
-    False ->
-      panic as {
-        "Cannot merge ORMaps with different CRDT specs: "
-        <> spec_to_string(expected)
-        <> " vs "
-        <> spec_to_string(actual)
       }
   }
 }
 
-fn validate_values_against_spec(
-  values: dict.Dict(String, Crdt),
-  spec: CrdtSpec,
-) -> Nil {
-  dict.fold(values, Nil, fn(_, key, value) {
-    assert_value_matches_spec(spec, key, value)
-  })
-}
-
-fn assert_value_matches_spec(spec: CrdtSpec, key: String, value: Crdt) -> Nil {
-  case crdt.matches_spec(value, spec) {
-    True -> Nil
-    False ->
-      panic as {
-        "ORMap value for key "
-        <> key
-        <> " does not match CRDT spec "
-        <> spec_to_string(spec)
-      }
+fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
+  case value, spec {
+    crdt.CrdtGCounter(_), crdt.GCounterSpec -> True
+    crdt.CrdtPnCounter(_), crdt.PnCounterSpec -> True
+    crdt.CrdtLwwRegister(_), crdt.LwwRegisterSpec -> True
+    crdt.CrdtMvRegister(_), crdt.MvRegisterSpec -> True
+    crdt.CrdtGSet(_), crdt.GSetSpec -> True
+    crdt.CrdtTwoPSet(_), crdt.TwoPSetSpec -> True
+    crdt.CrdtOrSet(_), crdt.OrSetSpec -> True
+    _, _ -> False
   }
 }
 
-fn value_spec_decode_error(
-  key: String,
-  spec: CrdtSpec,
-  value: Crdt,
-) -> json.DecodeError {
-  json.UnableToDecode([
-    decode.DecodeError(
-      expected: "CRDT matching " <> spec_to_string(spec),
-      found: crdt_type_string(value),
-      path: ["state", "values", key],
-    ),
-  ])
+fn valid_value(map: ORMap, key: String) -> Result(Crdt, Nil) {
+  case dict.get(map.values, key) {
+    Ok(value) ->
+      case matches_spec(value, map.crdt_spec) {
+        True -> Ok(value)
+        False -> Ok(crdt.default_crdt(map.crdt_spec, map.replica_id))
+      }
+    Error(_) -> Error(Nil)
+  }
 }
 
-fn crdt_type_string(value: Crdt) -> String {
+fn crdt_name(value: Crdt) -> String {
   case value {
     crdt.CrdtGCounter(_) -> "g_counter"
     crdt.CrdtPnCounter(_) -> "pn_counter"

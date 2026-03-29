@@ -132,6 +132,12 @@ pub fn value(orset: ORSet(a)) -> set.Set(a) {
 /// either replica generate unique tags.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
+///
+/// **Known limitation:** removing an element on one replica and then merging
+/// with a stale replica that still has the element can resurrect it, because
+/// the remove only deletes locally-observed tags. A tombstone-based fix
+/// requires changing the type layout and is deferred to v2.0.
+/// See https://github.com/tylerbutler/lattice/issues/27.
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
   let merged_tombstones = set.union(a.tombstones, b.tombstones)
   let merged_counter = int.max(a.counter, b.counter)
@@ -210,7 +216,7 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
     decode.success(Tag(replica_id: r, counter: c))
   }
   let tag_set_decoder = decode.map(decode.list(tag_decoder), set.from_list)
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use replica_id <- decode.field("replica_id", decode.string)
       use counter <- decode.field("counter", decode.int)
@@ -232,7 +238,28 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "or_set" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=or_set and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }
 
 fn encode_tag(tag: Tag) -> json.Json {

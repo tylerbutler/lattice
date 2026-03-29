@@ -77,7 +77,7 @@ The name **lattice** reflects the mathematical foundation of CRDTs: join-semilat
 - **Networking / transport** — Lattice provides data structures, not replication protocols. Use with beryl, distributed Erlang, or custom transport.
 - **Persistence / storage** — Serialization is in scope; database integration is not.
 - **Conflict resolution UI** — Lattice resolves conflicts automatically; no user-facing merge UI.
-- **Full Automerge clone** — Lattice focuses on individual CRDT primitives, not a document-level CRDT framework (though it could be a foundation for one).
+- **Full Automerge clone** — Lattice focuses on individual CRDT primitives, not a document-level CRDT framework. A higher-level document CRDT library called **verge** (built on lattice) is planned as a separate package after the core is complete (see Phase 4).
 - **Consensus / coordination** — CRDTs are coordination-free by design. Lattice does not implement Raft, Paxos, etc.
 
 ---
@@ -586,6 +586,16 @@ Sequence CRDTs (RGA, Logoot, LSEQ) and text CRDTs (Yjs-style, Peritext) are sign
 - [ ] Optional Erlang distribution helpers (gossip protocol utilities)
 
 **Deliverable:** Performance-optimized library with advanced types
+
+### Phase 4: Verge — Document-Level CRDT Library
+
+- [ ] Create `verge` as a separate Hex package built on `lattice`
+- [ ] Document-level CRDT abstraction (composing lattice primitives into structured documents)
+- [ ] Automatic conflict resolution across nested fields
+- [ ] Change tracking / history support
+- [ ] Integration examples with beryl for network transport
+
+**Deliverable:** A higher-level document CRDT library (`verge`) that composes lattice primitives into an Automerge-like developer experience
 
 ---
 

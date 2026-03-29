@@ -156,7 +156,7 @@ pub fn to_json(vv: VersionVector) -> json.Json {
 /// Returns `Ok(VersionVector)` on success, or `Error(json.DecodeError)` if
 /// the input is not a valid version-vector JSON envelope.
 pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError) {
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use clocks <- decode.field(
         "clocks",
@@ -166,7 +166,28 @@ pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError)
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "version_vector" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=version_vector and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }
 
 /// Extract the internal clock dictionary from a VersionVector.

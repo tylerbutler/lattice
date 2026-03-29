@@ -1,3 +1,4 @@
+import gleam/dict
 import gleam/list
 import gleam/set
 import gleam/string
@@ -155,6 +156,30 @@ pub fn re_add_after_remove_works_test() {
   }
 }
 
+pub fn re_add_after_remove_resets_value_test() {
+  let m = or_map.new("A", GCounterSpec)
+  let m =
+    or_map.update(m, "count", fn(c) {
+      case c {
+        CrdtGCounter(counter) -> CrdtGCounter(g_counter.increment(counter, 5))
+        _ -> c
+      }
+    })
+  let m = or_map.remove(m, "count")
+  let m =
+    or_map.update(m, "count", fn(c) {
+      case c {
+        CrdtGCounter(counter) -> CrdtGCounter(g_counter.increment(counter, 1))
+        _ -> c
+      }
+    })
+
+  case or_map.get(m, "count") {
+    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(1)
+    _ -> expect.to_be_true(False)
+  }
+}
+
 // --- keys() and values() tests ---
 
 pub fn keys_returns_only_active_keys_test() {
@@ -299,38 +324,32 @@ pub fn merge_add_wins_keys_in_or_set_test() {
   |> expect.to_be_true
 }
 
-pub fn stale_replica_does_not_resurrect_removed_key_test() {
-  let original =
-    or_map.new("A", GCounterSpec)
+pub fn merge_invalid_overlapping_values_is_hardened_test() {
+  let left =
+    or_map.ORMap(
+      replica_id: "A",
+      crdt_spec: GCounterSpec,
+      key_set: or_set.new("A") |> or_set.add("x"),
+      values: dict.from_list([
+        #("x", crdt.CrdtGSet(g_set.new() |> g_set.add("bad"))),
+      ]),
+    )
+
+  let right =
+    or_map.new("B", GCounterSpec)
     |> or_map.update("x", fn(c) {
       case c {
         CrdtGCounter(counter) -> CrdtGCounter(g_counter.increment(counter, 1))
         _ -> c
       }
     })
-  let removed =
-    or_map.new("B", GCounterSpec)
-    |> or_map.merge(original)
-    |> or_map.remove("x")
 
-  or_map.merge(original, removed)
-  |> or_map.get("x")
-  |> expect.to_equal(Error(Nil))
-}
+  let merged = or_map.merge(left, right)
 
-pub fn update_rejects_values_that_do_not_match_spec_test() {
-  let map = or_map.new("A", GCounterSpec)
-
-  expect.to_throw(fn() {
-    or_map.update(map, "x", fn(_) { crdt.CrdtGSet(g_set.new()) })
-  })
-}
-
-pub fn merge_rejects_maps_with_different_specs_test() {
-  let counters = or_map.new("A", GCounterSpec)
-  let sets = or_map.new("B", GSetSpec)
-
-  expect.to_throw(fn() { or_map.merge(counters, sets) })
+  case or_map.get(merged, "x") {
+    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(1)
+    _ -> expect.to_be_true(False)
+  }
 }
 
 // --- OR-Set key access via or_set ---

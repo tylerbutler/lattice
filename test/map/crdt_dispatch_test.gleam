@@ -124,11 +124,11 @@ pub fn merge_version_vector_dispatches_test() {
   }
 }
 
-pub fn merge_type_mismatch_throws_test() {
+pub fn merge_type_mismatch_returns_first_argument_test() {
   let a = CrdtGCounter(g_counter.new("A"))
   let b = CrdtGSet(g_set.new())
-
-  expect.to_throw(fn() { crdt.merge(a, b) })
+  crdt.merge(a, b)
+  |> expect.to_equal(a)
 }
 
 // --- to_json / from_json round-trip tests ---
@@ -168,6 +168,17 @@ pub fn to_json_from_json_two_p_set_test() {
       |> two_p_set.add("a")
       |> two_p_set.add("b")
       |> two_p_set.remove("a"),
+    )
+  let json_str = json.to_string(crdt.to_json(c))
+  crdt.from_json(json_str)
+  |> expect.to_equal(Ok(c))
+}
+
+pub fn to_json_from_json_or_set_test() {
+  let c =
+    CrdtOrSet(
+      or_set.new("A")
+      |> or_set.add("x"),
     )
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)

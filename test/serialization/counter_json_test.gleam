@@ -21,6 +21,24 @@ pub fn g_counter_round_trip_multi_replica_test() {
   |> expect.to_equal(Ok(merged))
 }
 
+pub fn g_counter_from_json_wrong_type_rejected_test() {
+  let payload =
+    "{\"type\":\"pn_counter\",\"v\":1,\"state\":{\"self_id\":\"A\",\"counts\":{\"A\":3}}}"
+  case g_counter.from_json(payload) {
+    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
+pub fn g_counter_from_json_wrong_version_rejected_test() {
+  let payload =
+    "{\"type\":\"g_counter\",\"v\":2,\"state\":{\"self_id\":\"A\",\"counts\":{\"A\":3}}}"
+  case g_counter.from_json(payload) {
+    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
 // PN-Counter round-trip tests
 
 pub fn pn_counter_to_json_simple_test() {
@@ -38,4 +56,13 @@ pub fn pn_counter_round_trip_inc_dec_test() {
   let json_str = json.to_string(pn_counter.to_json(counter))
   pn_counter.from_json(json_str)
   |> expect.to_equal(Ok(counter))
+}
+
+pub fn pn_counter_from_json_wrong_type_rejected_test() {
+  let payload =
+    "{\"type\":\"g_counter\",\"v\":1,\"state\":{\"positive\":{\"self_id\":\"A\",\"counts\":{}},\"negative\":{\"self_id\":\"A\",\"counts\":{}}}}"
+  case pn_counter.from_json(payload) {
+    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> expect.to_be_true(False)
+  }
 }

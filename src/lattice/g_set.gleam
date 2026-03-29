@@ -17,6 +17,7 @@
 //// ```
 
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/set
 
@@ -87,12 +88,33 @@ pub fn to_json(g_set: GSet(String)) -> json.Json {
 /// Returns `Error` if the string is not valid JSON or does not match the
 /// expected format.
 pub fn from_json(json_string: String) -> Result(GSet(String), json.DecodeError) {
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use elements <- decode.field("elements", decode.list(decode.string))
       decode.success(GSet(elements: set.from_list(elements)))
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "g_set" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=g_set and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }

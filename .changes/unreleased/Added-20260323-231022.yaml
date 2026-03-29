@@ -1,0 +1,9 @@
+kind: Added
+body: |-
+    Add `try_increment` and `try_decrement` for safe counter updates
+
+    `g_counter.try_increment` and `pn_counter.try_increment` /
+    `pn_counter.try_decrement` return `Result` values, returning
+    `Error(NegativeDelta(n))` when passed a negative delta. Use these
+    when you need to validate untrusted input at runtime without crashing.
+time: 2026-03-23T23:10:22.678416-07:00
