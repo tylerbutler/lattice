@@ -295,6 +295,16 @@ let m = m |> lww_map.set("name", "Bob", timestamp: 2000)
 lww_map.get(m, "name")  // => Ok("Bob")
 ```
 
+**Tombstone management:** Removing a key creates a tombstone that persists until explicitly pruned. `tombstone_count` reports the number of tombstoned entries for monitoring growth. `prune(map, stable_timestamp)` removes tombstones at or below the given timestamp.
+
+**Safety contract:** The caller must ensure all replicas have synced past the stable timestamp before pruning. Pruning before full sync can cause "zombie" key resurrection. See [#18](https://github.com/tylerbutler/lattice/issues/18) for the planned v2 API with automatic zombie detection.
+
+```gleam
+// Monitor and prune tombstones
+lww_map.tombstone_count(m)  // => number of tombstoned entries
+let pruned = lww_map.prune(m, stable_timestamp: 1000)
+```
+
 ### 4.6 Causal Context Utilities
 
 #### FR-12: Version Vector
@@ -684,7 +694,7 @@ Every CRDT type MUST have property tests for:
 | **G-Set** | Set | add | Set union | Seen message IDs, vote tracking |
 | **2P-Set** | Set | add, remove (once) | Union of add/remove sets | Simple membership with removal |
 | **OR-Set** | Set | add, remove (re-add OK) | Add wins on concurrent conflict | Tags, labels, active users |
-| **LWW-Map** | Map | set, remove | Per-key LWW | User preferences, config |
+| **LWW-Map** | Map | set, remove, prune, tombstone_count | Per-key LWW | User preferences, config |
 | **OR-Map** | Map | update, remove | Add-wins keys, CRDT-merge values | Complex nested state |
 
 ## Appendix B: Comparison with Existing Solutions
