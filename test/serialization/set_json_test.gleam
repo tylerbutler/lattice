@@ -87,3 +87,20 @@ pub fn or_set_round_trip_multi_element_test() {
     Error(_) -> expect.to_be_true(False)
   }
 }
+
+pub fn or_set_round_trip_preserves_removed_tombstones_test() {
+  let original = or_set.new("A") |> or_set.add("x")
+  let removed =
+    or_set.new("B")
+    |> or_set.merge(original)
+    |> or_set.remove("x")
+  let json_str = json.to_string(or_set.to_json(removed))
+
+  case or_set.from_json(json_str) {
+    Ok(decoded) ->
+      or_set.merge(original, decoded)
+      |> or_set.contains("x")
+      |> expect.to_be_false
+    Error(_) -> expect.to_be_true(False)
+  }
+}

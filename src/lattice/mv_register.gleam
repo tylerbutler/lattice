@@ -20,7 +20,6 @@ import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
-import gleam/list
 import lattice/version_vector.{type VersionVector}
 
 /// An opaque identifier for a specific write operation.
@@ -122,11 +121,7 @@ pub fn merge(a: MVRegister(el), b: MVRegister(el)) -> MVRegister(el) {
     })
 
   // Combine surviving entries from both sides
-  let merged_entries =
-    list.fold(dict.to_list(surviving_from_b), surviving_from_a, fn(acc, entry) {
-      let #(tag, val) = entry
-      dict.insert(acc, tag, val)
-    })
+  let merged_entries = dict.merge(surviving_from_a, surviving_from_b)
 
   MVRegister(
     replica_id: a.replica_id,
