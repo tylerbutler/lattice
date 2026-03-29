@@ -178,9 +178,7 @@ pub fn to_json_from_json_or_set_test() {
   let c =
     CrdtOrSet(
       or_set.new("A")
-      |> or_set.add("x")
-      |> or_set.remove("x")
-      |> or_set.prune(version_vector.new() |> version_vector.increment("A")),
+      |> or_set.add("x"),
     )
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)

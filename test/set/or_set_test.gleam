@@ -119,19 +119,6 @@ pub fn merge_union_tags_test() {
   |> expect.to_equal(set.from_list(["a", "b", "c"]))
 }
 
-pub fn observed_remove_prevents_resurrection_test() {
-  // A adds x, B observes and removes x, A remains stale with pre-remove state.
-  // Merging stale A with B should keep x removed (no concurrent add occurred).
-  let replica_a = or_set.new("A") |> or_set.add("x")
-  let replica_b = or_set.merge(or_set.new("B"), replica_a) |> or_set.remove("x")
-
-  let merged = or_set.merge(replica_a, replica_b)
-
-  merged
-  |> or_set.contains("x")
-  |> expect.to_be_false
-}
-
 pub fn merge_propagates_counter_test() {
   // After merge, the merged set's counter should be max of both sides
   // A subsequent add should create a new unique tag (not collide)

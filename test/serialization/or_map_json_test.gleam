@@ -5,7 +5,6 @@ import lattice/g_counter
 import lattice/g_set
 import lattice/or_map
 import lattice/or_set
-import lattice/version_vector
 import startest/expect
 
 // OR-Map JSON round-trip tests
@@ -105,11 +104,7 @@ pub fn or_map_round_trip_or_set_values_test() {
         crdt.CrdtOrSet(orset) ->
           crdt.CrdtOrSet(
             orset
-            |> or_set.add("hello")
-            |> or_set.remove("hello")
-            |> or_set.prune(
-              version_vector.new() |> version_vector.increment("A"),
-            ),
+            |> or_set.add("hello"),
           )
         _ -> c
       }
@@ -121,7 +116,7 @@ pub fn or_map_round_trip_or_set_values_test() {
       set.from_list(or_map.keys(d)) |> expect.to_equal(set.from_list(["tags"]))
       case or_map.get(d, "tags") {
         Ok(crdt.CrdtOrSet(orset)) -> {
-          or_set.contains(orset, "hello") |> expect.to_be_false()
+          or_set.contains(orset, "hello") |> expect.to_be_true()
         }
         _ -> expect.to_be_true(False)
       }
