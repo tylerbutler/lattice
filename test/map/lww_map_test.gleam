@@ -240,7 +240,6 @@ pub fn merge_commutativity_test() {
   lww_map.get(merged_ab, "z") |> expect.to_equal(lww_map.get(merged_ba, "z"))
 }
 
-
 pub fn tombstone_count_empty_test() {
   lww_map.new()
   |> lww_map.tombstone_count

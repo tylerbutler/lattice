@@ -183,4 +183,3 @@ pub fn or_map_from_json_invalid_test() {
     Error(_) -> expect.to_be_true(True)
   }
 }
-
