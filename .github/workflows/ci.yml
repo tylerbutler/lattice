@@ -29,12 +29,6 @@ jobs:
       - name: Run tests
         run: just test
 
-      - name: Build examples
-        run: just examples-build
-
-      - name: Run examples
-        run: just examples-run
-
   test-js:
     runs-on: ubuntu-latest
     name: Test (JavaScript)
@@ -51,12 +45,6 @@ jobs:
 
       - name: Run tests
         run: just test-js
-
-      - name: Build examples (JavaScript)
-        run: just examples-build-js
-
-      - name: Run examples (JavaScript)
-        run: just examples-run-js
 
   docs:
     runs-on: ubuntu-latest

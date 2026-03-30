@@ -1,5 +1,0 @@
-kind: Performance
-body: |-
-    Optimized merge and compare operations
-    Replaced `list.unique`-based key iteration with `dict.combine`, `dict.fold`, and `dict.filter` in `GCounter`, `VersionVector`, `ORSet`, `LWWMap`, and `ORMap` merge/compare operations.
-time: 2026-03-20T21:00:00.000000000-07:00

@@ -42,3 +42,46 @@ newlines:
     afterVersion: 1
     beforeKind: 1
     endOfVersion: 1
+projects:
+    - label: Core
+      key: lattice_core
+      changelog: packages/lattice_core/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_core/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Counters
+      key: lattice_counters
+      changelog: packages/lattice_counters/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_counters/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Registers
+      key: lattice_registers
+      changelog: packages/lattice_registers/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_registers/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Sets
+      key: lattice_sets
+      changelog: packages/lattice_sets/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_sets/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Maps
+      key: lattice_maps
+      changelog: packages/lattice_maps/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_maps/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Lattice CRDT
+      key: lattice_crdt
+      changelog: packages/lattice_crdt/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_crdt/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
