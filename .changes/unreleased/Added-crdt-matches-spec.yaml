@@ -1,0 +1,7 @@
+kind: Added
+body: |-
+    New `crdt.matches_spec` public function
+    Returns `True` when a wrapped `Crdt` value matches the expected `CrdtSpec`
+    variant. Useful for validating that heterogeneous CRDT values conform to a
+    declared schema before merging or persisting.
+time: 2026-03-30T02:21:21.893512035+00:00
