@@ -3,9 +3,9 @@ import gleam/io
 import gleam/json
 import gleam/list
 import gleam/string
-import lattice/crdt
-import lattice/g_counter
-import lattice/or_map
+import lattice_counters/g_counter
+import lattice_maps/crdt
+import lattice_maps/or_map
 
 pub fn main() {
   io.println("=== ORMap (Observed-Remove Map) ===")

@@ -4,7 +4,7 @@ import gleam/io
 import gleam/json
 import gleam/list
 import gleam/string
-import lattice/version_vector
+import lattice_core/version_vector
 
 fn print_dict(label: String, d: dict.Dict(String, Int)) -> Nil {
   let contents =

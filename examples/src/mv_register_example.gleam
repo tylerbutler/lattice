@@ -1,7 +1,7 @@
 import gleam/io
 import gleam/json
 import gleam/string
-import lattice/mv_register
+import lattice_registers/mv_register
 
 pub fn main() {
   io.println("=== MVRegister (Multi-Value Register) ===")
