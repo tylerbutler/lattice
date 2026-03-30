@@ -1,0 +1,13 @@
+kind: Added
+body: |-
+    Add `prune` and `tombstone_count` to LWWMap
+
+    `lww_map.prune(map, stable_timestamp)` removes tombstone entries whose
+    timestamp is at or below `stable_timestamp`, preventing unbounded growth
+    from repeated deletions. `lww_map.tombstone_count(map)` returns the
+    current number of tombstoned entries for monitoring.
+
+    **Safety:** all replicas must have synced past `stable_timestamp` before
+    pruning. See [#18](https://github.com/tylerbutler/lattice/issues/18) for
+    the planned zombie-safe v2 API.
+time: 2026-03-23T23:58:58.823699-07:00

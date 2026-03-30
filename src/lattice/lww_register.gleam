@@ -2,8 +2,7 @@
 ////
 //// Stores a single value with an associated timestamp. When two replicas
 //// conflict, the value with the strictly higher timestamp wins. On equal
-//// timestamps, the lexicographically greater string wins as a deterministic,
-//// replica-order-independent tiebreak.
+//// timestamps, the second argument to `merge` wins (consistent tiebreak).
 ////
 //// ## Example
 ////
@@ -17,9 +16,8 @@
 //// ```
 
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
-import gleam/order.{Eq, Gt, Lt}
-import gleam/string
 
 /// A register holding a single value alongside its write timestamp.
 ///
@@ -60,24 +58,22 @@ pub fn value(register: LWWRegister(a)) -> a {
 
 /// Merge two LWW-Registers by returning the one with the higher timestamp.
 ///
-/// When timestamps are equal, the lexicographically greater string wins.
-/// If both values are equal either input may be returned.
-pub fn merge(
-  a: LWWRegister(String),
-  b: LWWRegister(String),
-) -> LWWRegister(String) {
+/// When `a.timestamp > b.timestamp`, returns `a`. Otherwise returns `b`.
+/// On equal timestamps, `b` is returned as a consistent tiebreak.
+///
+/// Commutativity holds when timestamps differ: both `merge(a, b)` and
+/// `merge(b, a)` return the register with the higher timestamp.
+/// When timestamps are equal both calls return their respective `b` argument,
+/// so callers should use distinct timestamps or ensure both replicas hold
+/// the same value when timestamps match.
+///
+/// A future major version will add a deterministic value-based or
+/// replica-ID-based tie-breaker so that merge is fully commutative.
+/// See https://github.com/tylerbutler/lattice/issues/26.
+pub fn merge(a: LWWRegister(a), b: LWWRegister(a)) -> LWWRegister(a) {
   case a.timestamp > b.timestamp {
     True -> a
-    False ->
-      case a.timestamp < b.timestamp {
-        True -> b
-        False ->
-          case string.compare(a.value, b.value) {
-            Gt -> a
-            Lt -> b
-            Eq -> a
-          }
-      }
+    False -> b
   }
 }
 
@@ -108,7 +104,7 @@ pub fn to_json(register: LWWRegister(String)) -> json.Json {
 pub fn from_json(
   json_string: String,
 ) -> Result(LWWRegister(String), json.DecodeError) {
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use value <- decode.field("value", decode.string)
       use timestamp <- decode.field("timestamp", decode.int)
@@ -116,5 +112,26 @@ pub fn from_json(
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "lww_register" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=lww_register and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }

@@ -573,6 +573,62 @@ test "merge preserves disjoint keys"
   get(m, "y") == Ok("2")
 ```
 
+### 10.3 Tombstone Management
+
+```
+test "tombstone_count empty map"
+  new() |> tombstone_count == 0
+
+test "tombstone_count no tombstones"
+  new() |> set("a", "1", ts: 1) |> tombstone_count == 0
+
+test "tombstone_count with removals"
+  new() |> set("a", "1", ts: 1) |> remove("a", ts: 10) |> tombstone_count == 1
+
+test "tombstone_count remove without set"
+  // Removing a key that was never set still creates a tombstone
+  new() |> remove("ghost", ts: 5) |> tombstone_count == 1
+
+test "prune removes tombstones at or below threshold"
+  m = new() |> remove("a", ts: 5) |> remove("b", ts: 10) |> remove("c", ts: 15)
+  prune(m, 10) |> tombstone_count == 1  // only "c" at ts=15 remains
+
+test "prune keeps active entries"
+  m = new() |> set("alive", "yes", ts: 3) |> remove("dead", ts: 5)
+  pruned = prune(m, 10)
+  get(pruned, "alive") == Ok("yes")
+  tombstone_count(pruned) == 0
+
+test "prune empty map"
+  prune(new(), 100) |> keys == []
+
+test "prune with zero threshold removes nothing"
+  m = new() |> remove("a", ts: 1) |> remove("b", ts: 5)
+  prune(m, 0) |> tombstone_count == 2
+
+test "prune then merge — no zombie when synced"
+  // Both replicas have seen the remove — pruning is safe
+  a = new() |> set("key", "val", ts: 5) |> remove("key", ts: 10)
+  b = new() |> set("key", "val", ts: 5) |> remove("key", ts: 10)
+  a_pruned = prune(a, 10)
+  merge(a_pruned, b) |> get("key") == Error(Nil)
+
+test "prune zombie when unsynced" (documents known limitation — see #18)
+  // Pruning before sync causes key resurrection
+  a = new() |> set("key", "val", ts: 5) |> remove("key", ts: 10)
+  b = new() |> set("key", "val", ts: 5)  // b has NOT seen the remove
+  a_pruned = prune(a, 10)
+  merge(a_pruned, b) |> get("key") == Ok("val")  // zombie!
+
+test "prune preserves merge semantics for active entries"
+  a = new() |> set("x", "from_a", ts: 10) |> remove("old", ts: 3)
+  b = new() |> set("y", "from_b", ts: 7) |> remove("old", ts: 3)
+  a_pruned = prune(a, 5)
+  merged = merge(a_pruned, b)
+  get(merged, "x") == Ok("from_a")
+  get(merged, "y") == Ok("from_b")
+```
+
 ---
 
 ## 11. OR-Map

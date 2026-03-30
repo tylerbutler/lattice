@@ -77,7 +77,7 @@ The name **lattice** reflects the mathematical foundation of CRDTs: join-semilat
 - **Networking / transport** — Lattice provides data structures, not replication protocols. Use with beryl, distributed Erlang, or custom transport.
 - **Persistence / storage** — Serialization is in scope; database integration is not.
 - **Conflict resolution UI** — Lattice resolves conflicts automatically; no user-facing merge UI.
-- **Full Automerge clone** — Lattice focuses on individual CRDT primitives, not a document-level CRDT framework (though it could be a foundation for one).
+- **Full Automerge clone** — Lattice focuses on individual CRDT primitives, not a document-level CRDT framework. A higher-level document CRDT library called **verge** (built on lattice) is planned as a separate package after the core is complete (see Phase 4).
 - **Consensus / coordination** — CRDTs are coordination-free by design. Lattice does not implement Raft, Paxos, etc.
 
 ---
@@ -293,6 +293,16 @@ let m = lww_map.new()
 let m = m |> lww_map.set("name", "Alice", timestamp: 1000)
 let m = m |> lww_map.set("name", "Bob", timestamp: 2000)
 lww_map.get(m, "name")  // => Ok("Bob")
+```
+
+**Tombstone management:** Removing a key creates a tombstone that persists until explicitly pruned. `tombstone_count` reports the number of tombstoned entries for monitoring growth. `prune(map, stable_timestamp)` removes tombstones at or below the given timestamp.
+
+**Safety contract:** The caller must ensure all replicas have synced past the stable timestamp before pruning. Pruning before full sync can cause "zombie" key resurrection. See [#18](https://github.com/tylerbutler/lattice/issues/18) for the planned v2 API with automatic zombie detection.
+
+```gleam
+// Monitor and prune tombstones
+lww_map.tombstone_count(m)  // => number of tombstoned entries
+let pruned = lww_map.prune(m, stable_timestamp: 1000)
 ```
 
 ### 4.6 Causal Context Utilities
@@ -587,6 +597,16 @@ Sequence CRDTs (RGA, Logoot, LSEQ) and text CRDTs (Yjs-style, Peritext) are sign
 
 **Deliverable:** Performance-optimized library with advanced types
 
+### Phase 4: Verge — Document-Level CRDT Library
+
+- [ ] Create `verge` as a separate Hex package built on `lattice`
+- [ ] Document-level CRDT abstraction (composing lattice primitives into structured documents)
+- [ ] Automatic conflict resolution across nested fields
+- [ ] Change tracking / history support
+- [ ] Integration examples with beryl for network transport
+
+**Deliverable:** A higher-level document CRDT library (`verge`) that composes lattice primitives into an Automerge-like developer experience
+
 ---
 
 ## 10. Testing Strategy
@@ -674,7 +694,7 @@ Every CRDT type MUST have property tests for:
 | **G-Set** | Set | add | Set union | Seen message IDs, vote tracking |
 | **2P-Set** | Set | add, remove (once) | Union of add/remove sets | Simple membership with removal |
 | **OR-Set** | Set | add, remove (re-add OK) | Add wins on concurrent conflict | Tags, labels, active users |
-| **LWW-Map** | Map | set, remove | Per-key LWW | User preferences, config |
+| **LWW-Map** | Map | set, remove, prune, tombstone_count | Per-key LWW | User preferences, config |
 | **OR-Map** | Map | update, remove | Add-wins keys, CRDT-merge values | Complex nested state |
 
 ## Appendix B: Comparison with Existing Solutions

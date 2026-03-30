@@ -19,6 +19,7 @@
 //// ```
 
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/set
 
@@ -106,7 +107,7 @@ pub fn to_json(tpset: TwoPSet(String)) -> json.Json {
 pub fn from_json(
   json_string: String,
 ) -> Result(TwoPSet(String), json.DecodeError) {
-  let decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use added <- decode.field("added", decode.list(decode.string))
       use removed <- decode.field("removed", decode.list(decode.string))
@@ -117,5 +118,26 @@ pub fn from_json(
     })
     decode.success(state)
   }
-  json.parse(from: json_string, using: decoder)
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "two_p_set" && version == 1 {
+        True -> json.parse(from: json_string, using: state_decoder)
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=two_p_set and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
 }

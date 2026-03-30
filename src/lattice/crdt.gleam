@@ -21,7 +21,6 @@
 
 import gleam/dynamic/decode
 import gleam/json
-import gleam/result
 import lattice/g_counter.{type GCounter}
 import lattice/g_set.{type GSet}
 import lattice/lww_register.{type LWWRegister}
@@ -179,18 +178,46 @@ fn dispatch_decode(
   json_string: String,
 ) -> Result(Crdt, json.DecodeError) {
   case type_tag {
-    "g_counter" -> g_counter.from_json(json_string) |> result.map(CrdtGCounter)
+    "g_counter" ->
+      case g_counter.from_json(json_string) {
+        Ok(c) -> Ok(CrdtGCounter(c))
+        Error(e) -> Error(e)
+      }
     "pn_counter" ->
-      pn_counter.from_json(json_string) |> result.map(CrdtPnCounter)
+      case pn_counter.from_json(json_string) {
+        Ok(c) -> Ok(CrdtPnCounter(c))
+        Error(e) -> Error(e)
+      }
     "lww_register" ->
-      lww_register.from_json(json_string) |> result.map(CrdtLwwRegister)
+      case lww_register.from_json(json_string) {
+        Ok(c) -> Ok(CrdtLwwRegister(c))
+        Error(e) -> Error(e)
+      }
     "mv_register" ->
-      mv_register.from_json(json_string) |> result.map(CrdtMvRegister)
-    "g_set" -> g_set.from_json(json_string) |> result.map(CrdtGSet)
-    "two_p_set" -> two_p_set.from_json(json_string) |> result.map(CrdtTwoPSet)
-    "or_set" -> or_set.from_json(json_string) |> result.map(CrdtOrSet)
+      case mv_register.from_json(json_string) {
+        Ok(c) -> Ok(CrdtMvRegister(c))
+        Error(e) -> Error(e)
+      }
+    "g_set" ->
+      case g_set.from_json(json_string) {
+        Ok(c) -> Ok(CrdtGSet(c))
+        Error(e) -> Error(e)
+      }
+    "two_p_set" ->
+      case two_p_set.from_json(json_string) {
+        Ok(c) -> Ok(CrdtTwoPSet(c))
+        Error(e) -> Error(e)
+      }
+    "or_set" ->
+      case or_set.from_json(json_string) {
+        Ok(c) -> Ok(CrdtOrSet(c))
+        Error(e) -> Error(e)
+      }
     "version_vector" ->
-      version_vector.from_json(json_string) |> result.map(CrdtVersionVector)
+      case version_vector.from_json(json_string) {
+        Ok(c) -> Ok(CrdtVersionVector(c))
+        Error(e) -> Error(e)
+      }
     _ ->
       Error(
         json.UnableToDecode([
