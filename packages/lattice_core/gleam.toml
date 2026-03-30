@@ -1,0 +1,13 @@
+name = "lattice_core"
+version = "1.0.0"
+description = "Core types for lattice CRDTs — version vectors, dot contexts, and causal infrastructure"
+licences = ["MIT"]
+repository = { type = "github", user = "tylerbutler", repo = "lattice" }
+gleam = ">= 1.7.0"
+
+[dependencies]
+gleam_stdlib = ">= 0.48.0 and < 2.0.0"
+gleam_json = ">= 3.1.0 and < 4.0.0"
+
+[dev-dependencies]
+startest = ">= 0.8.0 and < 1.0.0"

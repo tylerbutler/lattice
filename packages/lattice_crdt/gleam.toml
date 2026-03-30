@@ -1,0 +1,17 @@
+name = "lattice_crdt"
+version = "2.0.0"
+description = "Conflict-free replicated data types (CRDTs) for Gleam — umbrella package that includes all lattice sub-packages"
+licences = ["MIT"]
+repository = { type = "github", user = "tylerbutler", repo = "lattice" }
+gleam = ">= 1.7.0"
+
+[dependencies]
+lattice_core = { path = "../lattice_core" }
+lattice_counters = { path = "../lattice_counters" }
+lattice_registers = { path = "../lattice_registers" }
+lattice_sets = { path = "../lattice_sets" }
+lattice_maps = { path = "../lattice_maps" }
+
+[dev-dependencies]
+startest = ">= 0.8.0 and < 1.0.0"
+qcheck = ">= 1.0.0 and < 2.0.0"
