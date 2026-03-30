@@ -356,8 +356,7 @@ pub fn update_rejects_values_that_do_not_match_spec_test() {
   let map = or_map.new("A", GCounterSpec)
 
   // update with mismatched type should silently keep original value
-  let updated =
-    or_map.update(map, "x", fn(_) { crdt.CrdtGSet(g_set.new()) })
+  let updated = or_map.update(map, "x", fn(_) { crdt.CrdtGSet(g_set.new()) })
   case or_map.get(updated, "x") {
     Ok(CrdtGCounter(_)) -> expect.to_be_true(True)
     _ -> expect.to_be_true(False)
