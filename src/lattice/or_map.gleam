@@ -157,7 +157,12 @@ pub fn values(map: ORMap) -> List(Crdt) {
 /// survives in the merged result. CRDT values are merged per-key using
 /// `crdt.merge` for type-specific convergence.
 ///
-/// Merge is commutative, associative, and idempotent (a valid CRDT join).
+/// Note: In 1.x, if `crdt_spec` mismatches between maps, this function silently
+/// returns `a` (the local state). This technically breaks strict commutativity, but
+/// prevents the BEAM VM from panicking when encountering bad peer data while
+/// avoiding a breaking change to the `merge` signature.
+/// This fallback behavior will be replaced with explicit `Result` returns in v2.0.
+/// See https://github.com/tylerbutler/lattice/issues/25 for tracking.
 pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   case a.crdt_spec == b.crdt_spec {
     False -> a

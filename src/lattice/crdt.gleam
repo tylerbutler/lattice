@@ -114,8 +114,14 @@ pub fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
 /// Dispatch merge to the type-specific merge function for matching variants.
 ///
 /// If `a` and `b` hold the same variant, their inner values are merged using
-/// the type-specific merge function. On type mismatch (different variants),
-/// returns `a` (silently ignores the incompatible remote state).
+/// the type-specific merge function.
+///
+/// Note: In 1.x, type mismatches (different variants) silently return `a`
+/// (the local state). This technically breaks strict commutativity, but
+/// prevents the BEAM VM from panicking when encountering bad peer data while
+/// avoiding a breaking change to the `merge` signature.
+/// This fallback behavior will be replaced with explicit `Result` returns in v2.0.
+/// See https://github.com/tylerbutler/lattice/issues/25 for tracking.
 pub fn merge(a: Crdt, b: Crdt) -> Crdt {
   case a, b {
     CrdtGCounter(ca), CrdtGCounter(cb) -> CrdtGCounter(g_counter.merge(ca, cb))
