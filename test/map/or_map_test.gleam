@@ -352,6 +352,25 @@ pub fn merge_invalid_overlapping_values_is_hardened_test() {
   }
 }
 
+pub fn update_rejects_values_that_do_not_match_spec_test() {
+  let map = or_map.new("A", GCounterSpec)
+
+  // update with mismatched type should silently keep original value
+  let updated = or_map.update(map, "x", fn(_) { crdt.CrdtGSet(g_set.new()) })
+  case or_map.get(updated, "x") {
+    Ok(CrdtGCounter(_)) -> expect.to_be_true(True)
+    _ -> expect.to_be_true(False)
+  }
+}
+
+pub fn merge_rejects_maps_with_different_specs_test() {
+  let counters = or_map.new("A", GCounterSpec)
+  let sets = or_map.new("B", GSetSpec)
+
+  or_map.merge(counters, sets)
+  |> expect.to_equal(counters)
+}
+
 // --- OR-Set key access via or_set ---
 
 pub fn key_set_can_be_accessed_directly_test() {

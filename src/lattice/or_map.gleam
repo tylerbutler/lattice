@@ -163,28 +163,38 @@ pub fn values(map: ORMap) -> List(Crdt) {
 /// survives in the merged result. CRDT values are merged per-key using
 /// `crdt.merge` for type-specific convergence.
 ///
-/// Merge is commutative, associative, and idempotent (a valid CRDT join).
+/// Note: In 1.x, if `crdt_spec` mismatches between maps, this function silently
+/// returns `a` (the local state). This technically breaks strict commutativity, but
+/// prevents the BEAM VM from panicking when encountering bad peer data while
+/// avoiding a breaking change to the `merge` signature.
+/// This fallback behavior will be replaced with explicit `Result` returns in v2.0.
+/// See https://github.com/tylerbutler/lattice/issues/25 for tracking.
 pub fn merge(a: ORMap, b: ORMap) -> ORMap {
-  let merged_key_set = or_set.merge(a.key_set, b.key_set)
-  let all_value_keys =
-    list.unique(list.append(dict.keys(a.values), dict.keys(b.values)))
-  let merged_values =
-    list.fold(all_value_keys, dict.new(), fn(acc, key) {
-      let merged_crdt = case valid_value(a, key), valid_value(b, key) {
-        Ok(ca), Ok(cb) -> crdt.merge(ca, cb)
-        Ok(ca), Error(_) -> ca
-        Error(_), Ok(cb) -> cb
-        Error(_), Error(_) ->
-          panic as "unreachable: key must exist in at least one map"
-      }
-      dict.insert(acc, key, merged_crdt)
-    })
-  ORMap(
-    replica_id: a.replica_id,
-    crdt_spec: a.crdt_spec,
-    key_set: merged_key_set,
-    values: merged_values,
-  )
+  case a.crdt_spec == b.crdt_spec {
+    False -> a
+    True -> {
+      let merged_key_set = or_set.merge(a.key_set, b.key_set)
+      let all_value_keys =
+        list.unique(list.append(dict.keys(a.values), dict.keys(b.values)))
+      let merged_values =
+        list.fold(all_value_keys, dict.new(), fn(acc, key) {
+          let merged_crdt = case valid_value(a, key), valid_value(b, key) {
+            Ok(ca), Ok(cb) -> crdt.merge(ca, cb)
+            Ok(ca), Error(_) -> ca
+            Error(_), Ok(cb) -> cb
+            Error(_), Error(_) ->
+              panic as "unreachable: key must exist in at least one map"
+          }
+          dict.insert(acc, key, merged_crdt)
+        })
+      ORMap(
+        replica_id: a.replica_id,
+        crdt_spec: a.crdt_spec,
+        key_set: merged_key_set,
+        values: merged_values,
+      )
+    }
+  }
 }
 
 /// Encode an `ORMap` as a self-describing JSON value.
