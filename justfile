@@ -69,11 +69,29 @@ changelog-preview:
 changelog:
     changie merge
 
+# === NPM PACKAGING (talc) ===
+
+# Generate npm package in npm_dist/
+npm-generate:
+    gleam build --target javascript && gleam run -m talc -- generate
+
+# Check talc configuration without writing files
+npm-check:
+    gleam build --target javascript && gleam run -m talc -- check
+
+# Pack npm tarball
+npm-pack:
+    gleam build --target javascript && gleam run -m talc -- pack
+
+# Dry-run npm publish
+npm-publish-dry:
+    gleam build --target javascript && gleam run -m talc -- publish --dry-run=true
+
 # === MAINTENANCE ===
 
 # Remove build artifacts
 clean:
-    rm -rf build
+    rm -rf build npm_dist
 
 # === EXAMPLES ===
 

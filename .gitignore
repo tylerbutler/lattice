@@ -12,6 +12,9 @@ erl_crash.dump
 # Node.js (if using JavaScript target)
 node_modules/
 
+# talc npm package output
+npm_dist/
+
 # IDE
 .idea/
 *.swp

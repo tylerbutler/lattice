@@ -268,13 +268,11 @@ pub fn version_vector_json_round_trip__test() {
     fn(pair) {
       let #(a, b) = pair
       let vv =
-        list.fold(list.range(1, a), version_vector.new(), fn(v, _) {
+        int.range(1, a, version_vector.new(), fn(v, _) {
           version_vector.increment(v, "A")
         })
       let vv2 =
-        list.fold(list.range(1, b), vv, fn(v, _) {
-          version_vector.increment(v, "B")
-        })
+        int.range(1, b, vv, fn(v, _) { version_vector.increment(v, "B") })
       let json_str = json.to_string(version_vector.to_json(vv2))
       let decoded = version_vector.from_json(json_str)
       case decoded {

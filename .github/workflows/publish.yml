@@ -4,11 +4,15 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: read
+  id-token: write # required for npm provenance attestation
+
 jobs:
   test:
     uses: ./.github/workflows/ci.yml
 
-  publish:
+  publish-hex:
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -21,3 +25,22 @@ jobs:
         run: gleam publish --yes
         env:
           HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+
+  publish-npm:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+        with:
+          node: "true"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Build and publish to npm
+        run: |
+          gleam build --target javascript
+          gleam run -m talc -- publish --provenance=true --access=public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
