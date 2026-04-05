@@ -2,7 +2,7 @@ name: Publish
 
 on:
   push:
-    tags: ['v*']
+    tags: ['lattice_*-v*']
 
 jobs:
   test:
@@ -18,6 +18,13 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Publish to Hex.pm
-        run: gleam publish --yes
-        env:
-          HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+        uses: tylerbutler/actions/gleam-publish@36da049e8e49a6abaf6fd59106e7f9e2a6b27e5f # ratchet:tylerbutler/actions/gleam-publish@main
+        with:
+          packages: >-
+            packages/lattice_core
+            packages/lattice_counters
+            packages/lattice_sets
+            packages/lattice_registers
+            packages/lattice_maps
+            packages/lattice_crdt
+          hex-api-key: ${{ secrets.HEXPM_API_KEY }}

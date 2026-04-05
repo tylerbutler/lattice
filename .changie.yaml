@@ -35,6 +35,7 @@ kinds:
       auto: patch
     - label: Security
       auto: patch
+projectsVersionSeparator: "-"
 newlines:
     afterChangelogHeader: 1
     afterChangelogVersion: 1

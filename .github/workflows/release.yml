@@ -25,8 +25,14 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           pr-title-template: 'release {version}'
+          projects: lattice_core,lattice_counters,lattice_sets,lattice_registers,lattice_maps,lattice_crdt
           version-files: |
-            gleam.toml:version
+            lattice_core:packages/lattice_core/gleam.toml:version
+            lattice_counters:packages/lattice_counters/gleam.toml:version
+            lattice_sets:packages/lattice_sets/gleam.toml:version
+            lattice_registers:packages/lattice_registers/gleam.toml:version
+            lattice_maps:packages/lattice_maps/gleam.toml:version
+            lattice_crdt:packages/lattice_crdt/gleam.toml:version
 
       - name: Summary
         if: steps.release.outputs.skipped != 'true'
