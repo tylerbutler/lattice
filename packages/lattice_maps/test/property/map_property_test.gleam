@@ -109,6 +109,43 @@ pub fn or_map_idempotency__test() {
       |> or_map.update("x", increment_g_counter(_, a))
     set.from_list(or_map.keys(or_map.merge(map, map)))
     |> expect.to_equal(set.from_list(or_map.keys(map)))
+
+    or_map.get(or_map.merge(map, map), "x")
+    |> expect.to_equal(or_map.get(map, "x"))
     Nil
   })
+}
+
+pub fn or_map_associativity__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.bounded_int(0, 10),
+      qcheck.bounded_int(0, 10),
+      qcheck.bounded_int(0, 10),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(a, b, c) = triple
+      let map_a =
+        or_map.new(rid("A"), crdt.GCounterSpec)
+        |> or_map.update("x", increment_g_counter(_, a))
+      let map_b =
+        or_map.new(rid("B"), crdt.GCounterSpec)
+        |> or_map.update("x", increment_g_counter(_, b))
+      let map_c =
+        or_map.new(rid("C"), crdt.GCounterSpec)
+        |> or_map.update("x", increment_g_counter(_, c))
+
+      let merged1 = or_map.merge(or_map.merge(map_a, map_b), map_c)
+      let merged2 = or_map.merge(map_a, or_map.merge(map_b, map_c))
+
+      set.from_list(or_map.keys(merged1))
+      |> expect.to_equal(set.from_list(or_map.keys(merged2)))
+
+      or_map.get(merged1, "x")
+      |> expect.to_equal(or_map.get(merged2, "x"))
+      Nil
+    },
+  )
 }

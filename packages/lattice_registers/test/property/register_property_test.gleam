@@ -99,6 +99,30 @@ pub fn mv_register_commutativity__test() {
   )
 }
 
+pub fn mv_register_associativity__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.bounded_int(0, 10),
+      qcheck.bounded_int(0, 10),
+      qcheck.bounded_int(0, 10),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(a, b, c) = triple
+      let reg_a = mv_register.new(rid("A")) |> mv_register.set(a)
+      let reg_b = mv_register.new(rid("B")) |> mv_register.set(b)
+      let reg_c = mv_register.new(rid("C")) |> mv_register.set(c)
+      let merged1 = mv_register.merge(mv_register.merge(reg_a, reg_b), reg_c)
+      let merged2 = mv_register.merge(reg_a, mv_register.merge(reg_b, reg_c))
+      let sorted1 = list.sort(mv_register.value(merged1), int.compare)
+      let sorted2 = list.sort(mv_register.value(merged2), int.compare)
+      sorted1 |> expect.to_equal(sorted2)
+      Nil
+    },
+  )
+}
+
 pub fn mv_register_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(a) {
     let reg = mv_register.new(rid("A")) |> mv_register.set(a)
