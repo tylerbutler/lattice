@@ -57,6 +57,8 @@ Pattern: `<project_key>-<Kind>-<slug>.yaml`
 
 Place the file at: `.changes/unreleased/<project_key>-<Kind>-<slug>.yaml`
 
+**CRITICAL**: Always place fragments in `.changes/unreleased/`, never in per-project subdirectories like `.changes/lattice_registers/`. The per-project directories under `.changes/` are for released versions only. The `project` field inside the YAML determines which package the entry belongs to — the directory does not.
+
 ### File format
 
 ```yaml
