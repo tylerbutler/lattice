@@ -21,9 +21,11 @@ import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/list
 import gleam/result
 import gleam/set
 import lattice_core/replica_id.{type ReplicaId}
+import lattice_core/version_vector.{type VersionVector}
 
 /// A unique tag identifying a specific add operation.
 ///
@@ -44,16 +46,16 @@ pub opaque type Tag {
 /// removed elsewhere. A concurrent add on another replica will have created a
 /// new tag that survives the remove.
 ///
-/// **Note:** Do not pattern-match on the constructor fields directly in
-/// application code. The internal representation may change in a future
-/// major version. Use the provided public API (`new`, `add`, `remove`,
-/// `contains`, `merge`, `value`, `to_json`, `from_json`) for all operations.
+/// The `pruned` vector tracks the causal history that has been safely garbage
+/// collected (tombstones removed). Use `prune` to compact tombstones once
+/// events are causally stable across all replicas.
 pub opaque type ORSet(a) {
   ORSet(
     replica_id: ReplicaId,
     counter: Int,
     entries: dict.Dict(a, set.Set(Tag)),
     tombstones: set.Set(Tag),
+    pruned: VersionVector,
   )
 }
 
@@ -67,6 +69,7 @@ pub fn new(replica_id: ReplicaId) -> ORSet(a) {
     counter: 0,
     entries: dict.new(),
     tombstones: set.new(),
+    pruned: version_vector.new(),
   )
 }
 
@@ -85,6 +88,7 @@ pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
     counter: new_counter,
     entries: dict.insert(orset.entries, element, new_tags),
     tombstones: orset.tombstones,
+    pruned: orset.pruned,
   )
 }
 
@@ -100,6 +104,7 @@ pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
     counter: orset.counter,
     entries: dict.delete(orset.entries, element),
     tombstones: set.union(orset.tombstones, removed_tags),
+    pruned: orset.pruned,
   )
 }
 
@@ -127,45 +132,44 @@ pub fn value(orset: ORSet(a)) -> set.Set(a) {
 
 /// Merge two OR-Sets.
 ///
-/// For each element, the merged tag set is the union of both sides' tags with
-/// any tombstoned tags removed. This prevents stale replicas from
-/// reintroducing tags that have already been observed and removed elsewhere.
+/// For each element, the merged tag set is the union of both sides' tags,
+/// minus merged tombstones, and minus any tags dominated by the merged
+/// pruned vector that are not live on the side that pruned them (zombie
+/// detection). An element is present if it has at least one surviving tag.
+///
 /// The merged counter is the maximum of both sides, ensuring future adds on
 /// either replica generate unique tags.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
-///
-/// **Known limitation:** removing an element on one replica and then merging
-/// with a stale replica that still has the element can resurrect it, because
-/// the remove only deletes locally-observed tags. A tombstone-based fix
-/// requires changing the type layout and is deferred to v2.0.
-/// See https://github.com/tylerbutler/lattice/issues/27.
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
-  let merged_tombstones = set.union(a.tombstones, b.tombstones)
+  let merged_pruned = version_vector.merge(a.pruned, b.pruned)
+  let merged_tombstones =
+    set.union(a.tombstones, b.tombstones)
+    |> set.filter(fn(tag) {
+      let Tag(rid, c) = tag
+      version_vector.get(merged_pruned, rid) < c
+    })
   let merged_counter = int.max(a.counter, b.counter)
 
-  // Filter B entries against tombstones
-  let clean_b =
-    dict.fold(b.entries, dict.new(), fn(acc, key, tags) {
-      let remaining = set.difference(tags, merged_tombstones)
-      case set.is_empty(remaining) {
-        True -> acc
-        False -> dict.insert(acc, key, remaining)
-      }
-    })
+  let a_keys = dict.keys(a.entries)
+  let b_keys = dict.keys(b.entries)
+  let all_keys = list.unique(list.append(a_keys, b_keys))
 
-  // Merge A entries
   let merged_entries =
-    dict.fold(a.entries, clean_b, fn(acc, key, tags) {
-      let remaining = set.difference(tags, merged_tombstones)
-      case set.is_empty(remaining) {
+    list.fold(all_keys, dict.new(), fn(acc, element) {
+      let a_tags = result.unwrap(dict.get(a.entries, element), set.new())
+      let b_tags = result.unwrap(dict.get(b.entries, element), set.new())
+
+      let combined =
+        set.union(a_tags, b_tags)
+        |> set.filter(fn(tag) {
+          !set.contains(merged_tombstones, tag)
+          && !is_pruned_zombie(tag, a_tags, a.pruned, b_tags, b.pruned)
+        })
+
+      case set.is_empty(combined) {
         True -> acc
-        False ->
-          case dict.get(acc, key) {
-            Ok(existing) ->
-              dict.insert(acc, key, set.union(existing, remaining))
-            Error(_) -> dict.insert(acc, key, remaining)
-          }
+        False -> dict.insert(acc, element, combined)
       }
     })
 
@@ -174,22 +178,62 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     counter: merged_counter,
     entries: merged_entries,
     tombstones: merged_tombstones,
+    pruned: merged_pruned,
   )
+}
+
+fn is_pruned_zombie(
+  tag: Tag,
+  a_tags: set.Set(Tag),
+  a_pruned: VersionVector,
+  b_tags: set.Set(Tag),
+  b_pruned: VersionVector,
+) -> Bool {
+  pruned_on_side_without_live_tag(tag, a_tags, a_pruned)
+  || pruned_on_side_without_live_tag(tag, b_tags, b_pruned)
+}
+
+fn pruned_on_side_without_live_tag(
+  tag: Tag,
+  live_tags: set.Set(Tag),
+  pruned: VersionVector,
+) -> Bool {
+  let Tag(rid, c) = tag
+  version_vector.get(pruned, rid) >= c && !set.contains(live_tags, tag)
+}
+
+/// Prune tombstones based on a stable version vector.
+///
+/// Updates the `pruned` vector by merging it with `stable_vv`. Any tombstones
+/// dominated by the new `pruned` vector are removed. This function should only
+/// be called with a version vector representing events that have been seen by
+/// all replicas (causally stable), otherwise "zombie" updates might be
+/// incorrectly ignored.
+pub fn prune(orset: ORSet(a), stable_vv: VersionVector) -> ORSet(a) {
+  let new_pruned = version_vector.merge(orset.pruned, stable_vv)
+  let pruned_tombstones =
+    set.filter(orset.tombstones, fn(tag) {
+      let Tag(rid, c) = tag
+      version_vector.get(new_pruned, rid) < c
+    })
+
+  ORSet(..orset, tombstones: pruned_tombstones, pruned: new_pruned)
 }
 
 /// Encode an `ORSet(String)` as a self-describing JSON value.
 ///
 /// Entries are encoded as a JSON dict where values are arrays of tag objects
 /// `{"r": replica_id, "c": counter}`. Removed tags are encoded separately in
-/// `tombstones`.
+/// `tombstones`. The `pruned` version vector tracks garbage-collected causal
+/// history.
 ///
-/// Format: `{"type": "or_set", "v": 1, "state": {"replica_id": "...", "counter": N, "entries": {...}, "tombstones": [...]}}`
+/// Format: `{"type": "or_set", "v": 2, "state": {"replica_id": "...", "counter": N, "entries": {...}, "tombstones": [...], "pruned": {...}}}`
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(orset: ORSet(String)) -> json.Json {
   json.object([
     #("type", json.string("or_set")),
-    #("v", json.int(1)),
+    #("v", json.int(2)),
     #(
       "state",
       json.object([
@@ -202,6 +246,7 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
           }),
         ),
         #("tombstones", json.array(set.to_list(orset.tombstones), encode_tag)),
+        #("pruned", version_vector.to_json(orset.pruned)),
       ]),
     ),
   ])
@@ -209,8 +254,8 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
 
 /// Decode an `ORSet(String)` from a JSON string produced by `to_json`.
 ///
-/// Returns `Error` if the string is not valid JSON or does not match the
-/// expected format.
+/// Supports both v1 (no pruned field) and v2 formats. Returns `Error` if the
+/// string is not valid JSON or does not match the expected format.
 pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError) {
   let tag_decoder = {
     use r <- decode.field("r", replica_id.decoder())
@@ -218,7 +263,8 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
     decode.success(Tag(replica_id: r, counter: c))
   }
   let tag_set_decoder = decode.map(decode.list(tag_decoder), set.from_list)
-  let state_decoder = {
+
+  let v1_state_decoder = {
     use state <- decode.field("state", {
       use replica_id <- decode.field("replica_id", replica_id.decoder())
       use counter <- decode.field("counter", decode.int)
@@ -236,10 +282,45 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
         counter: counter,
         entries: entries,
         tombstones: set.from_list(tombstones),
+        pruned: version_vector.new(),
       ))
     })
     decode.success(state)
   }
+
+  let v2_state_decoder = {
+    use state <- decode.field("state", {
+      use replica_id <- decode.field("replica_id", replica_id.decoder())
+      use counter <- decode.field("counter", decode.int)
+      use entries <- decode.field(
+        "entries",
+        decode.dict(decode.string, tag_set_decoder),
+      )
+      use tombstones <- decode.field("tombstones", tag_set_decoder)
+      use pruned_str <- decode.field("pruned", {
+        // Decode the inline version_vector JSON object
+        use _type <- decode.field("type", decode.string)
+        use _v <- decode.field("v", decode.int)
+        use clocks <- decode.field("state", {
+          use clocks <- decode.field(
+            "clocks",
+            decode.dict(replica_id.decoder(), decode.int),
+          )
+          decode.success(clocks)
+        })
+        decode.success(clocks)
+      })
+      decode.success(ORSet(
+        replica_id: replica_id,
+        counter: counter,
+        entries: entries,
+        tombstones: tombstones,
+        pruned: version_vector.from_dict(pruned_str),
+      ))
+    })
+    decode.success(state)
+  }
+
   let envelope_decoder = {
     use type_tag <- decode.field("type", decode.string)
     use version <- decode.field("v", decode.int)
@@ -248,18 +329,32 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
   case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
-      case type_tag == "or_set" && version == 1 {
-        True -> json.parse(from: json_string, using: state_decoder)
+      case type_tag == "or_set" {
         False ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
-                expected: "type=or_set and v=1",
-                found: type_tag <> " v=" <> int.to_string(version),
+                expected: "type=or_set",
+                found: type_tag,
                 path: [],
               ),
             ]),
           )
+        True ->
+          case version {
+            1 -> json.parse(from: json_string, using: v1_state_decoder)
+            2 -> json.parse(from: json_string, using: v2_state_decoder)
+            _ ->
+              Error(
+                json.UnableToDecode([
+                  decode.DecodeError(
+                    expected: "v=1 or v=2",
+                    found: int.to_string(version),
+                    path: ["v"],
+                  ),
+                ]),
+              )
+          }
       }
   }
 }

@@ -27,6 +27,7 @@ import gleam/json
 import gleam/list
 import gleam/set
 import lattice_core/replica_id.{type ReplicaId}
+import lattice_core/version_vector.{type VersionVector}
 import lattice_maps/crdt.{type Crdt, type CrdtSpec}
 import lattice_sets/or_set.{type ORSet}
 
@@ -197,6 +198,16 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
       )
     }
   }
+}
+
+/// Prune tombstones for keys based on a stable version vector.
+///
+/// Delegates to `or_set.prune` to remove tombstones from the internal key
+/// tracker. Note that this does NOT currently remove values associated with
+/// removed keys, as they may be needed for concurrent merges.
+/// (See https://github.com/tylerbutler/lattice/issues/17)
+pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
+  ORMap(..map, key_set: or_set.prune(map.key_set, stable_vv))
 }
 
 /// Encode an `ORMap` as a self-describing JSON value.
