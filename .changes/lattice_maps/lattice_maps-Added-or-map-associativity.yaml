@@ -1,0 +1,7 @@
+project: lattice_maps
+kind: Added
+body: |-
+  Add ORMap associativity property test
+
+  Verifies that merge is associative for ORMap with GCounter values, and strengthens idempotency test to also compare nested values.
+time: 2026-04-07T22:32:02.000000000Z

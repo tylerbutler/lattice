@@ -1,0 +1,7 @@
+project: lattice_registers
+kind: Fixed
+body: |-
+  Enforce causality invariants during MVRegister JSON deserialization
+
+  Entry tags are now validated to have positive counters and must not exceed the attached version vector, preventing causally inconsistent state from being decoded.
+time: 2026-04-07T22:32:00.000000000Z
