@@ -1,79 +1,143 @@
-# Gleam Project Tasks
+# Lattice CRDT Monorepo Tasks
+#
+# Packages are built/tested in dependency order:
+#   lattice_core → lattice_counters → lattice_sets → lattice_registers → lattice_maps → lattice_crdt
 
 # === ALIASES ===
 alias b := build
 alias t := test
 alias f := format
 alias c := check
-alias d := docs
 alias cl := change
+alias cp := change-pkg
 
 default:
     @just --list
 
+# Packages in topological (dependency) order
+packages := "lattice_core lattice_counters lattice_sets lattice_registers lattice_maps lattice_crdt"
+
 # === DEPENDENCIES ===
 
-# Download project dependencies
+# Download dependencies for all packages
 deps:
-    gleam deps download
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: downloading deps"
+        cd packages/$pkg && gleam deps download && cd ../..
+    done
 
 # === BUILD ===
 
-# Build project (Erlang target)
+# Build all packages (Erlang target)
 build:
-    gleam build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: building"
+        cd packages/$pkg && gleam build && cd ../..
+    done
 
-# Build with warnings as errors
+# Build all packages with warnings as errors
 build-strict:
-    gleam build --warnings-as-errors
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: building (strict)"
+        cd packages/$pkg && gleam build --warnings-as-errors && cd ../..
+    done
 
 # === TESTING ===
 
-# Run all tests
+# Run tests for all packages (Erlang target)
 test:
-    gleam test
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: testing (erlang)"
+        cd packages/$pkg && gleam test && cd ../..
+    done
 
 # === CODE QUALITY ===
 
-# Format source code
+# Format source code in all packages and examples
 format:
-    gleam format src test
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        cd packages/$pkg && gleam format src test && cd ../..
+    done
     cd examples && gleam format src
 
 # Check formatting without changes
 format-check:
-    gleam format --check src test
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: format check"
+        cd packages/$pkg && gleam format --check src test && cd ../..
+    done
     cd examples && gleam format --check src
 
-# Type check without building
+# Type check all packages
 check:
-    gleam check
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: type check"
+        cd packages/$pkg && gleam check && cd ../..
+    done
 
 # === DOCUMENTATION ===
 
-# Build documentation
+# Build documentation for all packages
 docs:
-    gleam docs build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: building docs"
+        cd packages/$pkg && gleam docs build && cd ../..
+    done
 
 # === CHANGELOG ===
 
-# Create a new changelog entry
+# Create a new changelog entry (interactive project selection)
 change:
     changie new
 
-# Preview unreleased changelog
-changelog-preview:
-    changie batch auto --dry-run
+# Create a changelog entry for a specific package
+change-pkg pkg:
+    changie new --project {{ pkg }}
 
-# Generate CHANGELOG.md
-changelog:
-    changie merge
+# Preview unreleased changelog for a project
+changelog-preview pkg:
+    changie batch auto --dry-run --project {{ pkg }}
+
+# Generate CHANGELOG.md for a project
+changelog pkg:
+    changie merge --project {{ pkg }}
 
 # === MAINTENANCE ===
 
-# Remove build artifacts
+# Remove build artifacts from all packages
 clean:
-    rm -rf build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        rm -rf packages/$pkg/build
+    done
+    rm -rf build examples/build
+
+# === PER-PACKAGE TARGETS ===
+
+# Test a single package: just test-pkg lattice_core
+test-pkg pkg:
+    cd packages/{{ pkg }} && gleam test
+
+# Build a single package: just build-pkg lattice_core
+build-pkg pkg:
+    cd packages/{{ pkg }} && gleam build
 
 # === EXAMPLES ===
 
@@ -108,8 +172,8 @@ examples: examples-run examples-run-js
 
 # === CI ===
 
-# Run all CI checks (format, check, test all targets, build strict all targets, examples)
-ci: format-check check test-all build-strict-all examples
+# Run all CI checks (format, check, test, build strict)
+ci: format-check check test build-strict
 
 # Alias for PR checks
 alias pr := ci
@@ -121,51 +185,41 @@ main: ci docs
 # MULTI-TARGET SUPPORT
 # =============================================================================
 
-# Build for JavaScript target
+# Build all packages for JavaScript target
 build-js:
-    gleam build --target javascript
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: building (javascript)"
+        cd packages/$pkg && gleam build --target javascript && cd ../..
+    done
 
 # Build all targets
 build-all: build build-js
 
 # Build JavaScript with warnings as errors
 build-strict-js:
-    gleam build --target javascript --warnings-as-errors
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: building strict (javascript)"
+        cd packages/$pkg && gleam build --target javascript --warnings-as-errors && cd ../..
+    done
 
 # Build all targets strictly
 build-strict-all: build-strict build-strict-js
 
-# Test on Erlang target
-test-erlang:
-    gleam test
+# Test on Erlang target (alias for test)
+test-erlang: test
 
 # Test on JavaScript target
 test-js:
-    gleam test --target javascript
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: testing (javascript)"
+        cd packages/$pkg && gleam test --target javascript && cd ../..
+    done
 
 # Test on all targets
 test-all: test-erlang test-js
-
-# =============================================================================
-# JAVASCRIPT INTEGRATION TESTS (Uncomment if needed)
-# =============================================================================
-
-# # Run integration tests with Node.js
-# test-integration-node: build-js
-#     node --test test/integration/test_runner.mjs
-
-# # Run integration tests with Deno
-# test-integration-deno: build-js
-#     deno test --allow-read --allow-env test/integration/test_runner.mjs
-
-# # Run integration tests with Bun
-# test-integration-bun: build-js
-#     bun test test/integration/test_runner.mjs
-
-# =============================================================================
-# COVERAGE (Uncomment if needed)
-# =============================================================================
-
-# # Run tests with coverage (requires setup - see README)
-# coverage:
-#     @echo "Coverage requires additional setup. See README.md"

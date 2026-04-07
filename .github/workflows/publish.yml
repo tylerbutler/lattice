@@ -1,8 +1,12 @@
 name: Publish
 
+# Broad tag pattern so new packages added to workspace.toml are automatically
+# publishable without editing this workflow. Safe because gleam-publish skips
+# versions already on Hex and only publishes packages listed in workspace.toml.
 on:
   push:
-    tags: ['v*']
+    tags:
+      - '*-v*'
 
 jobs:
   test:
@@ -14,10 +18,88 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
 
+      - name: Read workspace
+        id: ws
+        uses: tylerbutler/actions/read-gleam-workspace@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/read-gleam-workspace@main
+
       - name: Setup environment
         uses: ./.github/actions/setup
 
+      # Publish packages in dependency order (from workspace.toml).
+      # replace-path-deps rewrites path dependencies to Hex version ranges
+      # derived from each package's gleam.toml before publishing.
       - name: Publish to Hex.pm
-        run: gleam publish --yes
+        uses: tylerbutler/actions/gleam-publish@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/gleam-publish@main
+        with:
+          packages: ${{ steps.ws.outputs.packages }}
+          replace-path-deps: |
+            lattice_core:packages/lattice_core/gleam.toml
+            lattice_counters:packages/lattice_counters/gleam.toml
+            lattice_registers:packages/lattice_registers/gleam.toml
+            lattice_sets:packages/lattice_sets/gleam.toml
+            lattice_maps:packages/lattice_maps/gleam.toml
+          hex-api-key: ${{ secrets.HEXPM_API_KEY }}
+
+  # After publishing, update manifest.toml lockfiles so they reflect the
+  # latest published versions. This keeps the repo in sync with Hex.
+  update-lockfiles:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # ratchet:actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Refresh lockfiles
+        run: |
+          for pkg_dir in packages/lattice_*/; do
+            if [ -f "$pkg_dir/gleam.toml" ]; then
+              echo "Refreshing $pkg_dir manifest..."
+              (cd "$pkg_dir" && gleam deps download)
+            fi
+          done
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet -- '*.toml'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No lockfile changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Lockfile changes detected:"
+            git diff --stat -- '*.toml'
+          fi
+
+      - name: Create lockfile update PR
+        if: steps.changes.outputs.changed == 'true'
         env:
-          HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          BRANCH="chore/update-lockfiles-${TAG}"
+          git checkout -b "$BRANCH"
+          git add -A '*.toml'
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "chore: update lockfiles after ${TAG} publish"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: update lockfiles after ${TAG} publish" \
+            --body "Auto-generated PR to refresh \`manifest.toml\` lockfiles after publishing \`${TAG}\`." \
+            --base main \
+            --head "$BRANCH"

@@ -3,7 +3,7 @@ import gleam/json
 import gleam/list
 import gleam/set
 import gleam/string
-import lattice/two_p_set
+import lattice_sets/two_p_set
 
 fn print_set(label: String, s: set.Set(String)) -> Nil {
   let contents =

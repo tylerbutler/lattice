@@ -1,8 +1,0 @@
-kind: Fixed
-body: |-
-    Counter `from_json` rejects negative count values
-    `g_counter.from_json` and `pn_counter.from_json` now return a
-    `DecodeError` when any replica count is negative. Previously, negative
-    values were silently accepted, which could violate the grow-only invariant
-    after a round-trip through JSON.
-time: 2026-03-30T02:21:22.000000000+00:00

@@ -11,6 +11,7 @@ Ensure you have the following installed:
 | Erlang/OTP | 27.2.1+ | BEAM runtime |
 | Gleam | 1.14.0+ | Compiler and tooling |
 | just | 1.38.0+ | Task runner |
+| changie | latest | Changelog management |
 
 **Recommended:** Use [mise](https://mise.jdx.dev/) or [asdf](https://asdf-vm.com/) with the provided `.tool-versions` file.
 
@@ -27,25 +28,61 @@ asdf install
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd my_gleam_project
+cd lattice
 
-# Install dependencies
+# Install dependencies for all packages
 just deps
 
 # Verify everything works
 just ci
 ```
 
+## Monorepo Structure
+
+This project is a monorepo containing 6 independently-versioned Gleam packages:
+
+```
+lattice/                               # git repo root (NOT a Gleam package)
+├── packages/
+│   ├── lattice_core/                  # VersionVector, DotContext
+│   ├── lattice_counters/              # GCounter, PNCounter
+│   ├── lattice_sets/                  # GSet, TwoPSet, ORSet
+│   ├── lattice_registers/             # LWWRegister, MVRegister
+│   ├── lattice_maps/                  # LWWMap, ORMap, Crdt dispatch
+│   └── lattice_crdt/                  # Umbrella — depends on all above
+├── examples/                          # Runnable examples
+├── workspace.toml                     # Gleam workspace definition (source of truth)
+├── justfile                           # Orchestrates across all packages
+├── .changie.yaml                      # Project-mode changelog config
+└── .tool-versions                     # Tool version pinning
+```
+
+### Dependency graph
+
+```
+lattice_core          (no lattice deps)
+lattice_counters      (no lattice deps)
+lattice_sets          (no lattice deps)
+lattice_registers  →  lattice_core
+lattice_maps       →  lattice_core, lattice_counters, lattice_registers, lattice_sets
+lattice_crdt       →  all of the above (umbrella)
+```
+
+Each package has its own `gleam.toml`, `src/`, and `test/` directories. Packages use **path dependencies** for local development (e.g., `lattice_core = { path = "../lattice_core" }`).
+
 ## Development Workflow
 
 ### Daily Development
 
 ```bash
-# Check your code compiles
+# Type check all packages
 just check
 
-# Run tests
+# Run all tests (Erlang target)
 just test
+
+# Test a single package
+just test-pkg lattice_core
 
 # Format code (do this before committing)
 just format
@@ -58,39 +95,28 @@ just format
 just pr
 ```
 
-### Before Merging to Main
+### Changelog Entries
+
+Use changie to create per-package changelog entries:
 
 ```bash
-# Run extended checks
-just main
-```
+# Interactive project selection
+just change
 
-## Project Structure
+# Direct entry for a specific package
+just change-pkg lattice_sets
+# or directly:
+changie new --project lattice_sets
 
-```
-.
-├── src/
-│   ├── my_gleam_project.gleam      # Main public API
-│   └── my_gleam_project/           # Submodules
-│       └── internal/               # Private implementation
-├── test/
-│   ├── my_gleam_project_test.gleam # Tests
-│   └── test_helpers.gleam          # Test utilities
-├── examples/
-│   └── hello_world/                # Example project
-├── .github/
-│   ├── actions/setup/              # Reusable CI setup
-│   └── workflows/                  # CI/CD pipelines
-├── gleam.toml                      # Package configuration
-├── justfile                        # Task definitions
-└── .tool-versions                  # Tool version pinning
+# Preview unreleased changes for a package
+just changelog-preview lattice_sets
 ```
 
 ## Code Style
 
 ### Formatting
 
-This project uses Gleam's built-in formatter. Format your code before committing:
+This project uses Gleam's built-in formatter:
 
 ```bash
 just format
@@ -101,88 +127,32 @@ just format
 Always use Result types for fallible operations:
 
 ```gleam
-// Good
 pub fn parse(input: String) -> Result(Value, ParseError)
-
-// Avoid: functions that can fail but don't return Result
-pub fn parse(input: String) -> Value  // Don't do this
-```
-
-### Pattern Matching
-
-Gleam enforces exhaustive pattern matching. Handle all cases:
-
-```gleam
-case result {
-  Ok(value) -> handle_success(value)
-  Error(ParseError(msg)) -> handle_parse_error(msg)
-  Error(ValidationError(field)) -> handle_validation_error(field)
-}
 ```
 
 ### Documentation
 
-Document all public functions with `///` comments:
-
-```gleam
-/// Parses the input string into a Value.
-///
-/// ## Examples
-///
-/// ```gleam
-/// parse("hello")
-/// // -> Ok(Value("hello"))
-/// ```
-///
-/// ## Errors
-///
-/// Returns `ParseError` if the input is malformed.
-pub fn parse(input: String) -> Result(Value, ParseError)
-```
+Document all public functions with `///` comments including `## Examples` sections.
 
 ## Testing
 
 ### Running Tests
 
 ```bash
-# Run all tests
+# All packages, Erlang target
 just test
 
-# Run with verbose output
-gleam test -- --verbose
+# All packages, JavaScript target
+just test-js
+
+# Single package
+just test-pkg lattice_counters
+
+# Single test by name
+cd packages/lattice_counters && gleam test -- --filter "test_name"
 ```
 
-### Writing Tests
-
-Tests use the `gleeunit` framework:
-
-```gleam
-import gleeunit/should
-import my_gleam_project
-
-pub fn my_feature_test() {
-  my_gleam_project.some_function("input")
-  |> should.equal(expected_output)
-}
-
-pub fn error_case_test() {
-  my_gleam_project.parse("invalid")
-  |> should.be_error()
-}
-```
-
-### Test Helpers
-
-Use `test/test_helpers.gleam` for shared test utilities:
-
-```gleam
-import test_helpers
-
-pub fn with_fixture_test() {
-  let fixture = test_helpers.sample_data()
-  // ... test with fixture
-}
-```
+Tests use the `startest` framework with `startest/expect`. Property-based tests use `qcheck`.
 
 ## Commit Messages
 
@@ -190,72 +160,47 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<scope>): <description>
-
-[optional body]
-
-[optional footer(s)]
 ```
 
-### Types
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
 
-| Type | Description |
-|------|-------------|
-| `feat` | New feature |
-| `fix` | Bug fix |
-| `docs` | Documentation only |
-| `style` | Code style (formatting) |
-| `refactor` | Code refactoring |
-| `perf` | Performance improvement |
-| `test` | Adding or updating tests |
-| `build` | Build system changes |
-| `ci` | CI/CD changes |
-| `chore` | Maintenance tasks |
+## Publishing
 
-### Examples
+Packages are published to Hex.pm independently in dependency order. The `publish.yml` workflow handles this automatically:
 
-```bash
-feat(parser): add support for nested objects
-fix(validation): handle empty strings correctly
-docs: update installation instructions
-test: add edge case tests for unicode handling
-```
+1. Developer adds changelog entries with `just change` or `just change-pkg <name>`
+2. On merge to main, `release.yml` batches unreleased changes into a release PR
+3. Merging the release PR triggers `auto-tag.yml`, which creates per-package git tags (e.g., `lattice_core-v1.1.0`)
+4. Tags trigger `publish.yml`, which:
+   - Runs CI tests
+   - Rewrites path dependencies to Hex version ranges (via `replace-path-deps`)
+   - Publishes packages in dependency order
+   - Creates a PR to refresh lockfiles
 
-## Release Process
+### Workspace Configuration
 
-1. Make changes following the commit message convention
-2. Push to a feature branch and create a PR
-3. After merge, release-please creates a release PR
-4. Merge the release PR to publish a new version
+`workspace.toml` defines which packages belong to the workspace. All workflows read it via the `read-gleam-workspace` action — no need to hardcode package lists in workflow files.
+
+### Publishing Order
+
+Packages must be published in dependency order so that Hex.pm can resolve dependencies:
+
+1. `lattice_core`, `lattice_counters`, `lattice_sets` (no lattice deps)
+2. `lattice_registers` (depends on `lattice_core`)
+3. `lattice_maps` (depends on `lattice_core`, `lattice_counters`, `lattice_registers`, `lattice_sets`)
+4. `lattice_crdt` (depends on all above)
 
 ## Troubleshooting
 
-### Build Errors
-
 ```bash
-# Clean build artifacts and rebuild
+# Clean all build artifacts
 just clean
-just deps
-just build
-```
 
-### Test Failures
+# Rebuild from scratch
+just deps && just build
 
-```bash
 # Run a specific test
-gleam test -- --filter "test_name"
-
-# Run with more output
-gleam test -- --verbose
-```
-
-### Dependency Issues
-
-```bash
-# Update dependencies
-gleam deps update
-
-# Check for outdated dependencies
-gleam deps list
+cd packages/<pkg> && gleam test -- --filter "test_name"
 ```
 
 ## Getting Help

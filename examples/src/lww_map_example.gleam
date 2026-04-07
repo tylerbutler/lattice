@@ -4,7 +4,7 @@ import gleam/json
 import gleam/list
 import gleam/result
 import gleam/string
-import lattice/lww_map
+import lattice_maps/lww_map
 
 pub fn main() {
   io.println("=== LWWMap (Last-Writer-Wins Map) ===")

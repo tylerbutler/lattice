@@ -1,0 +1,7 @@
+project: lattice_crdt
+kind: Breaking
+body: |-
+  Split monolithic `lattice` package into multi-package monorepo
+
+  The single `lattice` package has been reorganized into 6 independently-versioned packages: `lattice_core`, `lattice_counters`, `lattice_sets`, `lattice_registers`, `lattice_maps`, and `lattice_crdt` (umbrella). All import paths change from `import lattice/<module>` to the appropriate sub-package (e.g. `import lattice/g_counter` becomes `import lattice_counters/g_counter`). Depend on `lattice_crdt` to get all sub-packages, or depend on individual packages for minimal dependencies. See each sub-package's changelog for complete import path mappings.
+time: 2026-04-07T19:36:33.000000000Z

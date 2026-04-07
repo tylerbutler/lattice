@@ -1,7 +1,7 @@
 import gleam/int
 import gleam/io
 import gleam/json
-import lattice/g_counter
+import lattice_counters/g_counter
 
 pub fn main() {
   io.println("=== GCounter (Grow-Only Counter) ===")

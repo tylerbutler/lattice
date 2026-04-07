@@ -1,0 +1,18 @@
+name = "lattice_maps"
+version = "0.1.0"
+description = "Last-writer-wins and observed-remove maps for Gleam — conflict-free replicated map types with generic value support"
+licences = ["MIT"]
+repository = { type = "github", user = "tylerbutler", repo = "lattice" }
+gleam = ">= 1.7.0"
+
+[dependencies]
+gleam_stdlib = ">= 0.48.0 and < 2.0.0"
+gleam_json = ">= 3.1.0 and < 4.0.0"
+lattice_core = { path = "../lattice_core" }
+lattice_counters = { path = "../lattice_counters" }
+lattice_registers = { path = "../lattice_registers" }
+lattice_sets = { path = "../lattice_sets" }
+
+[dev-dependencies]
+startest = ">= 0.8.0 and < 1.0.0"
+qcheck = ">= 1.0.0 and < 2.0.0"

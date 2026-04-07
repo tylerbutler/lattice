@@ -1,0 +1,7 @@
+project: lattice_registers
+kind: Breaking
+body: |-
+  Extracted from monolithic `lattice` package into standalone `lattice_registers` package
+
+  Imports change from `import lattice/lww_register` and `import lattice/mv_register` to `import lattice_registers/lww_register` and `import lattice_registers/mv_register`. Update all import paths accordingly.
+time: 2026-04-07T19:36:33.000000000Z

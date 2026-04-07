@@ -1,7 +1,7 @@
 import gleam/int
 import gleam/io
 import gleam/json
-import lattice/pn_counter
+import lattice_counters/pn_counter
 
 pub fn main() {
   io.println("=== PNCounter (Positive-Negative Counter) ===")

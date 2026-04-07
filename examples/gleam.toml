@@ -3,6 +3,11 @@ version = "1.0.0"
 description = "Sample applications demonstrating the lattice_crdt library"
 
 [dependencies]
-lattice_crdt = { path = ".." }
+lattice_crdt = { path = "../packages/lattice_crdt" }
+lattice_core = { path = "../packages/lattice_core" }
+lattice_counters = { path = "../packages/lattice_counters" }
+lattice_registers = { path = "../packages/lattice_registers" }
+lattice_sets = { path = "../packages/lattice_sets" }
+lattice_maps = { path = "../packages/lattice_maps" }
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"

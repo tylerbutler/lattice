@@ -4,10 +4,20 @@
 packages = [
   { name = "gleam_json", version = "3.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_json", source = "hex", outer_checksum = "44FDAA8847BE8FC48CA7A1C089706BD54BADCC4C45B237A992EDDF9F2CDB2836" },
   { name = "gleam_stdlib", version = "0.70.0", build_tools = ["gleam"], requirements = [], otp_app = "gleam_stdlib", source = "hex", outer_checksum = "86949BF5D1F0E4AC0AB5B06F235D8A5CC11A2DFC33BF22F752156ED61CA7D0FF" },
-  { name = "lattice_crdt", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], source = "local", path = ".." },
+  { name = "lattice_core", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], source = "local", path = "../packages/lattice_core" },
+  { name = "lattice_counters", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], source = "local", path = "../packages/lattice_counters" },
+  { name = "lattice_crdt", version = "2.0.0", build_tools = ["gleam"], requirements = ["lattice_core", "lattice_counters", "lattice_maps", "lattice_registers", "lattice_sets"], source = "local", path = "../packages/lattice_crdt" },
+  { name = "lattice_maps", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core", "lattice_counters", "lattice_registers", "lattice_sets"], source = "local", path = "../packages/lattice_maps" },
+  { name = "lattice_registers", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../packages/lattice_registers" },
+  { name = "lattice_sets", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], source = "local", path = "../packages/lattice_sets" },
 ]
 
 [requirements]
 gleam_json = { version = ">= 3.1.0 and < 4.0.0" }
 gleam_stdlib = { version = ">= 0.48.0 and < 2.0.0" }
-lattice_crdt = { path = ".." }
+lattice_core = { path = "../packages/lattice_core" }
+lattice_counters = { path = "../packages/lattice_counters" }
+lattice_crdt = { path = "../packages/lattice_crdt" }
+lattice_maps = { path = "../packages/lattice_maps" }
+lattice_registers = { path = "../packages/lattice_registers" }
+lattice_sets = { path = "../packages/lattice_sets" }

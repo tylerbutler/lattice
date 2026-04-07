@@ -1,0 +1,7 @@
+project: lattice_core
+kind: Breaking
+body: |-
+  Extracted from monolithic `lattice` package into standalone `lattice_core` package
+
+  Imports change from `import lattice/version_vector` and `import lattice/dot_context` to `import lattice_core/version_vector` and `import lattice_core/dot_context`. Update all import paths accordingly.
+time: 2026-04-07T19:36:33.000000000Z

@@ -1,14 +1,13 @@
-import gleam/int
 import gleam/io
 import gleam/json
-import lattice/lww_register
+import lattice_registers/lww_register
 
 pub fn main() {
   io.println("=== LWWRegister (Last-Writer-Wins Register) ===")
   io.println("")
 
   // Create a register with initial value "alice" at timestamp 1
-  let register = lww_register.new("alice", 1)
+  let register = lww_register.new("alice", 1, "node-a")
   io.println("Created register with value: " <> lww_register.value(register))
 
   // Simulate two replicas diverging
@@ -29,8 +28,8 @@ pub fn main() {
 
   // Same timestamp: second argument wins on tie
   io.println("--- Tie-breaking behavior ---")
-  let tie_a = lww_register.new("x-value", 5)
-  let tie_b = lww_register.new("y-value", 5)
+  let tie_a = lww_register.new("x-value", 5, "node-a")
+  let tie_b = lww_register.new("y-value", 5, "node-b")
   let tie_merged = lww_register.merge(tie_a, tie_b)
   io.println(
     "merge(\"x-value\"@t5, \"y-value\"@t5) = " <> lww_register.value(tie_merged),
@@ -48,8 +47,6 @@ pub fn main() {
       io.println(
         "✓ JSON round-trip successful (value: "
         <> lww_register.value(decoded)
-        <> ", timestamp: "
-        <> int.to_string(decoded.timestamp)
         <> ")",
       )
     Error(_) -> io.println("✗ JSON round-trip failed")
