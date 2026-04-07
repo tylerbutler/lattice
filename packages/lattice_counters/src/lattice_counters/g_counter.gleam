@@ -10,10 +10,11 @@
 //// ## Example
 ////
 //// ```gleam
+//// import lattice_core/replica_id
 //// import lattice_counters/g_counter
 ////
-//// let a = g_counter.new("node-a") |> g_counter.increment(3)
-//// let b = g_counter.new("node-b") |> g_counter.increment(5)
+//// let a = g_counter.new(replica_id.new("node-a")) |> g_counter.increment(3)
+//// let b = g_counter.new(replica_id.new("node-b")) |> g_counter.increment(5)
 //// let merged = g_counter.merge(a, b)
 //// g_counter.value(merged)  // -> 8
 //// ```
@@ -24,13 +25,14 @@ import gleam/int
 import gleam/json
 import gleam/list
 import gleam/result
+import lattice_core/replica_id.{type ReplicaId}
 
 /// A grow-only counter that tracks per-replica counts.
 ///
-/// Each replica identified by a `String` ID maintains its own count.
+/// Each replica identified by a `ReplicaId` maintains its own count.
 /// The global value is the sum of all per-replica counts.
 pub opaque type GCounter {
-  GCounter(dict: dict.Dict(String, Int), self_id: String)
+  GCounter(dict: dict.Dict(ReplicaId, Int), self_id: ReplicaId)
 }
 
 pub type IncrementError {
@@ -41,7 +43,7 @@ pub type IncrementError {
 ///
 /// Returns a fresh counter where all per-replica counts are zero.
 /// The `replica_id` identifies this node and is used when incrementing.
-pub fn new(replica_id: String) -> GCounter {
+pub fn new(replica_id: ReplicaId) -> GCounter {
   GCounter(dict.new(), replica_id)
 }
 
@@ -117,8 +119,8 @@ pub fn to_json(counter: GCounter) -> json.Json {
     #(
       "state",
       json.object([
-        #("self_id", json.string(self_id)),
-        #("counts", json.dict(d, fn(k) { k }, json.int)),
+        #("self_id", replica_id.to_json(self_id)),
+        #("counts", json.dict(d, fn(k) { replica_id.to_string(k) }, json.int)),
       ]),
     ),
   ])
@@ -131,7 +133,7 @@ pub fn to_json(counter: GCounter) -> json.Json {
 pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
   let state_decoder = {
     use state <- decode.field("state", {
-      use self_id <- decode.field("self_id", decode.string)
+      use self_id <- decode.field("self_id", replica_id.decoder())
       let non_negative_int =
         decode.int
         |> decode.then(fn(val) {
@@ -142,7 +144,7 @@ pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
         })
       use counts <- decode.field(
         "counts",
-        decode.dict(decode.string, non_negative_int),
+        decode.dict(replica_id.decoder(), non_negative_int),
       )
       decode.success(GCounter(dict: counts, self_id: self_id))
     })
@@ -173,11 +175,11 @@ pub fn from_json(json_string: String) -> Result(GCounter, json.DecodeError) {
 }
 
 fn merge_helper(
-  a: dict.Dict(String, Int),
-  b: dict.Dict(String, Int),
-  keys: List(String),
-  acc: dict.Dict(String, Int),
-) -> dict.Dict(String, Int) {
+  a: dict.Dict(ReplicaId, Int),
+  b: dict.Dict(ReplicaId, Int),
+  keys: List(ReplicaId),
+  acc: dict.Dict(ReplicaId, Int),
+) -> dict.Dict(ReplicaId, Int) {
   case keys {
     [] -> acc
     [key, ..rest] -> {
@@ -195,13 +197,16 @@ fn merge_helper(
 
 /// Extract the internal counts dictionary and self_id from a GCounter.
 @internal
-pub fn to_parts(counter: GCounter) -> #(dict.Dict(String, Int), String) {
+pub fn to_parts(counter: GCounter) -> #(dict.Dict(ReplicaId, Int), ReplicaId) {
   let GCounter(dict, self_id) = counter
   #(dict, self_id)
 }
 
 /// Construct a GCounter from a raw counts dictionary and self_id.
 @internal
-pub fn from_parts(dict: dict.Dict(String, Int), self_id: String) -> GCounter {
+pub fn from_parts(
+  dict: dict.Dict(ReplicaId, Int),
+  self_id: ReplicaId,
+) -> GCounter {
   GCounter(dict, self_id)
 }

@@ -1,6 +1,7 @@
 import gleam/int
 import gleam/io
 import gleam/json
+import lattice_core/replica_id
 import lattice_counters/pn_counter
 
 pub fn main() {
@@ -8,8 +9,8 @@ pub fn main() {
   io.println("")
 
   // Create counters on two replicas
-  let counter_a = pn_counter.new("node-a")
-  let counter_b = pn_counter.new("node-b")
+  let counter_a = pn_counter.new(replica_id.new("node-a"))
+  let counter_b = pn_counter.new(replica_id.new("node-b"))
 
   // node-a: increment by 10, then decrement by 3 → value 7
   let counter_a =

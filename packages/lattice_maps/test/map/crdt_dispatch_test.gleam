@@ -1,4 +1,5 @@
 import gleam/json
+import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_counters/g_counter
 import lattice_counters/pn_counter
@@ -14,48 +15,52 @@ import lattice_sets/or_set
 import lattice_sets/two_p_set
 import startest/expect
 
+fn rid(id: String) {
+  replica_id.new(id)
+}
+
 // --- default_crdt tests ---
 
 pub fn default_crdt_g_counter_test() {
-  crdt.default_crdt(GCounterSpec, "A")
-  |> expect.to_equal(CrdtGCounter(g_counter.new("A")))
+  crdt.default_crdt(GCounterSpec, rid("A"))
+  |> expect.to_equal(CrdtGCounter(g_counter.new(rid("A"))))
 }
 
 pub fn default_crdt_pn_counter_test() {
-  crdt.default_crdt(PnCounterSpec, "A")
-  |> expect.to_equal(CrdtPnCounter(pn_counter.new("A")))
+  crdt.default_crdt(PnCounterSpec, rid("A"))
+  |> expect.to_equal(CrdtPnCounter(pn_counter.new(rid("A"))))
 }
 
 pub fn default_crdt_lww_register_test() {
-  crdt.default_crdt(LwwRegisterSpec, "A")
-  |> expect.to_equal(CrdtLwwRegister(lww_register.new("", 0, "A")))
+  crdt.default_crdt(LwwRegisterSpec, rid("A"))
+  |> expect.to_equal(CrdtLwwRegister(lww_register.new("", 0, rid("A"))))
 }
 
 pub fn default_crdt_mv_register_test() {
-  crdt.default_crdt(MvRegisterSpec, "A")
-  |> expect.to_equal(CrdtMvRegister(mv_register.new("A")))
+  crdt.default_crdt(MvRegisterSpec, rid("A"))
+  |> expect.to_equal(CrdtMvRegister(mv_register.new(rid("A"))))
 }
 
 pub fn default_crdt_g_set_test() {
-  crdt.default_crdt(GSetSpec, "A")
+  crdt.default_crdt(GSetSpec, rid("A"))
   |> expect.to_equal(CrdtGSet(g_set.new()))
 }
 
 pub fn default_crdt_two_p_set_test() {
-  crdt.default_crdt(TwoPSetSpec, "A")
+  crdt.default_crdt(TwoPSetSpec, rid("A"))
   |> expect.to_equal(CrdtTwoPSet(two_p_set.new()))
 }
 
 pub fn default_crdt_or_set_test() {
-  crdt.default_crdt(OrSetSpec, "A")
-  |> expect.to_equal(CrdtOrSet(or_set.new("A")))
+  crdt.default_crdt(OrSetSpec, rid("A"))
+  |> expect.to_equal(CrdtOrSet(or_set.new(rid("A"))))
 }
 
 // --- merge dispatch tests ---
 
 pub fn merge_g_counter_dispatches_test() {
-  let a = CrdtGCounter(g_counter.new("A") |> g_counter.increment(3))
-  let b = CrdtGCounter(g_counter.new("B") |> g_counter.increment(5))
+  let a = CrdtGCounter(g_counter.new(rid("A")) |> g_counter.increment(3))
+  let b = CrdtGCounter(g_counter.new(rid("B")) |> g_counter.increment(5))
   let merged = crdt.merge(a, b)
   case merged {
     CrdtGCounter(c) -> g_counter.value(c) |> expect.to_equal(8)
@@ -64,8 +69,8 @@ pub fn merge_g_counter_dispatches_test() {
 }
 
 pub fn merge_pn_counter_dispatches_test() {
-  let a = CrdtPnCounter(pn_counter.new("A") |> pn_counter.increment(3))
-  let b = CrdtPnCounter(pn_counter.new("B") |> pn_counter.increment(7))
+  let a = CrdtPnCounter(pn_counter.new(rid("A")) |> pn_counter.increment(3))
+  let b = CrdtPnCounter(pn_counter.new(rid("B")) |> pn_counter.increment(7))
   let merged = crdt.merge(a, b)
   case merged {
     CrdtPnCounter(c) -> pn_counter.value(c) |> expect.to_equal(10)
@@ -74,8 +79,8 @@ pub fn merge_pn_counter_dispatches_test() {
 }
 
 pub fn merge_lww_register_dispatches_test() {
-  let a = CrdtLwwRegister(lww_register.new("hello", 1, "A"))
-  let b = CrdtLwwRegister(lww_register.new("world", 5, "B"))
+  let a = CrdtLwwRegister(lww_register.new("hello", 1, rid("A")))
+  let b = CrdtLwwRegister(lww_register.new("world", 5, rid("B")))
   let merged = crdt.merge(a, b)
   case merged {
     CrdtLwwRegister(r) -> lww_register.value(r) |> expect.to_equal("world")
@@ -97,8 +102,8 @@ pub fn merge_g_set_dispatches_test() {
 }
 
 pub fn merge_or_set_dispatches_test() {
-  let a = CrdtOrSet(or_set.new("A") |> or_set.add("x"))
-  let b = CrdtOrSet(or_set.new("B") |> or_set.add("y"))
+  let a = CrdtOrSet(or_set.new(rid("A")) |> or_set.add("x"))
+  let b = CrdtOrSet(or_set.new(rid("B")) |> or_set.add("y"))
   let merged = crdt.merge(a, b)
   case merged {
     CrdtOrSet(s) -> {
@@ -111,21 +116,25 @@ pub fn merge_or_set_dispatches_test() {
 
 pub fn merge_version_vector_dispatches_test() {
   let a =
-    CrdtVersionVector(version_vector.new() |> version_vector.increment("A"))
+    CrdtVersionVector(
+      version_vector.new() |> version_vector.increment(rid("A")),
+    )
   let b =
-    CrdtVersionVector(version_vector.new() |> version_vector.increment("B"))
+    CrdtVersionVector(
+      version_vector.new() |> version_vector.increment(rid("B")),
+    )
   let merged = crdt.merge(a, b)
   case merged {
     CrdtVersionVector(vv) -> {
-      version_vector.get(vv, "A") |> expect.to_equal(1)
-      version_vector.get(vv, "B") |> expect.to_equal(1)
+      version_vector.get(vv, rid("A")) |> expect.to_equal(1)
+      version_vector.get(vv, rid("B")) |> expect.to_equal(1)
     }
     _ -> expect.to_be_true(False)
   }
 }
 
 pub fn merge_type_mismatch_returns_first_test() {
-  let a = CrdtGCounter(g_counter.new("A"))
+  let a = CrdtGCounter(g_counter.new(rid("A")))
   let b = CrdtGSet(g_set.new())
 
   crdt.merge(a, b) |> expect.to_equal(a)
@@ -134,21 +143,21 @@ pub fn merge_type_mismatch_returns_first_test() {
 // --- to_json / from_json round-trip tests ---
 
 pub fn to_json_from_json_g_counter_test() {
-  let c = CrdtGCounter(g_counter.new("A") |> g_counter.increment(5))
+  let c = CrdtGCounter(g_counter.new(rid("A")) |> g_counter.increment(5))
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
   |> expect.to_equal(Ok(c))
 }
 
 pub fn to_json_from_json_pn_counter_test() {
-  let c = CrdtPnCounter(pn_counter.new("A") |> pn_counter.increment(3))
+  let c = CrdtPnCounter(pn_counter.new(rid("A")) |> pn_counter.increment(3))
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
   |> expect.to_equal(Ok(c))
 }
 
 pub fn to_json_from_json_lww_register_test() {
-  let c = CrdtLwwRegister(lww_register.new("hello", 42, "A"))
+  let c = CrdtLwwRegister(lww_register.new("hello", 42, rid("A")))
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
   |> expect.to_equal(Ok(c))
@@ -177,7 +186,7 @@ pub fn to_json_from_json_two_p_set_test() {
 pub fn to_json_from_json_or_set_test() {
   let c =
     CrdtOrSet(
-      or_set.new("A")
+      or_set.new(rid("A"))
       |> or_set.add("x"),
     )
   let json_str = json.to_string(crdt.to_json(c))
@@ -189,8 +198,8 @@ pub fn to_json_from_json_version_vector_test() {
   let c =
     CrdtVersionVector(
       version_vector.new()
-      |> version_vector.increment("A")
-      |> version_vector.increment("B"),
+      |> version_vector.increment(rid("A"))
+      |> version_vector.increment(rid("B")),
     )
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)

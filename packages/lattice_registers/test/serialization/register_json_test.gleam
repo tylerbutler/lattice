@@ -1,14 +1,19 @@
 import gleam/json
 import gleam/list
 import gleam/string
+import lattice_core/replica_id
 import lattice_registers/lww_register
 import lattice_registers/mv_register
 import startest/expect
 
+fn rid(id: String) {
+  replica_id.new(id)
+}
+
 // LWW-Register round-trip tests
 
 pub fn lww_register_to_json_simple_test() {
-  let reg = lww_register.new("hello", 42, "test-replica")
+  let reg = lww_register.new("hello", 42, rid("test-replica"))
   let json_str = json.to_string(lww_register.to_json(reg))
   lww_register.from_json(json_str)
   |> expect.to_equal(Ok(reg))
@@ -16,7 +21,7 @@ pub fn lww_register_to_json_simple_test() {
 
 pub fn lww_register_round_trip_updated_test() {
   let reg =
-    lww_register.new("initial", 1, "test-replica")
+    lww_register.new("initial", 1, rid("test-replica"))
     |> lww_register.set("updated", 100)
   let json_str = json.to_string(lww_register.to_json(reg))
   lww_register.from_json(json_str)
@@ -56,7 +61,7 @@ pub fn lww_register_from_json_v1_compat_test() {
 // MV-Register round-trip tests
 
 pub fn mv_register_to_json_simple_test() {
-  let reg = mv_register.new("A") |> mv_register.set("hello")
+  let reg = mv_register.new(rid("A")) |> mv_register.set("hello")
   let json_str = json.to_string(mv_register.to_json(reg))
   let decoded = mv_register.from_json(json_str)
   case decoded {
@@ -69,8 +74,8 @@ pub fn mv_register_to_json_simple_test() {
 
 pub fn mv_register_round_trip_concurrent_test() {
   // Simulate two concurrent writes from different replicas
-  let a = mv_register.new("A") |> mv_register.set("from_a")
-  let b = mv_register.new("B") |> mv_register.set("from_b")
+  let a = mv_register.new(rid("A")) |> mv_register.set("from_a")
+  let b = mv_register.new(rid("B")) |> mv_register.set("from_b")
   let merged = mv_register.merge(a, b)
   let json_str = json.to_string(mv_register.to_json(merged))
   let decoded = mv_register.from_json(json_str)

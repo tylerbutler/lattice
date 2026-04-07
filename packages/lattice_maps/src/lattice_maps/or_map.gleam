@@ -9,10 +9,11 @@
 ////
 //// ```gleam
 //// import lattice_maps/crdt
+//// import lattice_core/replica_id
 //// import lattice_counters/g_counter
 //// import lattice_maps/or_map
 ////
-//// let map = or_map.new("node-a", crdt.GCounterSpec)
+//// let map = or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
 ////   |> or_map.update("score", fn(c) {
 ////     let assert crdt.CrdtGCounter(gc) = c
 ////     crdt.CrdtGCounter(g_counter.increment(gc, 10))
@@ -25,6 +26,7 @@ import gleam/int
 import gleam/json
 import gleam/list
 import gleam/set
+import lattice_core/replica_id.{type ReplicaId}
 import lattice_maps/crdt.{type Crdt, type CrdtSpec}
 import lattice_sets/or_set.{type ORSet}
 
@@ -40,7 +42,7 @@ import lattice_sets/or_set.{type ORSet}
 /// for new keys.
 pub opaque type ORMap {
   ORMap(
-    replica_id: String,
+    replica_id: ReplicaId,
     crdt_spec: CrdtSpec,
     key_set: ORSet(String),
     values: dict.Dict(String, Crdt),
@@ -76,7 +78,7 @@ fn string_to_spec(s: String) -> Result(CrdtSpec, Nil) {
 ///
 /// The `crdt_spec` determines what type of CRDT is auto-created when `update`
 /// is called on a key that does not yet exist in the map.
-pub fn new(replica_id: String, crdt_spec: CrdtSpec) -> ORMap {
+pub fn new(replica_id: ReplicaId, crdt_spec: CrdtSpec) -> ORMap {
   ORMap(
     replica_id: replica_id,
     crdt_spec: crdt_spec,
@@ -206,7 +208,7 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(map: ORMap) -> json.Json {
-  let ORMap(replica_id, crdt_spec, key_set, values) = map
+  let ORMap(rid, crdt_spec, key_set, values) = map
   let values_json =
     json.array(dict.to_list(values), fn(pair) {
       let #(key, crdt_val) = pair
@@ -221,7 +223,7 @@ pub fn to_json(map: ORMap) -> json.Json {
     #(
       "state",
       json.object([
-        #("replica_id", json.string(replica_id)),
+        #("replica_id", json.string(replica_id.to_string(rid))),
         #("crdt_spec", json.string(spec_to_string(crdt_spec))),
         #("key_set", json.string(json.to_string(or_set.to_json(key_set)))),
         #("values", values_json),
@@ -242,11 +244,11 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
   }
   let state_decoder = {
     use state <- decode.field("state", {
-      use replica_id <- decode.field("replica_id", decode.string)
+      use replica_id_str <- decode.field("replica_id", decode.string)
       use crdt_spec_str <- decode.field("crdt_spec", decode.string)
       use key_set_str <- decode.field("key_set", decode.string)
       use values_list <- decode.field("values", decode.list(value_pair_decoder))
-      decode.success(#(replica_id, crdt_spec_str, key_set_str, values_list))
+      decode.success(#(replica_id_str, crdt_spec_str, key_set_str, values_list))
     })
     decode.success(state)
   }
@@ -272,7 +274,7 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
         True ->
           case json.parse(from: json_string, using: state_decoder) {
             Error(e) -> Error(e)
-            Ok(#(replica_id, crdt_spec_str, key_set_str, values_list)) -> {
+            Ok(#(replica_id_str, crdt_spec_str, key_set_str, values_list)) -> {
               case string_to_spec(crdt_spec_str) {
                 Error(_) ->
                   Error(
@@ -313,7 +315,7 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
                         Error(e) -> Error(e)
                         Ok(pairs) ->
                           Ok(ORMap(
-                            replica_id: replica_id,
+                            replica_id: replica_id.new(replica_id_str),
                             crdt_spec: crdt_spec,
                             key_set: key_set,
                             values: dict.from_list(pairs),

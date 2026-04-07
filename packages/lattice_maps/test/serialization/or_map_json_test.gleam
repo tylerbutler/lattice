@@ -1,5 +1,6 @@
 import gleam/json
 import gleam/set
+import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt.{GCounterSpec, OrSetSpec}
 import lattice_maps/or_map
@@ -7,10 +8,14 @@ import lattice_sets/g_set
 import lattice_sets/or_set
 import startest/expect
 
+fn rid(id: String) {
+  replica_id.new(id)
+}
+
 // OR-Map JSON round-trip tests
 
 pub fn or_map_to_json_empty_test() {
-  let map = or_map.new("A", GCounterSpec)
+  let map = or_map.new(rid("A"), GCounterSpec)
   let json_str = json.to_string(or_map.to_json(map))
   let decoded = or_map.from_json(json_str)
   case decoded {
@@ -22,7 +27,7 @@ pub fn or_map_to_json_empty_test() {
 pub fn or_map_round_trip_crdt_spec_preserved_test() {
   // Verify crdt_spec is preserved by checking that the decoded map
   // can successfully update with GCounter operations
-  let map = or_map.new("A", GCounterSpec)
+  let map = or_map.new(rid("A"), GCounterSpec)
   let json_str = json.to_string(or_map.to_json(map))
   let decoded = or_map.from_json(json_str)
   case decoded {
@@ -47,7 +52,7 @@ pub fn or_map_round_trip_crdt_spec_preserved_test() {
 }
 
 pub fn or_map_round_trip_single_key_test() {
-  let map = or_map.new("A", GCounterSpec)
+  let map = or_map.new(rid("A"), GCounterSpec)
   let map =
     or_map.update(map, "score", fn(c) {
       case c {
@@ -72,7 +77,7 @@ pub fn or_map_round_trip_single_key_test() {
 }
 
 pub fn or_map_round_trip_multiple_keys_test() {
-  let map = or_map.new("A", GCounterSpec)
+  let map = or_map.new(rid("A"), GCounterSpec)
   let map =
     or_map.update(map, "alpha", fn(c) {
       case c {
@@ -111,7 +116,7 @@ pub fn or_map_round_trip_multiple_keys_test() {
 }
 
 pub fn or_map_round_trip_or_set_values_test() {
-  let map = or_map.new("A", OrSetSpec)
+  let map = or_map.new(rid("A"), OrSetSpec)
   let map =
     or_map.update(map, "tags", fn(c) {
       case c {
@@ -154,7 +159,7 @@ pub fn or_map_from_json_rejects_values_that_do_not_match_spec_test() {
               "key_set",
               json.string(
                 json.to_string(or_set.to_json(
-                  or_set.new("A") |> or_set.add("x"),
+                  or_set.new(rid("A")) |> or_set.add("x"),
                 )),
               ),
             ),

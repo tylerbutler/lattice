@@ -8,9 +8,10 @@
 //// ## Example
 ////
 //// ```gleam
+//// import lattice_core/replica_id
 //// import lattice_counters/pn_counter
 ////
-//// let counter = pn_counter.new("node-a")
+//// let counter = pn_counter.new(replica_id.new("node-a"))
 ////   |> pn_counter.increment(10)
 ////   |> pn_counter.decrement(3)
 //// pn_counter.value(counter)  // -> 7
@@ -19,6 +20,7 @@
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import lattice_core/replica_id.{type ReplicaId}
 import lattice_counters/g_counter
 
 /// A counter that supports both increment and decrement operations.
@@ -37,7 +39,7 @@ pub type UpdateError {
 ///
 /// Returns a fresh counter with a zero value. Both inner G-Counters are
 /// initialized with `replica_id` as their node identifier.
-pub fn new(replica_id: String) -> PNCounter {
+pub fn new(replica_id: ReplicaId) -> PNCounter {
   PNCounter(
     positive: g_counter.new(replica_id),
     negative: g_counter.new(replica_id),
@@ -139,15 +141,21 @@ pub fn to_json(counter: PNCounter) -> json.Json {
         #(
           "positive",
           json.object([
-            #("self_id", json.string(pos_id)),
-            #("counts", json.dict(pos_dict, fn(k) { k }, json.int)),
+            #("self_id", replica_id.to_json(pos_id)),
+            #(
+              "counts",
+              json.dict(pos_dict, fn(k) { replica_id.to_string(k) }, json.int),
+            ),
           ]),
         ),
         #(
           "negative",
           json.object([
-            #("self_id", json.string(neg_id)),
-            #("counts", json.dict(neg_dict, fn(k) { k }, json.int)),
+            #("self_id", replica_id.to_json(neg_id)),
+            #(
+              "counts",
+              json.dict(neg_dict, fn(k) { replica_id.to_string(k) }, json.int),
+            ),
           ]),
         ),
       ]),
@@ -161,7 +169,7 @@ pub fn to_json(counter: PNCounter) -> json.Json {
 /// input is not a valid PN-Counter JSON envelope.
 pub fn from_json(json_string: String) -> Result(PNCounter, json.DecodeError) {
   let g_counter_state_decoder = {
-    use self_id <- decode.field("self_id", decode.string)
+    use self_id <- decode.field("self_id", replica_id.decoder())
     let non_negative_int =
       decode.int
       |> decode.then(fn(val) {
@@ -172,7 +180,7 @@ pub fn from_json(json_string: String) -> Result(PNCounter, json.DecodeError) {
       })
     use counts <- decode.field(
       "counts",
-      decode.dict(decode.string, non_negative_int),
+      decode.dict(replica_id.decoder(), non_negative_int),
     )
     decode.success(g_counter.from_parts(counts, self_id))
   }

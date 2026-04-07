@@ -3,6 +3,7 @@ import gleam/io
 import gleam/json
 import gleam/list
 import gleam/string
+import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
@@ -13,8 +14,8 @@ pub fn main() {
 
   // Create two maps on different replicas using GCounterSpec
   // (so each value in the map is a GCounter)
-  let map_a = or_map.new("node-a", crdt.GCounterSpec)
-  let map_b = or_map.new("node-b", crdt.GCounterSpec)
+  let map_a = or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
+  let map_b = or_map.new(replica_id.new("node-b"), crdt.GCounterSpec)
 
   // Map A: increment "page-views" by 5
   let map_a =

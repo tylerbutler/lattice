@@ -8,10 +8,11 @@
 //// ## Example
 ////
 //// ```gleam
+//// import lattice_core/replica_id
 //// import lattice_sets/or_set
 ////
-//// let a = or_set.new("node-a") |> or_set.add("item")
-//// let b = or_set.new("node-b") |> or_set.add("item") |> or_set.remove("item")
+//// let a = or_set.new(replica_id.new("node-a")) |> or_set.add("item")
+//// let b = or_set.new(replica_id.new("node-b")) |> or_set.add("item") |> or_set.remove("item")
 //// let merged = or_set.merge(a, b)
 //// or_set.contains(merged, "item")  // -> True (concurrent add wins)
 //// ```
@@ -22,6 +23,7 @@ import gleam/int
 import gleam/json
 import gleam/result
 import gleam/set
+import lattice_core/replica_id.{type ReplicaId}
 
 /// A unique tag identifying a specific add operation.
 ///
@@ -30,7 +32,7 @@ import gleam/set
 /// target exactly the tags observed at remove time, enabling add-wins
 /// semantics for concurrent operations.
 pub opaque type Tag {
-  Tag(replica_id: String, counter: Int)
+  Tag(replica_id: ReplicaId, counter: Int)
 }
 
 /// An OR-Set (observed-remove set) CRDT.
@@ -48,7 +50,7 @@ pub opaque type Tag {
 /// `contains`, `merge`, `value`, `to_json`, `from_json`) for all operations.
 pub opaque type ORSet(a) {
   ORSet(
-    replica_id: String,
+    replica_id: ReplicaId,
     counter: Int,
     entries: dict.Dict(a, set.Set(Tag)),
     tombstones: set.Set(Tag),
@@ -59,7 +61,7 @@ pub opaque type ORSet(a) {
 ///
 /// Each replica should have a unique `replica_id` to ensure that tags
 /// generated on different replicas never collide.
-pub fn new(replica_id: String) -> ORSet(a) {
+pub fn new(replica_id: ReplicaId) -> ORSet(a) {
   ORSet(
     replica_id: replica_id,
     counter: 0,
@@ -191,7 +193,7 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
     #(
       "state",
       json.object([
-        #("replica_id", json.string(orset.replica_id)),
+        #("replica_id", replica_id.to_json(orset.replica_id)),
         #("counter", json.int(orset.counter)),
         #(
           "entries",
@@ -211,14 +213,14 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
 /// expected format.
 pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError) {
   let tag_decoder = {
-    use r <- decode.field("r", decode.string)
+    use r <- decode.field("r", replica_id.decoder())
     use c <- decode.field("c", decode.int)
     decode.success(Tag(replica_id: r, counter: c))
   }
   let tag_set_decoder = decode.map(decode.list(tag_decoder), set.from_list)
   let state_decoder = {
     use state <- decode.field("state", {
-      use replica_id <- decode.field("replica_id", decode.string)
+      use replica_id <- decode.field("replica_id", replica_id.decoder())
       use counter <- decode.field("counter", decode.int)
       use entries <- decode.field(
         "entries",
@@ -264,5 +266,8 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
 
 fn encode_tag(tag: Tag) -> json.Json {
   let Tag(rid, c) = tag
-  json.object([#("r", json.string(rid)), #("c", json.int(c))])
+  json.object([
+    #("r", json.string(replica_id.to_string(rid))),
+    #("c", json.int(c)),
+  ])
 }

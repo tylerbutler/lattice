@@ -8,10 +8,11 @@
 //// ## Example
 ////
 //// ```gleam
+//// import lattice_core/replica_id
 //// import lattice_registers/mv_register
 ////
-//// let a = mv_register.new("node-a") |> mv_register.set("hello")
-//// let b = mv_register.new("node-b") |> mv_register.set("world")
+//// let a = mv_register.new(replica_id.new("node-a")) |> mv_register.set("hello")
+//// let b = mv_register.new(replica_id.new("node-b")) |> mv_register.set("world")
 //// let merged = mv_register.merge(a, b)
 //// mv_register.value(merged)  // -> ["hello", "world"] (concurrent writes)
 //// ```
@@ -20,6 +21,7 @@ import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
 
 /// An opaque identifier for a specific write operation.
@@ -28,7 +30,7 @@ import lattice_core/version_vector.{type VersionVector}
 /// by application code. A tag pairs a replica ID with a counter value,
 /// uniquely identifying one write event at one replica.
 pub opaque type Tag {
-  Tag(replica_id: String, counter: Int)
+  Tag(replica_id: ReplicaId, counter: Int)
 }
 
 /// A multi-value register that preserves concurrent writes.
@@ -41,7 +43,7 @@ pub opaque type Tag {
 /// with it. Do not pattern-match on the internal fields directly.
 pub opaque type MVRegister(a) {
   MVRegister(
-    replica_id: String,
+    replica_id: ReplicaId,
     entries: dict.Dict(Tag, a),
     vclock: VersionVector,
   )
@@ -51,7 +53,7 @@ pub opaque type MVRegister(a) {
 ///
 /// Returns a register with no entries and an empty version vector.
 /// `replica_id` identifies this node and is used when writing new values.
-pub fn new(replica_id: String) -> MVRegister(a) {
+pub fn new(replica_id: ReplicaId) -> MVRegister(a) {
   MVRegister(
     replica_id: replica_id,
     entries: dict.new(),
@@ -138,15 +140,15 @@ pub fn merge(a: MVRegister(el), b: MVRegister(el)) -> MVRegister(el) {
 ///
 /// Use `from_json` to decode the result back into a `MVRegister(String)`.
 pub fn to_json(register: MVRegister(String)) -> json.Json {
-  let MVRegister(replica_id, entries, vclock) = register
+  let MVRegister(rid, entries, vclock) = register
   let entries_json =
     json.array(dict.to_list(entries), fn(pair) {
-      let #(Tag(rid, counter), value) = pair
+      let #(Tag(tag_rid, counter), value) = pair
       json.object([
         #(
           "tag",
           json.object([
-            #("r", json.string(rid)),
+            #("r", json.string(replica_id.to_string(tag_rid))),
             #("c", json.int(counter)),
           ]),
         ),
@@ -160,9 +162,9 @@ pub fn to_json(register: MVRegister(String)) -> json.Json {
     #(
       "state",
       json.object([
-        #("replica_id", json.string(replica_id)),
+        #("replica_id", json.string(replica_id.to_string(rid))),
         #("entries", entries_json),
-        #("vclock", json.dict(vclock_dict, fn(k) { k }, json.int)),
+        #("vclock", json.dict(vclock_dict, replica_id.to_string, json.int)),
       ]),
     ),
   ])
@@ -179,23 +181,27 @@ pub fn from_json(
     use tag <- decode.field("tag", {
       use r <- decode.field("r", decode.string)
       use c <- decode.field("c", decode.int)
-      decode.success(Tag(replica_id: r, counter: c))
+      decode.success(Tag(replica_id: replica_id.new(r), counter: c))
     })
     use value <- decode.field("value", decode.string)
     decode.success(#(tag, value))
   }
   let state_decoder = {
     use state <- decode.field("state", {
-      use replica_id <- decode.field("replica_id", decode.string)
+      use rid_str <- decode.field("replica_id", decode.string)
       use entries_list <- decode.field("entries", decode.list(entry_decoder))
       use vclock_dict <- decode.field(
         "vclock",
         decode.dict(decode.string, decode.int),
       )
       let entries = dict.from_list(entries_list)
-      let vclock = version_vector.from_dict(vclock_dict)
+      let vclock_rid_dict =
+        dict.fold(vclock_dict, dict.new(), fn(acc, k, v) {
+          dict.insert(acc, replica_id.new(k), v)
+        })
+      let vclock = version_vector.from_dict(vclock_rid_dict)
       decode.success(MVRegister(
-        replica_id: replica_id,
+        replica_id: replica_id.new(rid_str),
         entries: entries,
         vclock: vclock,
       ))

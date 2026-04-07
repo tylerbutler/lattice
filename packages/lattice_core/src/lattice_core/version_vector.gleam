@@ -8,13 +8,16 @@
 //// ## Example
 ////
 //// ```gleam
+//// import lattice_core/replica_id
 //// import lattice_core/version_vector
 ////
+//// let node_a = replica_id.new("node-a")
+//// let node_b = replica_id.new("node-b")
 //// let a = version_vector.new()
-////   |> version_vector.increment("node-a")
-////   |> version_vector.increment("node-a")
+////   |> version_vector.increment(node_a)
+////   |> version_vector.increment(node_a)
 //// let b = version_vector.new()
-////   |> version_vector.increment("node-b")
+////   |> version_vector.increment(node_b)
 //// version_vector.compare(a, b)  // -> Concurrent
 //// ```
 
@@ -23,6 +26,7 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/result
+import lattice_core/replica_id.{type ReplicaId}
 
 /// The causal ordering relationship between two version vectors.
 ///
@@ -47,7 +51,7 @@ pub type Order {
 /// with it. Serialization helpers `to_dict` and `from_dict` are provided for
 /// JSON encoding and decoding.
 pub opaque type VersionVector {
-  VersionVector(dict: dict.Dict(String, Int))
+  VersionVector(dict: dict.Dict(ReplicaId, Int))
 }
 
 /// Create a new empty version vector.
@@ -61,7 +65,7 @@ pub fn new() -> VersionVector {
 ///
 /// Returns a new version vector with `replica_id`'s clock increased by one.
 /// This is the standard way to record a new event at `replica_id`.
-pub fn increment(vv: VersionVector, replica_id: String) -> VersionVector {
+pub fn increment(vv: VersionVector, replica_id: ReplicaId) -> VersionVector {
   let VersionVector(dict) = vv
   let current = result.unwrap(dict.get(dict, replica_id), 0)
   VersionVector(dict.insert(dict, replica_id, current + 1))
@@ -71,7 +75,7 @@ pub fn increment(vv: VersionVector, replica_id: String) -> VersionVector {
 ///
 /// Returns `0` if `replica_id` has not been seen (missing entries default
 /// to zero, consistent with the version vector semantics).
-pub fn get(vv: VersionVector, replica_id: String) -> Int {
+pub fn get(vv: VersionVector, replica_id: ReplicaId) -> Int {
   let VersionVector(dict) = vv
   result.unwrap(dict.get(dict, replica_id), 0)
 }
@@ -145,7 +149,7 @@ pub fn to_json(vv: VersionVector) -> json.Json {
     #(
       "state",
       json.object([
-        #("clocks", json.dict(d, fn(k) { k }, json.int)),
+        #("clocks", json.dict(d, fn(k) { replica_id.to_string(k) }, json.int)),
       ]),
     ),
   ])
@@ -160,7 +164,7 @@ pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError)
     use state <- decode.field("state", {
       use clocks <- decode.field(
         "clocks",
-        decode.dict(decode.string, decode.int),
+        decode.dict(replica_id.decoder(), decode.int),
       )
       decode.success(VersionVector(dict: clocks))
     })
@@ -192,21 +196,21 @@ pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError)
 
 /// Extract the internal clock dictionary from a VersionVector.
 ///
-/// Returns a `Dict(String, Int)` mapping replica IDs to their clock values.
+/// Returns a `Dict(ReplicaId, Int)` mapping replica IDs to their clock values.
 /// Useful for serialization or when you need direct access to the raw clock
 /// data. Prefer the higher-level API (`get`, `compare`, `merge`) for most
 /// use cases.
-pub fn to_dict(vv: VersionVector) -> dict.Dict(String, Int) {
+pub fn to_dict(vv: VersionVector) -> dict.Dict(ReplicaId, Int) {
   let VersionVector(d) = vv
   d
 }
 
 /// Construct a VersionVector from a raw clock dictionary.
 ///
-/// Creates a version vector from a `Dict(String, Int)` mapping replica IDs
+/// Creates a version vector from a `Dict(ReplicaId, Int)` mapping replica IDs
 /// to clock values. Useful for deserialization or constructing a version
 /// vector from external data. Prefer `new` and `increment` for most use
 /// cases.
-pub fn from_dict(d: dict.Dict(String, Int)) -> VersionVector {
+pub fn from_dict(d: dict.Dict(ReplicaId, Int)) -> VersionVector {
   VersionVector(d)
 }
