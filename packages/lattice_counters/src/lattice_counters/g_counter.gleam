@@ -202,9 +202,6 @@ pub fn to_parts(counter: GCounter) -> #(dict.Dict(String, Int), String) {
 
 /// Construct a GCounter from a raw counts dictionary and self_id.
 @internal
-pub fn from_parts(
-  dict: dict.Dict(String, Int),
-  self_id: String,
-) -> GCounter {
+pub fn from_parts(dict: dict.Dict(String, Int), self_id: String) -> GCounter {
   GCounter(dict, self_id)
 }
