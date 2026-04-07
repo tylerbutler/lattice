@@ -20,19 +20,26 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: tylerbutler/actions/changie-release@c697a813534c6364a835de8e2ed2c4e0c3638bbe # ratchet:tylerbutler/actions/changie-release@main
+      - name: Read workspace
+        id: ws
+        uses: tylerbutler/actions/read-gleam-workspace@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/read-gleam-workspace@main
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - uses: tylerbutler/actions/changie-release@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/changie-release@main
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
           pr-title-template: 'release {version}'
-          projects: lattice_core,lattice_counters,lattice_sets,lattice_registers,lattice_maps,lattice_crdt
+          projects: ${{ steps.ws.outputs.projects }}
           version-files: |
-            lattice_core:packages/lattice_core/gleam.toml:version
-            lattice_counters:packages/lattice_counters/gleam.toml:version
-            lattice_sets:packages/lattice_sets/gleam.toml:version
-            lattice_registers:packages/lattice_registers/gleam.toml:version
-            lattice_maps:packages/lattice_maps/gleam.toml:version
-            lattice_crdt:packages/lattice_crdt/gleam.toml:version
+            ${{ steps.ws.outputs.version-files }}
+          post-batch-command: |
+            echo "Refreshing lockfiles after version bumps..."
+            for d in packages/lattice_*/; do
+              [ -f "$d/gleam.toml" ] && (cd "$d" && gleam deps download)
+            done
 
       - name: Summary
         if: steps.release.outputs.skipped != 'true'
@@ -40,10 +47,12 @@ jobs:
           VERSION: ${{ steps.release.outputs.version }}
           PR_URL: ${{ steps.release.outputs.pr-url }}
           PR_OP: ${{ steps.release.outputs.pr-operation }}
+          BATCHED: ${{ steps.release.outputs.batched-projects }}
         run: |
           echo "### Release PR Created" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Version:** $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Versions:** $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Batched projects:** $BATCHED" >> "$GITHUB_STEP_SUMMARY"
           echo "- **PR:** $PR_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Operation:** $PR_OP" >> "$GITHUB_STEP_SUMMARY"
 

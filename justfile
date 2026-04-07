@@ -9,6 +9,7 @@ alias t := test
 alias f := format
 alias c := check
 alias cl := change
+alias cp := change-pkg
 
 default:
     @just --list
@@ -101,17 +102,21 @@ docs:
 
 # === CHANGELOG ===
 
-# Create a new changelog entry (requires --project flag)
-change project:
-    changie new --project {{ project }}
+# Create a new changelog entry (interactive project selection)
+change:
+    changie new
+
+# Create a changelog entry for a specific package
+change-pkg pkg:
+    changie new --project {{ pkg }}
 
 # Preview unreleased changelog for a project
-changelog-preview project:
-    changie batch auto --dry-run --project {{ project }}
+changelog-preview pkg:
+    changie batch auto --dry-run --project {{ pkg }}
 
 # Generate CHANGELOG.md for a project
-changelog project:
-    changie merge --project {{ project }}
+changelog pkg:
+    changie merge --project {{ pkg }}
 
 # === MAINTENANCE ===
 

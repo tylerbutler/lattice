@@ -9,10 +9,21 @@ permissions:
   contents: write
 
 jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.ws.outputs.projects }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+      - name: Read workspace
+        id: ws
+        uses: tylerbutler/actions/read-gleam-workspace@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/read-gleam-workspace@main
+
   auto-tag:
-    uses: tylerbutler/actions/.github/workflows/auto-tag.yml@c697a813534c6364a835de8e2ed2c4e0c3638bbe # ratchet:tylerbutler/actions/.github/workflows/auto-tag.yml@main
+    needs: workspace
+    uses: tylerbutler/actions/.github/workflows/auto-tag.yml@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/.github/workflows/auto-tag.yml@main
     with:
-      projects: lattice_core,lattice_counters,lattice_sets,lattice_registers,lattice_maps,lattice_crdt
+      projects: ${{ needs.workspace.outputs.projects }}
       create-release: true
     secrets:
       app-id: ${{ secrets.RELEASE_APP_ID }}

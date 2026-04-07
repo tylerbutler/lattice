@@ -51,6 +51,7 @@ lattice/                               # git repo root (NOT a Gleam package)
 │   ├── lattice_maps/                  # LWWMap, ORMap, Crdt dispatch
 │   └── lattice_crdt/                  # Umbrella — depends on all above
 ├── examples/                          # Runnable examples
+├── workspace.toml                     # Gleam workspace definition (source of truth)
 ├── justfile                           # Orchestrates across all packages
 ├── .changie.yaml                      # Project-mode changelog config
 └── .tool-versions                     # Tool version pinning
@@ -96,12 +97,19 @@ just pr
 
 ### Changelog Entries
 
-Use changie with the `--project` flag to create per-package changelog entries:
+Use changie to create per-package changelog entries:
 
 ```bash
-just change lattice_sets
+# Interactive project selection
+just change
+
+# Direct entry for a specific package
+just change-pkg lattice_sets
 # or directly:
 changie new --project lattice_sets
+
+# Preview unreleased changes for a package
+just changelog-preview lattice_sets
 ```
 
 ## Code Style
@@ -158,7 +166,29 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 ## Publishing
 
-Packages are published to Hex independently in topological order. Before publishing, path dependencies must be swapped to version constraints.
+Packages are published to Hex.pm independently in dependency order. The `publish.yml` workflow handles this automatically:
+
+1. Developer adds changelog entries with `just change` or `just change-pkg <name>`
+2. On merge to main, `release.yml` batches unreleased changes into a release PR
+3. Merging the release PR triggers `auto-tag.yml`, which creates per-package git tags (e.g., `lattice_core-v1.1.0`)
+4. Tags trigger `publish.yml`, which:
+   - Runs CI tests
+   - Rewrites path dependencies to Hex version ranges (via `replace-path-deps`)
+   - Publishes packages in dependency order
+   - Creates a PR to refresh lockfiles
+
+### Workspace Configuration
+
+`workspace.toml` defines which packages belong to the workspace. All workflows read it via the `read-gleam-workspace` action — no need to hardcode package lists in workflow files.
+
+### Publishing Order
+
+Packages must be published in dependency order so that Hex.pm can resolve dependencies:
+
+1. `lattice_core`, `lattice_counters`, `lattice_sets` (no lattice deps)
+2. `lattice_registers` (depends on `lattice_core`)
+3. `lattice_maps` (depends on `lattice_core`, `lattice_counters`, `lattice_registers`, `lattice_sets`)
+4. `lattice_crdt` (depends on all above)
 
 ## Troubleshooting
 
