@@ -1,0 +1,7 @@
+project: lattice_maps
+kind: Added
+body: |-
+  Add `or_map.prune(stable_vv)` for tombstone compaction
+
+  Delegates to `or_set.prune` on the internal key tracker. Values for removed keys are retained for concurrent merge correctness.
+time: 2026-04-07T20:00:02.000000000Z

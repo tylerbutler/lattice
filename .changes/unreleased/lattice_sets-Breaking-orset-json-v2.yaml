@@ -1,0 +1,7 @@
+project: lattice_sets
+kind: Breaking
+body: |-
+  Bump ORSet JSON serialization schema from v1 to v2
+
+  `or_set.to_json` now emits `"v": 2` with a `pruned` version vector field. `or_set.from_json` accepts both v1 and v2, so existing serialized data can still be decoded. However, data written by the new version cannot be read by older versions.
+time: 2026-04-07T20:00:01.000000000Z
