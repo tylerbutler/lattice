@@ -202,10 +202,6 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
 
 /// Prune tombstones and compact stale values based on a stable version vector.
 ///
-/// Two-phase compaction:
-/// 1. Delegates to `or_set.prune` to remove tombstones from the key tracker.
-/// 2. Removes values for keys no longer active in the key set.
-///
 /// After ORSet pruning, removed keys whose tombstones have been garbage
 /// collected cannot be resurrected (zombie detection prevents it), so their
 /// values are safe to discard.

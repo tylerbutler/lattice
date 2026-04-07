@@ -194,9 +194,7 @@ pub fn merge_after_prune_uses_remote_value_test() {
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
     |> or_map.remove("x")
-    |> or_map.prune(
-      version_vector.new() |> version_vector.increment(rid("A")),
-    )
+    |> or_map.prune(version_vector.new() |> version_vector.increment(rid("A")))
 
   let map_b =
     or_map.new(rid("B"), GCounterSpec)
