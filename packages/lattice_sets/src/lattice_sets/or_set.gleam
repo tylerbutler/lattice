@@ -145,10 +145,7 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
   let merged_pruned = version_vector.merge(a.pruned, b.pruned)
   let merged_tombstones =
     set.union(a.tombstones, b.tombstones)
-    |> set.filter(fn(tag) {
-      let Tag(rid, c) = tag
-      version_vector.get(merged_pruned, rid) < c
-    })
+    |> set.filter(fn(tag) { not_dominated(tag, merged_pruned) })
   let merged_counter = int.max(a.counter, b.counter)
 
   let a_keys = dict.keys(a.entries)
@@ -182,6 +179,11 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
   )
 }
 
+fn not_dominated(tag: Tag, pruned: VersionVector) -> Bool {
+  let Tag(rid, c) = tag
+  version_vector.get(pruned, rid) < c
+}
+
 fn is_pruned_zombie(
   tag: Tag,
   a_tags: set.Set(Tag),
@@ -212,10 +214,7 @@ fn pruned_on_side_without_live_tag(
 pub fn prune(orset: ORSet(a), stable_vv: VersionVector) -> ORSet(a) {
   let new_pruned = version_vector.merge(orset.pruned, stable_vv)
   let pruned_tombstones =
-    set.filter(orset.tombstones, fn(tag) {
-      let Tag(rid, c) = tag
-      version_vector.get(new_pruned, rid) < c
-    })
+    set.filter(orset.tombstones, fn(tag) { not_dominated(tag, new_pruned) })
 
   ORSet(..orset, tombstones: pruned_tombstones, pruned: new_pruned)
 }
@@ -297,25 +296,13 @@ pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError)
         decode.dict(decode.string, tag_set_decoder),
       )
       use tombstones <- decode.field("tombstones", tag_set_decoder)
-      use pruned_str <- decode.field("pruned", {
-        // Decode the inline version_vector JSON object
-        use _type <- decode.field("type", decode.string)
-        use _v <- decode.field("v", decode.int)
-        use clocks <- decode.field("state", {
-          use clocks <- decode.field(
-            "clocks",
-            decode.dict(replica_id.decoder(), decode.int),
-          )
-          decode.success(clocks)
-        })
-        decode.success(clocks)
-      })
+      use pruned <- decode.field("pruned", version_vector.decoder())
       decode.success(ORSet(
         replica_id: replica_id,
         counter: counter,
         entries: entries,
         tombstones: tombstones,
-        pruned: version_vector.from_dict(pruned_str),
+        pruned: pruned,
       ))
     })
     decode.success(state)
