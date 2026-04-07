@@ -1,7 +1,0 @@
-project: lattice_registers
-kind: Added
-body: |-
-  Add MVRegister associativity property test
-
-  Verifies that merge is associative: merging three independent registers produces the same result regardless of grouping.
-time: 2026-04-07T22:32:01.000000000Z
