@@ -21,6 +21,7 @@ import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/list
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
 
@@ -200,11 +201,31 @@ pub fn from_json(
           dict.insert(acc, replica_id.new(k), v)
         })
       let vclock = version_vector.from_dict(vclock_rid_dict)
-      decode.success(MVRegister(
-        replica_id: replica_id.new(rid_str),
-        entries: entries,
-        vclock: vclock,
-      ))
+
+      let is_valid =
+        list.all(entries_list, fn(pair) {
+          let #(Tag(rid, c), _val) = pair
+          let is_positive = c > 0
+          let vclock_counter = version_vector.get(vclock, rid)
+          let is_causal = c <= vclock_counter
+          is_positive && is_causal
+        })
+
+      let mvr =
+        MVRegister(
+          replica_id: replica_id.new(rid_str),
+          entries: entries,
+          vclock: vclock,
+        )
+
+      case is_valid {
+        True -> decode.success(mvr)
+        False ->
+          decode.failure(
+            mvr,
+            "causally consistent entries and positive counters",
+          )
+      }
     })
     decode.success(state)
   }

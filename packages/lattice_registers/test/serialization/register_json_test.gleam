@@ -72,6 +72,45 @@ pub fn mv_register_to_json_simple_test() {
   }
 }
 
+pub fn mv_register_from_json_invalid_counter_test() {
+  // Counter <= 0
+  let json_str =
+    "{\"type\":\"mv_register\",\"v\":1,\"state\":{\"replica_id\":\"A\",\"entries\":[{\"tag\":{\"r\":\"A\",\"c\":0},\"value\":\"bad\"}],\"vclock\":{\"A\":1}}}"
+  let decoded = mv_register.from_json(json_str)
+  case decoded {
+    Error(_) -> Nil
+    Ok(_) -> expect.to_be_true(False)
+  }
+
+  let json_str2 =
+    "{\"type\":\"mv_register\",\"v\":1,\"state\":{\"replica_id\":\"A\",\"entries\":[{\"tag\":{\"r\":\"A\",\"c\":-1},\"value\":\"bad\"}],\"vclock\":{\"A\":1}}}"
+  let decoded2 = mv_register.from_json(json_str2)
+  case decoded2 {
+    Error(_) -> Nil
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
+pub fn mv_register_from_json_causality_violation_test() {
+  // entry tag counter > vclock counter
+  let json_str =
+    "{\"type\":\"mv_register\",\"v\":1,\"state\":{\"replica_id\":\"A\",\"entries\":[{\"tag\":{\"r\":\"A\",\"c\":2},\"value\":\"bad\"}],\"vclock\":{\"A\":1}}}"
+  let decoded = mv_register.from_json(json_str)
+  case decoded {
+    Error(_) -> Nil
+    Ok(_) -> expect.to_be_true(False)
+  }
+
+  // missing from vclock
+  let json_str2 =
+    "{\"type\":\"mv_register\",\"v\":1,\"state\":{\"replica_id\":\"A\",\"entries\":[{\"tag\":{\"r\":\"B\",\"c\":1},\"value\":\"bad\"}],\"vclock\":{\"A\":1}}}"
+  let decoded2 = mv_register.from_json(json_str2)
+  case decoded2 {
+    Error(_) -> Nil
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
 pub fn mv_register_round_trip_concurrent_test() {
   // Simulate two concurrent writes from different replicas
   let a = mv_register.new(rid("A")) |> mv_register.set("from_a")
