@@ -1,0 +1,7 @@
+project: lattice_sets
+kind: Added
+body: |-
+  Add `or_set.prune(stable_vv)` for tombstone compaction
+
+  Accepts a causally stable version vector and removes tombstones dominated by it. The merge algorithm now detects "zombie" tags from stale replicas, preventing resurrection of removed elements after pruning. This resolves the known resurrection bug (#27).
+time: 2026-04-07T20:00:00.000000000Z
