@@ -194,6 +194,24 @@ pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError)
   }
 }
 
+/// A JSON decoder for VersionVector values.
+///
+/// Decodes the self-describing envelope format produced by `to_json`.
+/// Useful as a building block in `from_json` decoders when a VersionVector
+/// is embedded inline within another JSON structure.
+pub fn decoder() -> decode.Decoder(VersionVector) {
+  use _type <- decode.field("type", decode.string)
+  use _v <- decode.field("v", decode.int)
+  use clocks <- decode.field("state", {
+    use clocks <- decode.field(
+      "clocks",
+      decode.dict(replica_id.decoder(), decode.int),
+    )
+    decode.success(clocks)
+  })
+  decode.success(VersionVector(dict: clocks))
+}
+
 /// Extract the internal clock dictionary from a VersionVector.
 ///
 /// Returns a `Dict(ReplicaId, Int)` mapping replica IDs to their clock values.
