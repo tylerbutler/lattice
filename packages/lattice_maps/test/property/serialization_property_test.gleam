@@ -1,12 +1,17 @@
 import gleam/int
 import gleam/json
 import gleam/set
+import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/lww_map
 import lattice_maps/or_map
 import qcheck
 import startest/expect
+
+fn rid(id: String) {
+  replica_id.new(id)
+}
 
 fn small_test_config() -> qcheck.Config {
   qcheck.config(test_count: 10, max_retries: 3, seed: qcheck.seed(42))
@@ -49,7 +54,7 @@ pub fn lww_map_json_round_trip__test() {
 pub fn or_map_json_round_trip__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(inc) {
     let map =
-      or_map.new("A", crdt.GCounterSpec)
+      or_map.new(rid("A"), crdt.GCounterSpec)
       |> or_map.update("x", fn(c) {
         case c {
           crdt.CrdtGCounter(gc) ->

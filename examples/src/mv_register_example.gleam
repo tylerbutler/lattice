@@ -1,6 +1,7 @@
 import gleam/io
 import gleam/json
 import gleam/string
+import lattice_core/replica_id
 import lattice_registers/mv_register
 
 pub fn main() {
@@ -8,8 +9,8 @@ pub fn main() {
   io.println("")
 
   // Create two registers on different nodes
-  let node_a = mv_register.new("node-a")
-  let node_b = mv_register.new("node-b")
+  let node_a = mv_register.new(replica_id.new("node-a"))
+  let node_b = mv_register.new(replica_id.new("node-b"))
 
   // Concurrent writes on each node
   let node_a = mv_register.set(node_a, "alice")

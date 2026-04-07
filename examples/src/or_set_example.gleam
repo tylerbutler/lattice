@@ -3,6 +3,7 @@ import gleam/json
 import gleam/list
 import gleam/set
 import gleam/string
+import lattice_core/replica_id
 import lattice_sets/or_set
 
 fn print_set(label: String, s: set.Set(String)) -> Nil {
@@ -17,8 +18,8 @@ pub fn main() {
 
   // Create two sets on different replicas
   io.println("Creating two ORSets on different nodes...")
-  let node_a = or_set.new("node-a")
-  let node_b = or_set.new("node-b")
+  let node_a = or_set.new(replica_id.new("node-a"))
+  let node_b = or_set.new(replica_id.new("node-b"))
 
   // Both nodes add "apple", then sync via merge
   io.println("Both nodes add \"apple\", then sync...")
@@ -61,7 +62,7 @@ pub fn main() {
 
   // Normal add/remove cycle
   io.println("--- Normal add/remove cycle ---")
-  let demo = or_set.new("demo")
+  let demo = or_set.new(replica_id.new("demo"))
   let demo =
     demo
     |> or_set.add("x")

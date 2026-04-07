@@ -8,10 +8,11 @@
 //// ## Example
 ////
 //// ```gleam
+//// import lattice_core/replica_id
 //// import lattice_registers/lww_register
 ////
-//// let a = lww_register.new("hello", 1, "node-a")
-//// let b = lww_register.new("world", 2, "node-b")
+//// let a = lww_register.new("hello", 1, replica_id.new("node-a"))
+//// let b = lww_register.new("world", 2, replica_id.new("node-b"))
 //// let merged = lww_register.merge(a, b)
 //// lww_register.value(merged)  // -> "world"
 //// ```
@@ -20,7 +21,7 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/order
-import gleam/string
+import lattice_core/replica_id.{type ReplicaId}
 
 /// A register holding a single value alongside its write timestamp and
 /// replica identifier.
@@ -29,7 +30,7 @@ import gleam/string
 /// used to resolve conflicts, and `replica_id` provides a deterministic
 /// tie-breaker when timestamps are equal.
 pub opaque type LWWRegister(a) {
-  LWWRegister(value: a, timestamp: Int, replica_id: String)
+  LWWRegister(value: a, timestamp: Int, replica_id: ReplicaId)
 }
 
 /// Create a new LWW-Register with an initial value, timestamp, and replica ID.
@@ -39,7 +40,7 @@ pub opaque type LWWRegister(a) {
 /// milliseconds or a Lamport clock) so that later writes have higher values.
 /// `replica_id` identifies the writing node and is used as a deterministic
 /// tie-breaker when two registers have equal timestamps during merge.
-pub fn new(val: a, timestamp: Int, replica_id: String) -> LWWRegister(a) {
+pub fn new(val: a, timestamp: Int, replica_id: ReplicaId) -> LWWRegister(a) {
   LWWRegister(value: val, timestamp: timestamp, replica_id: replica_id)
 }
 
@@ -82,7 +83,7 @@ pub fn merge(a: LWWRegister(a), b: LWWRegister(a)) -> LWWRegister(a) {
         True -> b
         False -> {
           // Equal timestamps: use replica_id as deterministic tie-breaker
-          case string.compare(a.replica_id, b.replica_id) {
+          case replica_id.compare(a.replica_id, b.replica_id) {
             order.Gt -> a
             order.Lt -> b
             order.Eq -> a
@@ -107,7 +108,7 @@ pub fn to_json(register: LWWRegister(String)) -> json.Json {
       json.object([
         #("value", json.string(register.value)),
         #("timestamp", json.int(register.timestamp)),
-        #("replica_id", json.string(register.replica_id)),
+        #("replica_id", json.string(replica_id.to_string(register.replica_id))),
       ]),
     ),
   ])
@@ -126,11 +127,15 @@ pub fn from_json(
     use state <- decode.field("state", {
       use value <- decode.field("value", decode.string)
       use timestamp <- decode.field("timestamp", decode.int)
-      use replica_id <- decode.optional_field("replica_id", "", decode.string)
+      use replica_id_str <- decode.optional_field(
+        "replica_id",
+        "",
+        decode.string,
+      )
       decode.success(LWWRegister(
         value: value,
         timestamp: timestamp,
-        replica_id: replica_id,
+        replica_id: replica_id.new(replica_id_str),
       ))
     })
     decode.success(state)

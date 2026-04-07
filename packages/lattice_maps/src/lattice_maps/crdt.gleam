@@ -12,15 +12,17 @@
 ////
 //// ```gleam
 //// import lattice_maps/crdt
+//// import lattice_core/replica_id
 //// import lattice_counters/g_counter
 ////
-//// let a = crdt.CrdtGCounter(g_counter.new("node-a") |> g_counter.increment(1))
-//// let b = crdt.CrdtGCounter(g_counter.new("node-b") |> g_counter.increment(2))
+//// let a = crdt.CrdtGCounter(g_counter.new(replica_id.new("node-a")) |> g_counter.increment(1))
+//// let b = crdt.CrdtGCounter(g_counter.new(replica_id.new("node-b")) |> g_counter.increment(2))
 //// let merged = crdt.merge(a, b)
 //// ```
 
 import gleam/dynamic/decode
 import gleam/json
+import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
 import lattice_counters/g_counter.{type GCounter}
 import lattice_counters/pn_counter.{type PNCounter}
@@ -84,7 +86,7 @@ pub type CrdtSpec {
 /// - `MvRegisterSpec` — new MV-Register for `replica_id`
 /// - `GSetSpec` / `TwoPSetSpec` — empty set (no replica needed)
 /// - `OrSetSpec` — new OR-Set for `replica_id`
-pub fn default_crdt(spec: CrdtSpec, replica_id: String) -> Crdt {
+pub fn default_crdt(spec: CrdtSpec, replica_id: ReplicaId) -> Crdt {
   case spec {
     GCounterSpec -> CrdtGCounter(g_counter.new(replica_id))
     PnCounterSpec -> CrdtPnCounter(pn_counter.new(replica_id))

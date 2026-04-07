@@ -1,0 +1,6 @@
+project: lattice_crdt
+kind: Breaking
+body: |-
+  Add opaque ReplicaId type for type-safe replica identification
+  Functions that previously accepted raw `String` replica identifiers now require a `ReplicaId` value. Create one with `replica_id.from_string("node-a")`. This affects `g_counter.new`, `pn_counter.new`, `lww_register.new`, `or_set.add`, `or_set.remove`, `lww_map.set`, `lww_map.remove`, `or_map.set`, and `or_map.remove`.
+time: 2026-04-07T21:59:20.405500000+00:00

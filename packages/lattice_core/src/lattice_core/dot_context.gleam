@@ -9,15 +9,19 @@
 ////
 //// ```gleam
 //// import lattice_core/dot_context.{Dot}
+//// import lattice_core/replica_id
 ////
+//// let node_a = replica_id.new("node-a")
+//// let node_b = replica_id.new("node-b")
 //// let ctx = dot_context.new()
-////   |> dot_context.add_dot("node-a", 1)
-////   |> dot_context.add_dot("node-b", 1)
-//// dot_context.contains_dots(ctx, [Dot("node-a", 1)])  // -> True
+////   |> dot_context.add_dot(node_a, 1)
+////   |> dot_context.add_dot(node_b, 1)
+//// dot_context.contains_dots(ctx, [Dot(node_a, 1)])  // -> True
 //// ```
 
 import gleam/list
 import gleam/set
+import lattice_core/replica_id.{type ReplicaId}
 
 /// A unique identifier for a single write event at a specific replica.
 ///
@@ -26,7 +30,7 @@ import gleam/set
 /// they form a globally unique event identifier. Users construct `Dot` values
 /// when calling `contains_dots` or `remove_dots`.
 pub type Dot {
-  Dot(replica_id: String, counter: Int)
+  Dot(replica_id: ReplicaId, counter: Int)
 }
 
 /// An opaque set of observed dots (write events).
@@ -51,7 +55,7 @@ pub fn new() -> DotContext {
 /// dot is already present, the context is returned unchanged.
 pub fn add_dot(
   context: DotContext,
-  replica_id: String,
+  replica_id: ReplicaId,
   counter: Int,
 ) -> DotContext {
   DotContext(dots: set.insert(context.dots, Dot(replica_id:, counter:)))

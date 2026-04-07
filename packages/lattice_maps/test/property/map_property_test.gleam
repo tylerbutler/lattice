@@ -1,10 +1,15 @@
 import gleam/set
+import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/lww_map
 import lattice_maps/or_map
 import qcheck
 import startest/expect
+
+fn rid(id: String) {
+  replica_id.new(id)
+}
 
 fn small_test_config() -> qcheck.Config {
   qcheck.config(test_count: 10, max_retries: 3, seed: qcheck.seed(42))
@@ -85,10 +90,10 @@ pub fn or_map_commutativity__test() {
     fn(pair) {
       let #(a, b) = pair
       let map_a =
-        or_map.new("A", crdt.GCounterSpec)
+        or_map.new(rid("A"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, a))
       let map_b =
-        or_map.new("B", crdt.GCounterSpec)
+        or_map.new(rid("B"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, b))
       set.from_list(or_map.keys(or_map.merge(map_a, map_b)))
       |> expect.to_equal(set.from_list(or_map.keys(or_map.merge(map_b, map_a))))
@@ -100,7 +105,7 @@ pub fn or_map_commutativity__test() {
 pub fn or_map_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(a) {
     let map =
-      or_map.new("A", crdt.GCounterSpec)
+      or_map.new(rid("A"), crdt.GCounterSpec)
       |> or_map.update("x", increment_g_counter(_, a))
     set.from_list(or_map.keys(or_map.merge(map, map)))
     |> expect.to_equal(set.from_list(or_map.keys(map)))
