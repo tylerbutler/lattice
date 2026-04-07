@@ -5,7 +5,7 @@
 <h1 align="center">LATTICE</h1>
 
 <p align="center">
-Conflict-free replicated data types (CRDTs) for Gleam. Battle-tested with property-based tests, targeting both Erlang and JavaScript runtimes.
+Conflict-free replicated data types (CRDTs) for Gleam. Tested with property-based tests, targeting both Erlang and JavaScript runtimes.
 </p>
 
 ## Packages
