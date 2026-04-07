@@ -200,14 +200,25 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   }
 }
 
-/// Prune tombstones for keys based on a stable version vector.
+/// Prune tombstones and compact stale values based on a stable version vector.
 ///
-/// Delegates to `or_set.prune` to remove tombstones from the internal key
-/// tracker. Note that this does NOT currently remove values associated with
-/// removed keys, as they may be needed for concurrent merges.
-/// (See https://github.com/tylerbutler/lattice/issues/17)
+/// Two-phase compaction:
+/// 1. Delegates to `or_set.prune` to remove tombstones from the key tracker.
+/// 2. Removes values for keys no longer active in the key set.
+///
+/// After ORSet pruning, removed keys whose tombstones have been garbage
+/// collected cannot be resurrected (zombie detection prevents it), so their
+/// values are safe to discard.
+///
+/// Only call this with a version vector representing events that have been
+/// seen by all replicas (causally stable). Pruning with a non-stable vector
+/// may cause merges with stale replicas to lose value data.
 pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
-  ORMap(..map, key_set: or_set.prune(map.key_set, stable_vv))
+  let pruned_key_set = or_set.prune(map.key_set, stable_vv)
+  let active_keys = or_set.value(pruned_key_set)
+  let compacted_values =
+    dict.filter(map.values, fn(key, _val) { set.contains(active_keys, key) })
+  ORMap(..map, key_set: pruned_key_set, values: compacted_values)
 }
 
 /// Encode an `ORMap` as a self-describing JSON value.
