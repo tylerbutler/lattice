@@ -1,15 +1,40 @@
 <p align="center">
-  <img src="website/src/assets/lattice-min.webp" alt="lattice logo" width="25%" />
+  <img src="https://lattice.tylerbutler.com/lattice-min.webp" alt="lattice logo" width="25%" />
 </p>
 
 <h1 align="center">LATTICE</h1>
 
 <p align="center">
-  <a href="https://hex.pm/packages/lattice_crdt"><img src="https://img.shields.io/hexpm/v/lattice_crdt" alt="Package Version" /></a>
-  <a href="https://hexdocs.pm/lattice_crdt/"><img src="https://img.shields.io/badge/hex-docs-ffaff3" alt="Hex Docs" /></a>
+Conflict-free replicated data types (CRDTs) for Gleam. Battle-tested with property-based tests, targeting both Erlang and JavaScript runtimes.
 </p>
 
-Conflict-free replicated data types (CRDTs) for Gleam. Battle-tested with property-based tests, targeting both Erlang and JavaScript runtimes.
+## Packages
+
+| Package | Version | Docs | Description |
+|---------|---------|------|-------------|
+| [`lattice_crdt`](https://hex.pm/packages/lattice_crdt) | [![](https://img.shields.io/hexpm/v/lattice_crdt)](https://hex.pm/packages/lattice_crdt) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_crdt/) | Umbrella — all CRDT types |
+| [`lattice_counters`](https://hex.pm/packages/lattice_counters) | [![](https://img.shields.io/hexpm/v/lattice_counters)](https://hex.pm/packages/lattice_counters) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_counters/) | GCounter, PNCounter |
+| [`lattice_sets`](https://hex.pm/packages/lattice_sets) | [![](https://img.shields.io/hexpm/v/lattice_sets)](https://hex.pm/packages/lattice_sets) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_sets/) | GSet, TwoPSet, ORSet |
+| [`lattice_registers`](https://hex.pm/packages/lattice_registers) | [![](https://img.shields.io/hexpm/v/lattice_registers)](https://hex.pm/packages/lattice_registers) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_registers/) | LWWRegister, MVRegister |
+| [`lattice_maps`](https://hex.pm/packages/lattice_maps) | [![](https://img.shields.io/hexpm/v/lattice_maps)](https://hex.pm/packages/lattice_maps) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_maps/) | LWWMap, ORMap, Crdt dispatch |
+| [`lattice_core`](https://hex.pm/packages/lattice_core) | [![](https://img.shields.io/hexpm/v/lattice_core)](https://hex.pm/packages/lattice_core) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_core/) | VersionVector, DotContext |
+
+### Modules
+
+| Package | Module | Description |
+|---------|--------|-------------|
+| lattice_counters | `g_counter` | GCounter — grow-only counter |
+| | `pn_counter` | PNCounter — positive-negative counter |
+| lattice_sets | `g_set` | GSet — grow-only set |
+| | `two_p_set` | TwoPSet — two-phase set with add/remove-once |
+| | `or_set` | ORSet — observed-remove set |
+| lattice_registers | `lww_register` | LWWRegister — last-writer-wins register |
+| | `mv_register` | MVRegister — multi-value register |
+| lattice_maps | `lww_map` | LWWMap — last-writer-wins map |
+| | `or_map` | ORMap — observed-remove map |
+| | `crdt` | Crdt — tagged union for heterogeneous ORMap values |
+| lattice_core | `version_vector` | VersionVector — logical clocks for causality tracking |
+| | `dot_context` | DotContext — causal context for OR-types |
 
 ## Installation
 
@@ -53,45 +78,6 @@ pub fn main() {
 `g_counter.increment` only accepts non-negative deltas. If you need both
 increments and decrements, use `lattice_counters/pn_counter`; its `increment` and
 `decrement` operations also require non-negative deltas.
-
-## Packages
-
-### lattice_counters
-
-| Module | Description |
-|--------|-------------|
-| `lattice_counters/g_counter` | GCounter — grow-only counter |
-| `lattice_counters/pn_counter` | PNCounter — positive-negative counter |
-
-### lattice_registers
-
-| Module | Description |
-|--------|-------------|
-| `lattice_registers/lww_register` | LWWRegister — last-writer-wins register |
-| `lattice_registers/mv_register` | MVRegister — multi-value register |
-
-### lattice_sets
-
-| Module | Description |
-|--------|-------------|
-| `lattice_sets/g_set` | GSet — grow-only set |
-| `lattice_sets/two_p_set` | TwoPSet — two-phase set with add/remove-once |
-| `lattice_sets/or_set` | ORSet — observed-remove set |
-
-### lattice_maps
-
-| Module | Description |
-|--------|-------------|
-| `lattice_maps/lww_map` | LWWMap — last-writer-wins map |
-| `lattice_maps/or_map` | ORMap — observed-remove map |
-| `lattice_maps/crdt` | Crdt — tagged union for heterogeneous ORMap values |
-
-### lattice_core
-
-| Module | Description |
-|--------|-------------|
-| `lattice_core/version_vector` | VersionVector — logical clocks for causality tracking |
-| `lattice_core/dot_context` | DotContext — causal context for OR-types |
 
 ## Migrating from v1
 
