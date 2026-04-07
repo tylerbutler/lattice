@@ -21,4 +21,4 @@
 //// import lattice_maps/or_map
 //// ```
 
-pub const version = "2.0.0"
+pub const version = "0.1.0"

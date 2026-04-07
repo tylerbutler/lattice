@@ -1,5 +1,5 @@
 name = "lattice_counters"
-version = "1.0.0"
+version = "0.1.0"
 description = "Grow-only and positive-negative counters for Gleam — conflict-free replicated counter types"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }

@@ -1,5 +1,5 @@
 name = "lattice_sets"
-version = "1.0.0"
+version = "0.1.0"
 description = "Grow-only, two-phase, and observed-remove sets for Gleam — conflict-free replicated set types"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
