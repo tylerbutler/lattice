@@ -10,34 +10,20 @@ on:
 jobs:
   checks:
     name: Checks
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@07dae2969549e29a24a5fa49311795efff2ed66d # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
+      install-just: true
+      run-deps: true
+      format-check: true
+      check: true
+      test: true
+      test-js: true
 
   docs:
     name: Docs
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@07dae2969549e29a24a5fa49311795efff2ed66d # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
-      format-check: false
-      check: false
       build-strict: false
-      test: false
       docs: true
-
-  test-js:
-    runs-on: ubuntu-latest
-    name: Test (JavaScript)
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
-
-      - name: Setup environment
-        uses: ./.github/actions/setup
-        with:
-          node: 'true'
-
-      - name: Build (warnings as errors)
-        run: just build-strict-js
-
-      - name: Run tests
-        run: just test-js
