@@ -200,21 +200,21 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
   }
 }
 
-/// Prune tombstones and compact stale values based on a stable version vector.
+/// Prune tombstones for keys based on a stable version vector.
 ///
-/// After ORSet pruning, removed keys whose tombstones have been garbage
-/// collected cannot be resurrected (zombie detection prevents it), so their
-/// values are safe to discard.
+/// Delegates to `or_set.prune` to remove tombstones from the internal key
+/// tracker.
+///
+/// Removed values are intentionally retained even after pruning because they
+/// may still be needed to merge with a concurrent re-add from another replica.
+/// Safe value compaction requires per-key stability information that the
+/// current `ORSet` representation does not expose.
 ///
 /// Only call this with a version vector representing events that have been
-/// seen by all replicas (causally stable). Pruning with a non-stable vector
-/// may cause merges with stale replicas to lose value data.
+/// seen by all replicas (causally stable), otherwise zombie updates might be
+/// incorrectly ignored.
 pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
-  let pruned_key_set = or_set.prune(map.key_set, stable_vv)
-  let active_keys = or_set.value(pruned_key_set)
-  let compacted_values =
-    dict.filter(map.values, fn(key, _val) { set.contains(active_keys, key) })
-  ORMap(..map, key_set: pruned_key_set, values: compacted_values)
+  ORMap(..map, key_set: or_set.prune(map.key_set, stable_vv))
 }
 
 /// Encode an `ORMap` as a self-describing JSON value.
