@@ -95,8 +95,10 @@ pub fn or_map_commutativity__test() {
       let map_b =
         or_map.new(rid("B"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, b))
-      set.from_list(or_map.keys(or_map.merge(map_a, map_b)))
-      |> expect.to_equal(set.from_list(or_map.keys(or_map.merge(map_b, map_a))))
+      let assert Ok(merged_ab) = or_map.merge(map_a, map_b)
+      let assert Ok(merged_ba) = or_map.merge(map_b, map_a)
+      set.from_list(or_map.keys(merged_ab))
+      |> expect.to_equal(set.from_list(or_map.keys(merged_ba)))
       Nil
     },
   )
@@ -107,10 +109,11 @@ pub fn or_map_idempotency__test() {
     let map =
       or_map.new(rid("A"), crdt.GCounterSpec)
       |> or_map.update("x", increment_g_counter(_, a))
-    set.from_list(or_map.keys(or_map.merge(map, map)))
+    let assert Ok(merged) = or_map.merge(map, map)
+    set.from_list(or_map.keys(merged))
     |> expect.to_equal(set.from_list(or_map.keys(map)))
 
-    or_map.get(or_map.merge(map, map), "x")
+    or_map.get(merged, "x")
     |> expect.to_equal(or_map.get(map, "x"))
     Nil
   })
@@ -137,8 +140,10 @@ pub fn or_map_associativity__test() {
         or_map.new(rid("C"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, c))
 
-      let merged1 = or_map.merge(or_map.merge(map_a, map_b), map_c)
-      let merged2 = or_map.merge(map_a, or_map.merge(map_b, map_c))
+      let assert Ok(ab) = or_map.merge(map_a, map_b)
+      let assert Ok(merged1) = or_map.merge(ab, map_c)
+      let assert Ok(bc) = or_map.merge(map_b, map_c)
+      let assert Ok(merged2) = or_map.merge(map_a, bc)
 
       set.from_list(or_map.keys(merged1))
       |> expect.to_equal(set.from_list(or_map.keys(merged2)))

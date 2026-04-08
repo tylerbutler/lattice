@@ -17,7 +17,7 @@
 ////
 //// let a = crdt.CrdtGCounter(g_counter.new(replica_id.new("node-a")) |> g_counter.increment(1))
 //// let b = crdt.CrdtGCounter(g_counter.new(replica_id.new("node-b")) |> g_counter.increment(2))
-//// let merged = crdt.merge(a, b)
+//// let assert Ok(merged) = crdt.merge(a, b)
 //// ```
 
 import gleam/dynamic/decode
@@ -56,6 +56,28 @@ pub type Crdt {
   CrdtTwoPSet(TwoPSet(String))
   CrdtOrSet(ORSet(String))
   CrdtVersionVector(VersionVector)
+}
+
+/// Error returned when merging two `Crdt` values of different types.
+///
+/// The `expected` and `found` fields contain human-readable type names
+/// (e.g., `"g_counter"`, `"or_set"`).
+pub type MergeError {
+  TypeMismatch(expected: String, found: String)
+}
+
+/// Return a human-readable type name for a wrapped `Crdt` value.
+pub fn type_name(value: Crdt) -> String {
+  case value {
+    CrdtGCounter(_) -> "g_counter"
+    CrdtPnCounter(_) -> "pn_counter"
+    CrdtLwwRegister(_) -> "lww_register"
+    CrdtMvRegister(_) -> "mv_register"
+    CrdtGSet(_) -> "g_set"
+    CrdtTwoPSet(_) -> "two_p_set"
+    CrdtOrSet(_) -> "or_set"
+    CrdtVersionVector(_) -> "version_vector"
+  }
 }
 
 /// Specifies which leaf CRDT type an `ORMap` holds as its values.
@@ -115,29 +137,27 @@ pub fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
 /// Dispatch merge to the type-specific merge function for matching variants.
 ///
 /// If `a` and `b` hold the same variant, their inner values are merged using
-/// the type-specific merge function.
+/// the type-specific merge function and returned as `Ok(merged)`.
 ///
-/// Note: In 1.x, type mismatches (different variants) silently return `a`
-/// (the local state). This technically breaks strict commutativity, but
-/// prevents the BEAM VM from panicking when encountering bad peer data while
-/// avoiding a breaking change to the `merge` signature.
-/// This fallback behavior will be replaced with explicit `Result` returns in v2.0.
-/// See https://github.com/tylerbutler/lattice/issues/25 for tracking.
-pub fn merge(a: Crdt, b: Crdt) -> Crdt {
+/// If `a` and `b` hold different variants, returns
+/// `Error(TypeMismatch(expected: ..., found: ...))` where `expected` is the
+/// type name of `a` and `found` is the type name of `b`.
+pub fn merge(a: Crdt, b: Crdt) -> Result(Crdt, MergeError) {
   case a, b {
-    CrdtGCounter(ca), CrdtGCounter(cb) -> CrdtGCounter(g_counter.merge(ca, cb))
+    CrdtGCounter(ca), CrdtGCounter(cb) ->
+      Ok(CrdtGCounter(g_counter.merge(ca, cb)))
     CrdtPnCounter(ca), CrdtPnCounter(cb) ->
-      CrdtPnCounter(pn_counter.merge(ca, cb))
+      Ok(CrdtPnCounter(pn_counter.merge(ca, cb)))
     CrdtLwwRegister(ca), CrdtLwwRegister(cb) ->
-      CrdtLwwRegister(lww_register.merge(ca, cb))
+      Ok(CrdtLwwRegister(lww_register.merge(ca, cb)))
     CrdtMvRegister(ca), CrdtMvRegister(cb) ->
-      CrdtMvRegister(mv_register.merge(ca, cb))
-    CrdtGSet(ca), CrdtGSet(cb) -> CrdtGSet(g_set.merge(ca, cb))
-    CrdtTwoPSet(ca), CrdtTwoPSet(cb) -> CrdtTwoPSet(two_p_set.merge(ca, cb))
-    CrdtOrSet(ca), CrdtOrSet(cb) -> CrdtOrSet(or_set.merge(ca, cb))
+      Ok(CrdtMvRegister(mv_register.merge(ca, cb)))
+    CrdtGSet(ca), CrdtGSet(cb) -> Ok(CrdtGSet(g_set.merge(ca, cb)))
+    CrdtTwoPSet(ca), CrdtTwoPSet(cb) -> Ok(CrdtTwoPSet(two_p_set.merge(ca, cb)))
+    CrdtOrSet(ca), CrdtOrSet(cb) -> Ok(CrdtOrSet(or_set.merge(ca, cb)))
     CrdtVersionVector(ca), CrdtVersionVector(cb) ->
-      CrdtVersionVector(version_vector.merge(ca, cb))
-    _, _ -> a
+      Ok(CrdtVersionVector(version_vector.merge(ca, cb)))
+    _, _ -> Error(TypeMismatch(expected: type_name(a), found: type_name(b)))
   }
 }
 

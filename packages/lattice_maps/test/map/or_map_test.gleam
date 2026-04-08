@@ -215,7 +215,7 @@ pub fn merge_disjoint_keys_test() {
   let map_a = or_map.update(map_a, "x", fn(c) { c })
   let map_b = or_map.new(rid("B"), GCounterSpec)
   let map_b = or_map.update(map_b, "y", fn(c) { c })
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
   or_map.keys(merged)
   |> set.from_list
   |> expect.to_equal(set.from_list(["x", "y"]))
@@ -238,7 +238,7 @@ pub fn merge_nested_values_combined_test() {
         _ -> c
       }
     })
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
   case or_map.get(merged, "score") {
     Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
     _ -> expect.to_be_true(False)
@@ -254,7 +254,7 @@ pub fn merge_preserves_active_keys_from_both_sides_test() {
   let map_b =
     or_map.update(map_b, "beta", fn(c) { c })
     |> or_map.update("gamma", fn(c) { c })
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
   or_map.keys(merged)
   |> set.from_list
   |> expect.to_equal(set.from_list(["alpha", "beta", "gamma"]))
@@ -275,7 +275,7 @@ pub fn concurrent_update_wins_over_remove_test() {
     })
 
   // 2. B syncs with A then removes "x"
-  let map_b = or_map.merge(or_map.new(rid("B"), GCounterSpec), map_a)
+  let assert Ok(map_b) = or_map.merge(or_map.new(rid("B"), GCounterSpec), map_a)
   let map_b = or_map.remove(map_b, "x")
 
   // 3. A concurrently updates "x" again (new tag not seen by B's remove)
@@ -288,7 +288,7 @@ pub fn concurrent_update_wins_over_remove_test() {
     })
 
   // 4. Merge: A's concurrent update should win (add-wins from OR-Set)
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
 
   // "x" should still be present
   case or_map.get(merged, "x") {
@@ -308,7 +308,7 @@ pub fn merge_add_wins_keys_in_or_set_test() {
       }
     })
 
-  let map_b = or_map.merge(or_map.new(rid("B"), GCounterSpec), map_a)
+  let assert Ok(map_b) = or_map.merge(or_map.new(rid("B"), GCounterSpec), map_a)
   let map_b = or_map.remove(map_b, "x")
 
   let map_a =
@@ -319,7 +319,7 @@ pub fn merge_add_wins_keys_in_or_set_test() {
       }
     })
 
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
 
   // Use keys() to check "x" is present (active in OR-Set)
   or_map.keys(merged)
@@ -342,8 +342,11 @@ pub fn merge_rejects_maps_with_different_specs_test() {
   let counters = or_map.new(rid("A"), GCounterSpec)
   let sets = or_map.new(rid("B"), GSetSpec)
 
-  or_map.merge(counters, sets)
-  |> expect.to_equal(counters)
+  case or_map.merge(counters, sets) {
+    Error(crdt.TypeMismatch(expected: "g_counter", found: "g_set")) ->
+      expect.to_be_true(True)
+    _ -> expect.to_be_true(False)
+  }
 }
 
 // --- keys() via public API ---

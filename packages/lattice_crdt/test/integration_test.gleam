@@ -53,7 +53,7 @@ pub fn or_map_with_g_counter_cross_package_test() {
       crdt.CrdtGCounter(g_counter.increment(gc, 5))
     })
 
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
   let assert Ok(crdt.CrdtGCounter(gc)) = or_map.get(merged, "score")
 
   // Both increments should be preserved after merge
@@ -65,7 +65,7 @@ pub fn crdt_dispatch_merge_heterogeneous_test() {
   // Verify the dispatch module correctly merges same-type CRDTs
   let a = crdt.CrdtGCounter(g_counter.new(rid("a")) |> g_counter.increment(3))
   let b = crdt.CrdtGCounter(g_counter.new(rid("b")) |> g_counter.increment(7))
-  let merged = crdt.merge(a, b)
+  let assert Ok(merged) = crdt.merge(a, b)
 
   let assert crdt.CrdtGCounter(gc) = merged
   g_counter.value(gc)
