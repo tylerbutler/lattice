@@ -203,9 +203,16 @@ pub fn merge(a: ORMap, b: ORMap) -> ORMap {
 /// Prune tombstones for keys based on a stable version vector.
 ///
 /// Delegates to `or_set.prune` to remove tombstones from the internal key
-/// tracker. Note that this does NOT currently remove values associated with
-/// removed keys, as they may be needed for concurrent merges.
-/// (See https://github.com/tylerbutler/lattice/issues/17)
+/// tracker.
+///
+/// Removed values are intentionally retained even after pruning because they
+/// may still be needed to merge with a concurrent re-add from another replica.
+/// Safe value compaction requires per-key stability information that the
+/// current `ORSet` representation does not expose.
+///
+/// Only call this with a version vector representing events that have been
+/// seen by all replicas (causally stable), otherwise zombie updates might be
+/// incorrectly ignored.
 pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
   ORMap(..map, key_set: or_set.prune(map.key_set, stable_vv))
 }
