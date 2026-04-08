@@ -33,7 +33,6 @@ jobs:
     uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@07dae2969549e29a24a5fa49311795efff2ed66d # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
-      install-just: true
       run-deps: true
       test: true
 
@@ -42,7 +41,6 @@ jobs:
     uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@07dae2969549e29a24a5fa49311795efff2ed66d # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
-      install-just: true
       run-deps: true
       test-js: true
 
