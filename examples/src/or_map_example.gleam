@@ -66,7 +66,7 @@ pub fn main() {
   io.println("")
 
   // Merge — "page-views" counters merge (5 + 3 = 8), "api-calls" appears
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
   io.println("Merged map:")
   io.println(
     "  keys: ["

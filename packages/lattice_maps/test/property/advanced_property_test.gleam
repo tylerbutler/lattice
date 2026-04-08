@@ -36,7 +36,8 @@ pub fn or_map_bottom_identity__test() {
     let spec = crdt.GCounterSpec
     let m = or_map.new(rid("A"), spec) |> or_map.update("key", fn(c) { c })
     let bottom = or_map.new(rid("B"), spec)
-    set.from_list(or_map.keys(or_map.merge(m, bottom)))
+    let assert Ok(merged) = or_map.merge(m, bottom)
+    set.from_list(or_map.keys(merged))
     |> expect.to_equal(set.from_list(or_map.keys(m)))
     Nil
   })

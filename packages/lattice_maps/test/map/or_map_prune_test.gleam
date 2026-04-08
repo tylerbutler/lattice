@@ -33,8 +33,8 @@ pub fn prune_with_unstable_remove_preserves_future_merge_value_test() {
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
 
-  let merged_unpruned = or_map.merge(removed, concurrent)
-  let merged_pruned = or_map.merge(pruned, concurrent)
+  let assert Ok(merged_unpruned) = or_map.merge(removed, concurrent)
+  let assert Ok(merged_pruned) = or_map.merge(pruned, concurrent)
 
   or_map.keys(merged_pruned)
   |> set.from_list
@@ -166,7 +166,7 @@ pub fn prune_after_multi_replica_merge_test() {
     |> or_map.update("shared", fn(c) { inc(c, 7) })
     |> or_map.update("b_only", fn(c) { inc(c, 1) })
 
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
   let merged = or_map.remove(merged, "b_only")
 
   let stable =
@@ -198,7 +198,7 @@ pub fn merge_after_noop_prune_preserves_removed_value_test() {
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
 
-  let merged = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge(map_a, map_b)
 
   case or_map.get(merged, "x") {
     Ok(CrdtGCounter(counter)) ->
