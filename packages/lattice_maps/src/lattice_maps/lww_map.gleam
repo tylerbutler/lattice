@@ -20,8 +20,9 @@
 ////
 //// Removing a key creates a tombstone that persists until pruned. Use
 //// `tombstone_count` to monitor growth and `prune` to reclaim space once all
-//// replicas have synced past a stable timestamp.
-//// See [#18](https://github.com/tylerbutler/lattice/issues/18) for details.
+//// replicas have synced past a stable timestamp. The embedded
+//// `pruned_timestamp` ensures that stale entries from unsynced replicas are
+//// automatically rejected during merge (zombie prevention).
 
 import gleam/dict
 import gleam/dynamic/decode
@@ -39,18 +40,29 @@ import gleam/string
 /// the entry with the higher timestamp wins for each key; on ties, the first
 /// argument's entry is kept as a consistent tiebreak.
 ///
-/// Note: Tombstones accumulate until pruned. Use `prune` with a stable
-/// timestamp to remove them. See the `prune` function documentation for
-/// the safety contract. A future version will embed a `pruned_timestamp` in
-/// the type for automatic zombie detection on merge; see
-/// [#18](https://github.com/tylerbutler/lattice/issues/18).
+/// Tombstones accumulate until pruned. Use `prune` with a stable timestamp to
+/// remove them. The embedded `pruned_timestamp` enables automatic zombie
+/// detection on merge — entries from remote replicas at or below the pruned
+/// threshold are discarded, preventing deleted keys from resurrecting.
 pub opaque type LWWMap {
-  LWWMap(entries: dict.Dict(String, #(Option(String), Int)))
+  LWWMap(
+    entries: dict.Dict(String, #(Option(String), Int)),
+    pruned_timestamp: Int,
+  )
 }
 
 /// Create a new empty LWW-Map.
 pub fn new() -> LWWMap {
-  LWWMap(entries: dict.new())
+  LWWMap(entries: dict.new(), pruned_timestamp: 0)
+}
+
+/// Return the pruned timestamp.
+///
+/// This is the highest stable timestamp passed to `prune`. Entries from remote
+/// replicas with timestamps at or below this value are treated as zombies during
+/// merge and discarded. A value of `0` means no pruning has occurred.
+pub fn pruned_timestamp(map: LWWMap) -> Int {
+  map.pruned_timestamp
 }
 
 /// Set a key to a value at the given timestamp.
@@ -64,7 +76,10 @@ pub fn set(map: LWWMap, key: String, value: String, timestamp: Int) -> LWWMap {
   }
   case should_update {
     True ->
-      LWWMap(entries: dict.insert(map.entries, key, #(Some(value), timestamp)))
+      LWWMap(
+        ..map,
+        entries: dict.insert(map.entries, key, #(Some(value), timestamp)),
+      )
     False -> map
   }
 }
@@ -88,14 +103,14 @@ pub fn get(map: LWWMap, key: String) -> Result(String, Nil) {
 /// Note: This operation creates a tombstone. Use `tombstone_count` to monitor
 /// growth and `prune` with a stable timestamp to remove tombstones once all
 /// replicas have observed them.
-/// (See https://github.com/tylerbutler/lattice/issues/18)
 pub fn remove(map: LWWMap, key: String, timestamp: Int) -> LWWMap {
   let should_remove = case dict.get(map.entries, key) {
     Error(_) -> True
     Ok(#(_, existing_ts)) -> timestamp > existing_ts
   }
   case should_remove {
-    True -> LWWMap(entries: dict.insert(map.entries, key, #(None, timestamp)))
+    True ->
+      LWWMap(..map, entries: dict.insert(map.entries, key, #(None, timestamp)))
     False -> map
   }
 }
@@ -115,7 +130,6 @@ pub fn keys(map: LWWMap) -> List(String) {
 /// Return the number of tombstoned (removed) entries in the map.
 ///
 /// Useful for monitoring tombstone growth and deciding when to call `prune`.
-/// (See https://github.com/tylerbutler/lattice/issues/18)
 ///
 /// ## Examples
 ///
@@ -139,21 +153,16 @@ pub fn tombstone_count(map: LWWMap) -> Int {
 ///
 /// Removes all tombstone entries (keys with `None` value) whose timestamp is
 /// less than or equal to `stable_timestamp`. Active entries are never removed.
+/// The `pruned_timestamp` is updated monotonically to `max(current, stable_timestamp)`.
 ///
-/// **Safety contract:** The caller must ensure that all replicas have merged
-/// all operations with timestamps up to `stable_timestamp` before pruning.
-/// If this invariant is violated, a pruned tombstone may fail to suppress an
-/// older `set` arriving later via merge, causing the key to reappear with its
-/// old value — known as the "zombie problem" in CRDT literature. If you cannot
-/// guarantee all replicas have synced, prefer a conservative (older)
-/// `stable_timestamp` or wait for the zombie-safe v2 API
-/// ([#18](https://github.com/tylerbutler/lattice/issues/18)).
+/// After pruning, `merge` automatically detects zombie entries — entries from
+/// remote replicas whose timestamps fall at or below the pruned threshold are
+/// discarded, preventing deleted keys from resurrecting.
 ///
-/// **Future:** A v2 of this function will add a `pruned_timestamp` field to the
-/// `LWWMap` type, enabling automatic zombie detection on merge. This is a
-/// breaking change tracked in
-/// [#18](https://github.com/tylerbutler/lattice/issues/18). The current
-/// `prune` function is safe to use today with proper coordination.
+/// The `stable_timestamp` should ideally represent a point that all replicas
+/// have synced past. Using a conservative (older) value is always safe; using
+/// a value ahead of some replica means that replica's stale writes will be
+/// silently dropped on merge (which is the correct behavior for pruned history).
 ///
 /// ## Examples
 ///
@@ -167,13 +176,15 @@ pub fn tombstone_count(map: LWWMap) -> Int {
 /// lww_map.get(pruned, "a")         // -> Ok("alive")
 /// ```
 pub fn prune(map: LWWMap, stable_timestamp: Int) -> LWWMap {
+  let new_pruned = int.max(map.pruned_timestamp, stable_timestamp)
   LWWMap(
     entries: dict.filter(map.entries, fn(_key, entry) {
       case entry {
-        #(None, ts) -> ts > stable_timestamp
+        #(None, ts) -> ts > new_pruned
         #(Some(_), _) -> True
       }
     }),
+    pruned_timestamp: new_pruned,
   )
 }
 
@@ -199,22 +210,38 @@ pub fn values(map: LWWMap) -> List(String) {
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
+  let merged_pruned = int.max(a.pruned_timestamp, b.pruned_timestamp)
   let all_keys =
     list.unique(list.append(dict.keys(a.entries), dict.keys(b.entries)))
   let merged =
     list.fold(all_keys, dict.new(), fn(acc, key) {
-      let winner = case dict.get(a.entries, key), dict.get(b.entries, key) {
-        Ok(ea), Ok(eb) -> {
-          choose_winner(ea, eb)
-        }
-        Ok(ea), Error(_) -> ea
-        Error(_), Ok(eb) -> eb
+      let entry = case dict.get(a.entries, key), dict.get(b.entries, key) {
+        Ok(ea), Ok(eb) -> Ok(choose_winner(ea, eb))
+        Ok(ea), Error(_) -> keep_if_not_zombie(ea, b.pruned_timestamp)
+        Error(_), Ok(eb) -> keep_if_not_zombie(eb, a.pruned_timestamp)
         Error(_), Error(_) ->
           panic as "unreachable: key in all_keys but not in either dict"
       }
-      dict.insert(acc, key, winner)
+      case entry {
+        Ok(winner) -> dict.insert(acc, key, winner)
+        Error(Nil) -> acc
+      }
     })
-  LWWMap(entries: merged)
+  LWWMap(entries: merged, pruned_timestamp: merged_pruned)
+}
+
+/// An entry only present on one side is a zombie if its timestamp is at or
+/// below the other side's pruned_timestamp — meaning the other side already
+/// processed and garbage-collected the tombstone that would have suppressed it.
+fn keep_if_not_zombie(
+  entry: #(Option(String), Int),
+  other_pruned: Int,
+) -> Result(#(Option(String), Int), Nil) {
+  let #(_, ts) = entry
+  case ts <= other_pruned {
+    True -> Error(Nil)
+    False -> Ok(entry)
+  }
 }
 
 fn choose_winner(
@@ -247,15 +274,16 @@ fn choose_winner(
 /// Encode a `LWWMap` as a self-describing JSON value.
 ///
 /// Entries are encoded as a JSON array where each element has `key`, `value`
-/// (nullable string for tombstones), and `timestamp` fields.
+/// (nullable string for tombstones), and `timestamp` fields. The
+/// `pruned_timestamp` field records the highest stable timestamp passed to
+/// `prune`, enabling zombie detection after deserialization.
 ///
-/// Format: `{"type": "lww_map", "v": 1, "state": {"entries": [...]}}`
+/// Format: `{"type": "lww_map", "v": 2, "state": {"entries": [...], "pruned_timestamp": N}}`
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(map: LWWMap) -> json.Json {
-  let LWWMap(entries) = map
   let entries_json =
-    json.array(dict.to_list(entries), fn(pair) {
+    json.array(dict.to_list(map.entries), fn(pair) {
       let #(key, #(opt_value, timestamp)) = pair
       json.object([
         #("key", json.string(key)),
@@ -268,13 +296,20 @@ pub fn to_json(map: LWWMap) -> json.Json {
     })
   json.object([
     #("type", json.string("lww_map")),
-    #("v", json.int(1)),
-    #("state", json.object([#("entries", entries_json)])),
+    #("v", json.int(2)),
+    #(
+      "state",
+      json.object([
+        #("entries", entries_json),
+        #("pruned_timestamp", json.int(map.pruned_timestamp)),
+      ]),
+    ),
   ])
 }
 
 /// Decode a `LWWMap` from a JSON string produced by `to_json`.
 ///
+/// Supports both v1 (no `pruned_timestamp`, defaults to 0) and v2 formats.
 /// Returns `Error` if the string is not valid JSON or does not match the
 /// expected format.
 pub fn from_json(json_string: String) -> Result(LWWMap, json.DecodeError) {
@@ -284,10 +319,24 @@ pub fn from_json(json_string: String) -> Result(LWWMap, json.DecodeError) {
     use timestamp <- decode.field("timestamp", decode.int)
     decode.success(#(key, #(opt_value, timestamp)))
   }
-  let state_decoder = {
+  let v1_state_decoder = {
     use state <- decode.field("state", {
       use entries_list <- decode.field("entries", decode.list(entry_decoder))
-      decode.success(LWWMap(entries: dict.from_list(entries_list)))
+      decode.success(LWWMap(
+        entries: dict.from_list(entries_list),
+        pruned_timestamp: 0,
+      ))
+    })
+    decode.success(state)
+  }
+  let v2_state_decoder = {
+    use state <- decode.field("state", {
+      use entries_list <- decode.field("entries", decode.list(entry_decoder))
+      use pruned_ts <- decode.field("pruned_timestamp", decode.int)
+      decode.success(LWWMap(
+        entries: dict.from_list(entries_list),
+        pruned_timestamp: pruned_ts,
+      ))
     })
     decode.success(state)
   }
@@ -299,13 +348,14 @@ pub fn from_json(json_string: String) -> Result(LWWMap, json.DecodeError) {
   case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
-      case type_tag == "lww_map" && version == 1 {
-        True -> json.parse(from: json_string, using: state_decoder)
-        False ->
+      case type_tag == "lww_map", version {
+        True, 1 -> json.parse(from: json_string, using: v1_state_decoder)
+        True, 2 -> json.parse(from: json_string, using: v2_state_decoder)
+        _, _ ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
-                expected: "type=lww_map and v=1",
+                expected: "type=lww_map and v=1 or v=2",
                 found: type_tag <> " v=" <> int.to_string(version),
                 path: [],
               ),

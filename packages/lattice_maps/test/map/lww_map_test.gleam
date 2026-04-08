@@ -348,9 +348,8 @@ pub fn prune_preserves_merge_semantics_test() {
   |> expect.to_equal(Ok("from_b"))
 }
 
-pub fn prune_zombie_when_unsynced_test() {
-  // Demonstrates the zombie problem: pruning before sync causes resurrection.
-  // This test documents the known limitation — see issue #18 for the v2 fix.
+pub fn prune_prevents_zombie_on_merge_test() {
+  // Previously this was the zombie problem — now pruned_timestamp prevents it.
   let a =
     lww_map.new()
     |> lww_map.set("key", "val", 5)
@@ -359,11 +358,74 @@ pub fn prune_zombie_when_unsynced_test() {
   // Replica b has NOT seen the remove — only the old set
   let b = lww_map.new() |> lww_map.set("key", "val", 5)
 
-  // Unsafe prune: a prunes the tombstone before b has synced
+  // Prune: a prunes the tombstone, recording pruned_timestamp=10
   let a_pruned = lww_map.prune(a, 10)
 
-  // Merge: b's old set "resurrects" the key (zombie!)
+  // Merge: b's old set at ts=5 ≤ pruned_timestamp=10 is a zombie — rejected
   let merged = lww_map.merge(a_pruned, b)
   lww_map.get(merged, "key")
-  |> expect.to_equal(Ok("val"))
+  |> expect.to_equal(Error(Nil))
+}
+
+pub fn prune_allows_newer_entry_past_threshold_test() {
+  // A pruned at ts=10, but B has a NEW set at ts=15 — this is legitimate
+  let a =
+    lww_map.new()
+    |> lww_map.set("key", "val", 5)
+    |> lww_map.remove("key", 10)
+  let a_pruned = lww_map.prune(a, 10)
+
+  let b = lww_map.new() |> lww_map.set("key", "updated", 15)
+
+  let merged = lww_map.merge(a_pruned, b)
+  lww_map.get(merged, "key")
+  |> expect.to_equal(Ok("updated"))
+}
+
+pub fn pruned_timestamp_propagates_through_merge_test() {
+  // After merge, pruned_timestamp should be max of both sides
+  let a =
+    lww_map.new()
+    |> lww_map.remove("x", 10)
+    |> lww_map.prune(10)
+  let b =
+    lww_map.new()
+    |> lww_map.remove("y", 20)
+    |> lww_map.prune(20)
+
+  let merged = lww_map.merge(a, b)
+  lww_map.pruned_timestamp(merged)
+  |> expect.to_equal(20)
+}
+
+pub fn pruned_timestamp_default_is_zero_test() {
+  lww_map.new()
+  |> lww_map.pruned_timestamp
+  |> expect.to_equal(0)
+}
+
+pub fn prune_is_monotonic_test() {
+  // Pruning with a smaller threshold doesn't regress the pruned_timestamp
+  let m =
+    lww_map.new()
+    |> lww_map.remove("a", 5)
+    |> lww_map.prune(10)
+    |> lww_map.prune(3)
+  lww_map.pruned_timestamp(m)
+  |> expect.to_equal(10)
+}
+
+pub fn prune_zombie_rejected_symmetrically_test() {
+  // Zombie detection works regardless of merge argument order
+  let a =
+    lww_map.new()
+    |> lww_map.set("key", "val", 5)
+    |> lww_map.remove("key", 10)
+    |> lww_map.prune(10)
+
+  let b = lww_map.new() |> lww_map.set("key", "val", 5)
+
+  // Both merge orders should reject the zombie
+  lww_map.merge(a, b) |> lww_map.get("key") |> expect.to_equal(Error(Nil))
+  lww_map.merge(b, a) |> lww_map.get("key") |> expect.to_equal(Error(Nil))
 }

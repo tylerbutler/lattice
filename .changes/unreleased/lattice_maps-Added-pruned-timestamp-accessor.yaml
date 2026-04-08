@@ -1,0 +1,8 @@
+project: lattice_maps
+kind: Added
+body: |-
+  Add `lww_map.pruned_timestamp()` accessor
+
+  Returns the highest stable timestamp passed to `prune`, useful for monitoring
+  pruning state and debugging merge behavior.
+time: 2026-04-08T21:53:33.000000000+00:00
