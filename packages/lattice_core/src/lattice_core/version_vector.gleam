@@ -116,6 +116,24 @@ pub fn compare(a: VersionVector, b: VersionVector) -> Order {
   }
 }
 
+/// Check whether version vector `a` dominates `b`.
+///
+/// Returns `True` when every clock in `a` is greater than or equal to the
+/// corresponding clock in `b`. Equivalently, `compare(a, b)` is `Equal` or
+/// `After`.
+pub fn dominates(a: VersionVector, b: VersionVector) -> Bool {
+  case compare(a, b) {
+    Equal | After -> True
+    Before | Concurrent -> False
+  }
+}
+
+/// Check whether a version vector is empty (has no clock entries).
+pub fn is_empty(vv: VersionVector) -> Bool {
+  let VersionVector(d) = vv
+  dict.is_empty(d)
+}
+
 /// Merge two version vectors using pairwise maximum.
 ///
 /// For each replica, the merged clock is the maximum of the two inputs.
