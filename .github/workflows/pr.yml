@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # ratchet:actions/setup-node@v4
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # ratchet:actions/setup-node@v6
         with:
           node-version: "22"
 
@@ -37,9 +37,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: tylerbutler/actions/read-gleam-workspace@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/read-gleam-workspace@main
+      - uses: tylerbutler/actions/read-gleam-workspace@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/read-gleam-workspace@main
         id: workspace
-      - uses: tylerbutler/actions/changie-check@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/changie-check@main
+      - uses: tylerbutler/actions/changie-check@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/changie-check@main
         id: changelog
         with:
           base-sha: ${{ github.event.pull_request.base.sha }}
