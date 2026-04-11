@@ -20,7 +20,7 @@ jobs:
 
       - name: Read workspace
         id: ws
-        uses: tylerbutler/actions/read-gleam-workspace@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/read-gleam-workspace@main
+        uses: tylerbutler/actions/read-gleam-workspace@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/read-gleam-workspace@main
 
       - name: Setup environment
         uses: ./.github/actions/setup
@@ -29,7 +29,7 @@ jobs:
       # replace-path-deps rewrites path dependencies to Hex version ranges
       # derived from each package's gleam.toml before publishing.
       - name: Publish to Hex.pm
-        uses: tylerbutler/actions/gleam-publish@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/gleam-publish@main
+        uses: tylerbutler/actions/gleam-publish@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/gleam-publish@main
         with:
           packages: ${{ steps.ws.outputs.packages }}
           replace-path-deps: |
@@ -51,7 +51,7 @@ jobs:
     steps:
       - name: Generate app token
         id: app-token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # ratchet:actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # ratchet:actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
