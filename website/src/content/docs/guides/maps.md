@@ -11,7 +11,7 @@ lattice ships with two map CRDTs:
 - `LWWMap` for timestamp-based last-writer-wins key/value storage
 - `ORMap` for add-wins maps whose values are themselves CRDTs
 
-## LWWMap
+## LWWMap (Last-Writer-Wins Map)
 
 `LWWMap` stores `String` keys and `String` values with timestamps.
 
@@ -63,7 +63,7 @@ pub fn main() {
 This tie-break keeps merges replica-order independent even when timestamps are
 equal.
 
-## ORMap
+## ORMap (Observed-Remove Map)
 
 `ORMap` is for maps whose values should also converge as CRDTs. You choose the
 value type up front with a `CrdtSpec`.

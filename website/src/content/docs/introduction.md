@@ -22,10 +22,10 @@ what order merges happen in, the final value is always the same.
 
 The library is organized across [focused packages](/packages/):
 
-- **counters** (`lattice_counters`): `GCounter`, `PNCounter`
-- **registers** (`lattice_registers`): `LWWRegister`, `MVRegister`
-- **sets** (`lattice_sets`): `GSet`, `TwoPSet`, `ORSet`
-- **maps** (`lattice_maps`): `LWWMap`, `ORMap`
+- **counters** (`lattice_counters`): GCounter (Grow-only Counter), PNCounter (Positive-Negative Counter)
+- **registers** (`lattice_registers`): LWWRegister (Last-Writer-Wins Register), MVRegister (Multi-Value Register)
+- **sets** (`lattice_sets`): GSet (Grow-only Set), TwoPSet (Two-Phase Set), ORSet (Observed-Remove Set)
+- **maps** (`lattice_maps`): LWWMap (Last-Writer-Wins Map), ORMap (Observed-Remove Map)
 - **causal infrastructure** (`lattice_core`): `ReplicaId`, `VersionVector`, `DotContext`
 
 The umbrella package `lattice_crdt` depends on all of the above, so a single

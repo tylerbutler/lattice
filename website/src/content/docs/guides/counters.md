@@ -9,7 +9,7 @@ Counters are provided by the `lattice_counters` package. If you installed the
 Use counters when replicas need to accumulate numeric state and later merge
 without coordination.
 
-## GCounter
+## GCounter (Grow-only Counter)
 
 `GCounter` is grow-only. Each replica can increase its own contribution, and
 merge takes the per-replica maximum before summing the result.
@@ -37,7 +37,7 @@ pub fn main() {
 `g_counter.increment` only accepts non-negative deltas. Passing a negative
 value is invalid because it would break the grow-only invariant.
 
-## PNCounter
+## PNCounter (Positive-Negative Counter)
 
 `PNCounter` supports both increments and decrements by pairing two internal
 `GCounter`s.

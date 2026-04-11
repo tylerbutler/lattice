@@ -11,7 +11,7 @@ Registers store a value rather than a collection. lattice provides two flavors:
 - `LWWRegister` for single-value, timestamp-based conflict resolution
 - `MVRegister` for preserving concurrent writes
 
-## LWWRegister
+## LWWRegister (Last-Writer-Wins Register)
 
 `LWWRegister` stores a `String`, the timestamp of the write that produced it,
 and the replica ID of its creator.
@@ -57,7 +57,7 @@ pub fn main() {
 This keeps merges deterministic and replica-order independent even when clocks
 collide.
 
-## MVRegister
+## MVRegister (Multi-Value Register)
 
 `MVRegister` keeps all concurrent values instead of picking one winner.
 

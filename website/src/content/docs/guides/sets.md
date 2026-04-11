@@ -9,7 +9,7 @@ Sets are provided by the `lattice_sets` package. If you installed the
 Use sets when replicas need to track membership and later merge without
 coordination.
 
-## GSet
+## GSet (Grow-only Set)
 
 `GSet` is a grow-only set. Elements can be added but never removed. Merge is
 a set union.
@@ -37,7 +37,7 @@ pub fn main() {
 
 `GSet` requires no `ReplicaId` because it does not track causal history.
 
-## TwoPSet
+## TwoPSet (Two-Phase Set)
 
 `TwoPSet` supports both add and remove, but removal is permanent. Once an
 element is removed, it can never be re-added — the tombstone is irrevocable.
@@ -63,7 +63,7 @@ pub fn main() {
 
 Like `GSet`, `TwoPSet` requires no `ReplicaId`.
 
-## ORSet
+## ORSet (Observed-Remove Set)
 
 `ORSet` is the most flexible set CRDT. It supports add, remove, and re-add.
 Each add operation creates a unique causal tag, and remove only deletes tags
