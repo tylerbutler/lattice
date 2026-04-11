@@ -3,8 +3,20 @@ title: What is lattice?
 description: An introduction to lattice and CRDTs.
 ---
 
-`lattice` is a Gleam CRDT library for building replicated state that converges
-after merging, even when replicas update independently.
+`lattice` is a Gleam library for **Conflict-free Replicated Data Types**
+(CRDTs).
+
+## What is a CRDT?
+
+A CRDT is a data structure that can be replicated across multiple nodes, updated
+independently on each node without coordination, and merged back together with a
+guarantee: all replicas converge to the same state. No consensus protocol, no
+locking, no conflict resolution callbacks — the math of the data structure
+itself ensures convergence.
+
+For example, a grow-only counter lets every replica increment locally. When two
+replicas merge, they take the per-replica maximum and sum the result. No matter
+what order merges happen in, the final value is always the same.
 
 ## What you get
 
