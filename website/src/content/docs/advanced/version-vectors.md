@@ -92,19 +92,6 @@ by:
 - `ORSet` — via pruned version vectors for tombstone garbage collection
 - `ORMap` — inherits pruning from the underlying `ORSet` key tracker
 
-## ReplicaId
-
-`ReplicaId` is an opaque wrapper around a string, provided by `lattice_core`.
-It identifies which node performed an operation.
-
-CRDTs that track causal history require a `ReplicaId`:
-
-- `GCounter`, `PNCounter` — to track per-replica contributions
-- `LWWRegister` — for deterministic tie-breaking
-- `MVRegister`, `ORSet`, `ORMap` — for causal tagging
-
-Non-causal types (`GSet`, `TwoPSet`, `LWWMap`) do not require one.
-
 ## DotContext
 
 A `DotContext` tracks individual observed events — "dots" consisting of a

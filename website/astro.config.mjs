@@ -57,6 +57,10 @@ export default defineConfig({
 							slug: "packages",
 						},
 						{
+							label: "Replica IDs",
+							slug: "replica-ids",
+						},
+						{
 							label: "Installation",
 							slug: "installation",
 						},
