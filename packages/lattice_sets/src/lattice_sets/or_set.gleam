@@ -204,6 +204,45 @@ fn pruned_on_side_without_live_tag(
   version_vector.get(pruned, rid) >= c && !set.contains(live_tags, tag)
 }
 
+/// Remove an element and return a causal bound for the removed tags.
+///
+/// Behaves identically to `remove` but also returns a `VersionVector`
+/// representing the maximum counter per replica across all tags that were
+/// live for the element. This bound can be compared against a pruned vector
+/// to determine when the removal is causally stable.
+///
+/// Returns an empty `VersionVector` if the element had no live tags.
+pub fn remove_with_bound(
+  orset: ORSet(a),
+  element: a,
+) -> #(ORSet(a), VersionVector) {
+  let removed_tags = result.unwrap(dict.get(orset.entries, element), set.new())
+  let bound = tags_to_bound(removed_tags)
+  let updated =
+    ORSet(
+      ..orset,
+      entries: dict.delete(orset.entries, element),
+      tombstones: set.union(orset.tombstones, removed_tags),
+    )
+  #(updated, bound)
+}
+
+fn tags_to_bound(tags: set.Set(Tag)) -> VersionVector {
+  set.fold(tags, version_vector.new(), fn(vv, tag) {
+    let Tag(rid, c) = tag
+    version_vector.set_max(vv, rid, c)
+  })
+}
+
+/// Return the pruned version vector.
+///
+/// This is the causal horizon below which tombstones have been garbage
+/// collected. Useful for determining whether a remove bound is fully
+/// dominated (causally stable).
+pub fn pruned_vv(orset: ORSet(a)) -> VersionVector {
+  orset.pruned
+}
+
 /// Prune tombstones based on a stable version vector.
 ///
 /// Updates the `pruned` vector by merging it with `stable_vv`. Any tombstones

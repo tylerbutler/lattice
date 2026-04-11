@@ -1,0 +1,7 @@
+project: lattice_core
+kind: Added
+body: |-
+  Add `version_vector.dominates`, `version_vector.is_empty`, and `version_vector.set_max`
+
+  `dominates(a, b)` returns `True` when every clock in `a` is >= the corresponding clock in `b`. `is_empty` checks whether a version vector has no entries. `set_max(vv, rid, value)` updates a clock to the maximum of its current value and the given value, useful for building version vectors incrementally without round-tripping through `to_dict`/`from_dict`.
+time: 2026-04-11T16:33:00.000000000Z

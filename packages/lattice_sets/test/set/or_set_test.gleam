@@ -1,5 +1,6 @@
 import gleam/set
 import lattice_core/replica_id
+import lattice_core/version_vector
 import lattice_sets/or_set
 import startest/expect
 
@@ -153,4 +154,72 @@ pub fn merge_propagates_counter_test() {
   after_add
   |> or_set.contains("new_element")
   |> expect.to_be_true
+}
+
+// --- remove_with_bound ---
+
+pub fn remove_with_bound_single_tag_test() {
+  // A adds "x" (tag A:1), then removes with bound → bound should be {A: 1}
+  let s = or_set.new(rid("A")) |> or_set.add("x")
+  let #(updated, bound) = or_set.remove_with_bound(s, "x")
+
+  or_set.contains(updated, "x") |> expect.to_be_false()
+  version_vector.get(bound, rid("A")) |> expect.to_equal(1)
+}
+
+pub fn remove_with_bound_multi_tag_takes_max_test() {
+  // A adds "x" twice (tags A:1 and A:2), remove bound should be {A: 2}
+  let s =
+    or_set.new(rid("A"))
+    |> or_set.add("x")
+    |> or_set.add("x")
+  let #(updated, bound) = or_set.remove_with_bound(s, "x")
+
+  or_set.contains(updated, "x") |> expect.to_be_false()
+  version_vector.get(bound, rid("A")) |> expect.to_equal(2)
+}
+
+pub fn remove_with_bound_missing_element_returns_empty_bound_test() {
+  let s = or_set.new(rid("A"))
+  let #(updated, bound) = or_set.remove_with_bound(s, "x")
+
+  or_set.contains(updated, "x") |> expect.to_be_false()
+  version_vector.is_empty(bound) |> expect.to_be_true()
+}
+
+pub fn remove_with_bound_multi_replica_tags_test() {
+  // A adds "x" (A:1), B adds "x" (B:1), merge, then remove
+  // Bound should be {A: 1, B: 1}
+  let sa = or_set.new(rid("A")) |> or_set.add("x")
+  let sb = or_set.new(rid("B")) |> or_set.add("x")
+  let merged = or_set.merge(sa, sb)
+
+  let #(updated, bound) = or_set.remove_with_bound(merged, "x")
+  or_set.contains(updated, "x") |> expect.to_be_false()
+  version_vector.get(bound, rid("A")) |> expect.to_equal(1)
+  version_vector.get(bound, rid("B")) |> expect.to_equal(1)
+}
+
+// --- pruned_vv ---
+
+pub fn pruned_vv_new_set_is_empty_test() {
+  or_set.new(rid("A"))
+  |> or_set.pruned_vv()
+  |> version_vector.is_empty()
+  |> expect.to_be_true()
+}
+
+pub fn pruned_vv_after_prune_reflects_stable_vv_test() {
+  let stable =
+    version_vector.new()
+    |> version_vector.increment(rid("A"))
+
+  let s =
+    or_set.new(rid("A"))
+    |> or_set.add("x")
+    |> or_set.remove("x")
+    |> or_set.prune(stable)
+
+  let pruned = or_set.pruned_vv(s)
+  version_vector.get(pruned, rid("A")) |> expect.to_equal(1)
 }

@@ -47,6 +47,7 @@ pub opaque type ORMap {
     crdt_spec: CrdtSpec,
     key_set: ORSet(String),
     values: dict.Dict(String, Crdt),
+    remove_bounds: dict.Dict(String, VersionVector),
   )
 }
 
@@ -85,6 +86,7 @@ pub fn new(replica_id: ReplicaId, crdt_spec: CrdtSpec) -> ORMap {
     crdt_spec: crdt_spec,
     key_set: or_set.new(replica_id),
     values: dict.new(),
+    remove_bounds: dict.new(),
   )
 }
 
@@ -110,6 +112,7 @@ pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
     crdt_spec: map.crdt_spec,
     key_set: or_set.add(map.key_set, key),
     values: dict.insert(map.values, key, updated),
+    remove_bounds: dict.delete(map.remove_bounds, key),
   )
 }
 
@@ -132,11 +135,16 @@ pub fn get(map: ORMap, key: String) -> Result(Crdt, Nil) {
 /// Remove a key from the OR-Map.
 ///
 /// Removes the key from the OR-Set (marking it inactive). The underlying
-/// CRDT value is retained in the values dict so it can participate in
-/// per-key merge if the key is concurrently re-added on another replica.
-/// (See https://github.com/tylerbutler/lattice/issues/17)
+/// CRDT value is retained until prune determines the removal is causally
+/// stable. A causal bound is recorded so prune can later decide when it is
+/// safe to discard the value.
 pub fn remove(map: ORMap, key: String) -> ORMap {
-  ORMap(..map, key_set: or_set.remove(map.key_set, key))
+  let #(updated_key_set, bound) = or_set.remove_with_bound(map.key_set, key)
+  let updated_bounds = case version_vector.is_empty(bound) {
+    True -> map.remove_bounds
+    False -> dict.insert(map.remove_bounds, key, bound)
+  }
+  ORMap(..map, key_set: updated_key_set, remove_bounds: updated_bounds)
 }
 
 /// Return the list of all active keys (those present in the OR-Set).
@@ -177,8 +185,12 @@ pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
       ))
     True -> {
       let merged_key_set = or_set.merge(a.key_set, b.key_set)
+      let active_keys = or_set.value(merged_key_set)
       let all_value_keys =
-        list.unique(list.append(dict.keys(a.values), dict.keys(b.values)))
+        set.to_list(set.union(
+          set.from_list(dict.keys(a.values)),
+          set.from_list(dict.keys(b.values)),
+        ))
       let merged_values =
         list.fold(all_value_keys, dict.new(), fn(acc, key) {
           let merged_crdt = case valid_value(a, key), valid_value(b, key) {
@@ -194,31 +206,91 @@ pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
           }
           dict.insert(acc, key, merged_crdt)
         })
+
+      // Merge remove_bounds: keep bounds for removed keys, clear for active keys
+      let all_bound_keys =
+        set.to_list(set.union(
+          set.from_list(dict.keys(a.remove_bounds)),
+          set.from_list(dict.keys(b.remove_bounds)),
+        ))
+      let merged_bounds =
+        list.fold(all_bound_keys, dict.new(), fn(acc, key) {
+          case set.contains(active_keys, key) {
+            True -> acc
+            False ->
+              case
+                dict.get(a.remove_bounds, key),
+                dict.get(b.remove_bounds, key)
+              {
+                Ok(ba), Ok(bb) ->
+                  dict.insert(acc, key, version_vector.merge(ba, bb))
+                Ok(ba), Error(_) -> dict.insert(acc, key, ba)
+                Error(_), Ok(bb) -> dict.insert(acc, key, bb)
+                Error(_), Error(_) -> acc
+              }
+          }
+        })
+
       Ok(ORMap(
         replica_id: a.replica_id,
         crdt_spec: a.crdt_spec,
         key_set: merged_key_set,
         values: merged_values,
+        remove_bounds: merged_bounds,
       ))
     }
   }
 }
 
-/// Prune tombstones for keys based on a stable version vector.
+/// Prune tombstones for keys and compact removed values whose removal is
+/// causally stable.
 ///
 /// Delegates to `or_set.prune` to remove tombstones from the internal key
-/// tracker.
-///
-/// Removed values are intentionally retained even after pruning because they
-/// may still be needed to merge with a concurrent re-add from another replica.
-/// Safe value compaction requires per-key stability information that the
-/// current `ORSet` representation does not expose.
+/// tracker. Then, for each removed key that has a recorded causal bound, if
+/// the pruned version vector dominates that bound, the key's CRDT value is
+/// discarded (the removal is stable and no concurrent re-add can reference
+/// the old value).
 ///
 /// Only call this with a version vector representing events that have been
 /// seen by all replicas (causally stable), otherwise zombie updates might be
 /// incorrectly ignored.
 pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
-  ORMap(..map, key_set: or_set.prune(map.key_set, stable_vv))
+  let pruned_key_set = or_set.prune(map.key_set, stable_vv)
+  let pruned_vv = or_set.pruned_vv(pruned_key_set)
+  let active_keys = or_set.value(pruned_key_set)
+
+  let #(compacted_values, compacted_bounds) =
+    dict.fold(map.values, #(dict.new(), map.remove_bounds), fn(acc, key, val) {
+      let #(vals, bounds) = acc
+      case set.contains(active_keys, key) {
+        True -> #(dict.insert(vals, key, val), bounds)
+        False ->
+          case dict.get(map.remove_bounds, key) {
+            Ok(bound) ->
+              case version_vector.dominates(pruned_vv, bound) {
+                True -> #(vals, dict.delete(bounds, key))
+                False -> #(dict.insert(vals, key, val), bounds)
+              }
+            Error(_) -> #(dict.insert(vals, key, val), bounds)
+          }
+      }
+    })
+
+  ORMap(
+    ..map,
+    key_set: pruned_key_set,
+    values: compacted_values,
+    remove_bounds: compacted_bounds,
+  )
+}
+
+/// Return the number of entries in the internal values dict.
+///
+/// This is an internal helper exposed for testing value compaction.
+/// Active and retained-for-merge entries are both counted.
+@internal
+pub fn internal_value_count(map: ORMap) -> Int {
+  dict.size(map.values)
 }
 
 /// Encode an `ORMap` as a self-describing JSON value.
@@ -226,11 +298,11 @@ pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
 /// The nested OR-Set (`key_set`) and CRDT values are double-encoded as JSON
 /// strings so they can be decoded using the existing `from_json` APIs.
 ///
-/// Format: `{"type": "or_map", "v": 1, "state": {"replica_id": "...", "crdt_spec": "...", "key_set": "...", "values": [...]}}`
+/// Format: `{"type": "or_map", "v": 2, "state": {"replica_id": "...", "crdt_spec": "...", "key_set": "...", "values": [...], "remove_bounds": {...}}}`
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(map: ORMap) -> json.Json {
-  let ORMap(rid, crdt_spec, key_set, values) = map
+  let ORMap(rid, crdt_spec, key_set, values, remove_bounds) = map
   let values_json =
     json.array(dict.to_list(values), fn(pair) {
       let #(key, crdt_val) = pair
@@ -239,9 +311,11 @@ pub fn to_json(map: ORMap) -> json.Json {
         #("crdt", json.string(json.to_string(crdt.to_json(crdt_val)))),
       ])
     })
+  let bounds_json =
+    json.dict(remove_bounds, fn(k) { k }, fn(vv) { version_vector.to_json(vv) })
   json.object([
     #("type", json.string("or_map")),
-    #("v", json.int(1)),
+    #("v", json.int(2)),
     #(
       "state",
       json.object([
@@ -249,12 +323,17 @@ pub fn to_json(map: ORMap) -> json.Json {
         #("crdt_spec", json.string(spec_to_string(crdt_spec))),
         #("key_set", json.string(json.to_string(or_set.to_json(key_set)))),
         #("values", values_json),
+        #("remove_bounds", bounds_json),
       ]),
     ),
   ])
 }
 
 /// Decode an `ORMap` from a JSON string produced by `to_json`.
+///
+/// Supports both v1 (no remove_bounds) and v2 (with remove_bounds) formats.
+/// v1 maps are decoded with empty remove_bounds, meaning no value compaction
+/// is possible until new removes are performed.
 ///
 /// Returns `Error` if the string is not valid JSON, does not match the
 /// expected format, or contains an unknown `crdt_spec` string.
@@ -264,13 +343,25 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
     use crdt_str <- decode.field("crdt", decode.string)
     decode.success(#(key, crdt_str))
   }
+  let bounds_decoder = decode.dict(decode.string, version_vector.decoder())
   let state_decoder = {
     use state <- decode.field("state", {
       use replica_id_str <- decode.field("replica_id", decode.string)
       use crdt_spec_str <- decode.field("crdt_spec", decode.string)
       use key_set_str <- decode.field("key_set", decode.string)
       use values_list <- decode.field("values", decode.list(value_pair_decoder))
-      decode.success(#(replica_id_str, crdt_spec_str, key_set_str, values_list))
+      use remove_bounds <- decode.optional_field(
+        "remove_bounds",
+        dict.new(),
+        bounds_decoder,
+      )
+      decode.success(#(
+        replica_id_str,
+        crdt_spec_str,
+        key_set_str,
+        values_list,
+        remove_bounds,
+      ))
     })
     decode.success(state)
   }
@@ -282,73 +373,107 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
   case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
-      case type_tag == "or_map" && version == 1 {
+      case type_tag == "or_map" {
         False ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
-                expected: "type=or_map and v=1",
-                found: type_tag <> " v=" <> int.to_string(version),
+                expected: "type=or_map",
+                found: type_tag,
                 path: [],
               ),
             ]),
           )
         True ->
-          case json.parse(from: json_string, using: state_decoder) {
-            Error(e) -> Error(e)
-            Ok(#(replica_id_str, crdt_spec_str, key_set_str, values_list)) -> {
-              case string_to_spec(crdt_spec_str) {
-                Error(_) ->
-                  Error(
-                    json.UnableToDecode([
-                      decode.DecodeError(
-                        expected: "known CrdtSpec",
-                        found: crdt_spec_str,
-                        path: ["state", "crdt_spec"],
-                      ),
-                    ]),
+          case version {
+            1 | 2 ->
+              case json.parse(from: json_string, using: state_decoder) {
+                Error(e) -> Error(e)
+                Ok(#(
+                  replica_id_str,
+                  crdt_spec_str,
+                  key_set_str,
+                  values_list,
+                  remove_bounds,
+                )) ->
+                  decode_or_map_state(
+                    replica_id_str,
+                    crdt_spec_str,
+                    key_set_str,
+                    values_list,
+                    remove_bounds,
                   )
-                Ok(crdt_spec) -> {
-                  case or_set.from_json(key_set_str) {
-                    Error(e) -> Error(e)
-                    Ok(key_set) -> {
-                      let values_result =
-                        list.try_map(values_list, fn(pair) {
-                          let #(key, crdt_str) = pair
-                          case crdt.from_json(crdt_str) {
-                            Ok(c) ->
-                              case matches_spec(c, crdt_spec) {
-                                True -> Ok(#(key, c))
-                                False ->
-                                  Error(
-                                    json.UnableToDecode([
-                                      decode.DecodeError(
-                                        expected: spec_to_string(crdt_spec),
-                                        found: crdt_name(c),
-                                        path: ["state", "values"],
-                                      ),
-                                    ]),
-                                  )
-                              }
-                            Error(e) -> Error(e)
-                          }
-                        })
-                      case values_result {
-                        Error(e) -> Error(e)
-                        Ok(pairs) ->
-                          Ok(ORMap(
-                            replica_id: replica_id.new(replica_id_str),
-                            crdt_spec: crdt_spec,
-                            key_set: key_set,
-                            values: dict.from_list(pairs),
-                          ))
-                      }
-                    }
-                  }
-                }
               }
-            }
+            _ ->
+              Error(
+                json.UnableToDecode([
+                  decode.DecodeError(
+                    expected: "v=1 or v=2",
+                    found: int.to_string(version),
+                    path: ["v"],
+                  ),
+                ]),
+              )
           }
+      }
+  }
+}
+
+fn decode_or_map_state(
+  replica_id_str: String,
+  crdt_spec_str: String,
+  key_set_str: String,
+  values_list: List(#(String, String)),
+  remove_bounds: dict.Dict(String, VersionVector),
+) -> Result(ORMap, json.DecodeError) {
+  case string_to_spec(crdt_spec_str) {
+    Error(_) ->
+      Error(
+        json.UnableToDecode([
+          decode.DecodeError(
+            expected: "known CrdtSpec",
+            found: crdt_spec_str,
+            path: ["state", "crdt_spec"],
+          ),
+        ]),
+      )
+    Ok(crdt_spec) ->
+      case or_set.from_json(key_set_str) {
+        Error(e) -> Error(e)
+        Ok(key_set) -> {
+          let values_result =
+            list.try_map(values_list, fn(pair) {
+              let #(key, crdt_str) = pair
+              case crdt.from_json(crdt_str) {
+                Ok(c) ->
+                  case matches_spec(c, crdt_spec) {
+                    True -> Ok(#(key, c))
+                    False ->
+                      Error(
+                        json.UnableToDecode([
+                          decode.DecodeError(
+                            expected: spec_to_string(crdt_spec),
+                            found: crdt_name(c),
+                            path: ["state", "values"],
+                          ),
+                        ]),
+                      )
+                  }
+                Error(e) -> Error(e)
+              }
+            })
+          case values_result {
+            Error(e) -> Error(e)
+            Ok(pairs) ->
+              Ok(ORMap(
+                replica_id: replica_id.new(replica_id_str),
+                crdt_spec: crdt_spec,
+                key_set: key_set,
+                values: dict.from_list(pairs),
+                remove_bounds: remove_bounds,
+              ))
+          }
+        }
       }
   }
 }
