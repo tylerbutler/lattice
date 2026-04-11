@@ -187,7 +187,10 @@ pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
       let merged_key_set = or_set.merge(a.key_set, b.key_set)
       let active_keys = or_set.value(merged_key_set)
       let all_value_keys =
-        list.unique(list.append(dict.keys(a.values), dict.keys(b.values)))
+        set.to_list(set.union(
+          set.from_list(dict.keys(a.values)),
+          set.from_list(dict.keys(b.values)),
+        ))
       let merged_values =
         list.fold(all_value_keys, dict.new(), fn(acc, key) {
           let merged_crdt = case valid_value(a, key), valid_value(b, key) {
@@ -206,9 +209,9 @@ pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
 
       // Merge remove_bounds: keep bounds for removed keys, clear for active keys
       let all_bound_keys =
-        list.unique(list.append(
-          dict.keys(a.remove_bounds),
-          dict.keys(b.remove_bounds),
+        set.to_list(set.union(
+          set.from_list(dict.keys(a.remove_bounds)),
+          set.from_list(dict.keys(b.remove_bounds)),
         ))
       let merged_bounds =
         list.fold(all_bound_keys, dict.new(), fn(acc, key) {
@@ -340,30 +343,18 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
     use crdt_str <- decode.field("crdt", decode.string)
     decode.success(#(key, crdt_str))
   }
-  let v1_state_decoder = {
-    use state <- decode.field("state", {
-      use replica_id_str <- decode.field("replica_id", decode.string)
-      use crdt_spec_str <- decode.field("crdt_spec", decode.string)
-      use key_set_str <- decode.field("key_set", decode.string)
-      use values_list <- decode.field("values", decode.list(value_pair_decoder))
-      decode.success(#(
-        replica_id_str,
-        crdt_spec_str,
-        key_set_str,
-        values_list,
-        dict.new(),
-      ))
-    })
-    decode.success(state)
-  }
   let bounds_decoder = decode.dict(decode.string, version_vector.decoder())
-  let v2_state_decoder = {
+  let state_decoder = {
     use state <- decode.field("state", {
       use replica_id_str <- decode.field("replica_id", decode.string)
       use crdt_spec_str <- decode.field("crdt_spec", decode.string)
       use key_set_str <- decode.field("key_set", decode.string)
       use values_list <- decode.field("values", decode.list(value_pair_decoder))
-      use remove_bounds <- decode.field("remove_bounds", bounds_decoder)
+      use remove_bounds <- decode.optional_field(
+        "remove_bounds",
+        dict.new(),
+        bounds_decoder,
+      )
       decode.success(#(
         replica_id_str,
         crdt_spec_str,
@@ -393,25 +384,10 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
               ),
             ]),
           )
-        True -> {
-          let state_decoder = case version {
-            1 -> Ok(v1_state_decoder)
-            2 -> Ok(v2_state_decoder)
-            _ ->
-              Error(
-                json.UnableToDecode([
-                  decode.DecodeError(
-                    expected: "v=1 or v=2",
-                    found: int.to_string(version),
-                    path: ["v"],
-                  ),
-                ]),
-              )
-          }
-          case state_decoder {
-            Error(e) -> Error(e)
-            Ok(decoder) ->
-              case json.parse(from: json_string, using: decoder) {
+        True ->
+          case version {
+            1 | 2 ->
+              case json.parse(from: json_string, using: state_decoder) {
                 Error(e) -> Error(e)
                 Ok(#(
                   replica_id_str,
@@ -428,8 +404,17 @@ pub fn from_json(json_string: String) -> Result(ORMap, json.DecodeError) {
                     remove_bounds,
                   )
               }
+            _ ->
+              Error(
+                json.UnableToDecode([
+                  decode.DecodeError(
+                    expected: "v=1 or v=2",
+                    found: int.to_string(version),
+                    path: ["v"],
+                  ),
+                ]),
+              )
           }
-        }
       }
   }
 }

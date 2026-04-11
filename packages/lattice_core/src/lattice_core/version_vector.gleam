@@ -134,6 +134,23 @@ pub fn is_empty(vv: VersionVector) -> Bool {
   dict.is_empty(d)
 }
 
+/// Set the clock for a replica to the maximum of the current value and `value`.
+///
+/// If the replica has no entry, `value` is used. This avoids round-tripping
+/// through `to_dict`/`from_dict` when building a version vector incrementally.
+pub fn set_max(
+  vv: VersionVector,
+  replica_id: ReplicaId,
+  value: Int,
+) -> VersionVector {
+  let VersionVector(d) = vv
+  let current = result.unwrap(dict.get(d, replica_id), 0)
+  case value > current {
+    True -> VersionVector(dict.insert(d, replica_id, value))
+    False -> vv
+  }
+}
+
 /// Merge two version vectors using pairwise maximum.
 ///
 /// For each replica, the merged clock is the maximum of the two inputs.

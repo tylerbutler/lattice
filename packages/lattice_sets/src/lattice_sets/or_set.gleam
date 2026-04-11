@@ -230,12 +230,7 @@ pub fn remove_with_bound(
 fn tags_to_bound(tags: set.Set(Tag)) -> VersionVector {
   set.fold(tags, version_vector.new(), fn(vv, tag) {
     let Tag(rid, c) = tag
-    let current = version_vector.get(vv, rid)
-    case c > current {
-      True ->
-        version_vector.from_dict(dict.insert(version_vector.to_dict(vv), rid, c))
-      False -> vv
-    }
+    version_vector.set_max(vv, rid, c)
   })
 }
 
