@@ -3,5 +3,5 @@ kind: Added
 body: |-
   Add `or_set.prune(stable_vv)` for tombstone compaction
 
-  Accepts a causally stable version vector and removes tombstones dominated by it. The merge algorithm now detects "zombie" tags from stale replicas, preventing resurrection of removed elements after pruning. This resolves the known resurrection bug (#27).
+  Call `or_set.prune(set, stable_vv)` with a version vector that all replicas have acknowledged to reclaim memory from removed elements. The merge algorithm detects stale tags from replicas that haven't caught up, preventing removed elements from reappearing after pruning.
 time: 2026-04-07T20:00:00.000000000Z

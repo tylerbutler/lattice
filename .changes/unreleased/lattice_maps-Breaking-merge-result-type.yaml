@@ -7,5 +7,5 @@ body: |-
   `Error(TypeMismatch(expected: ..., found: ...))` instead of silently returning
   the first argument. `or_map.merge(a, b)` returns `Result(ORMap, MergeError)` —
   spec mismatches produce the same error. Callers must handle the `Result`;
-  for same-type merges, `let assert Ok(merged) = crdt.merge(a, b)` is idiomatic.
+  for same-type merges, `let assert Ok(merged) = crdt.merge(a, b)` is idiomatic. See the [maps guide](https://lattice.tylerbutler.com/guides/maps/) for usage examples.
 time: 2026-04-08T22:39:57.000000000+00:00
