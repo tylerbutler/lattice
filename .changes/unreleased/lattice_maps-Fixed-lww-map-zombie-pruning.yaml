@@ -1,11 +1,7 @@
 project: lattice_maps
 kind: Fixed
 body: |-
-  LWWMap `prune` now prevents zombie resurrections on merge
+  LWWMap `prune` now prevents deleted keys from reappearing after merge
 
-  `prune` records a `pruned_timestamp` in the LWWMap. During `merge`, entries from
-  remote replicas with timestamps at or below the other side's pruned threshold are
-  automatically discarded, preventing deleted keys from reappearing. JSON
-  serialization is bumped to v2 to persist the pruned timestamp; `from_json` still
-  accepts v1 (with pruned timestamp defaulting to 0).
+  Previously, pruning tombstones from one replica could cause deleted keys to reappear when merging with a stale replica that still had the old entry. `prune` now records a `pruned_timestamp` so that `merge` automatically discards entries at or below the pruned threshold. JSON serialization is bumped to v2 to persist the pruned timestamp; `from_json` still accepts v1.
 time: 2026-04-08T21:53:33.000000000+00:00

@@ -3,5 +3,5 @@ kind: Breaking
 body: |-
   Extracted from monolithic `lattice` package into standalone `lattice_sets` package
 
-  Imports change from `import lattice/g_set`, `import lattice/two_p_set`, and `import lattice/or_set` to `import lattice_sets/g_set`, `import lattice_sets/two_p_set`, and `import lattice_sets/or_set`. Update all import paths accordingly.
+  Imports change from `import lattice/g_set`, `import lattice/two_p_set`, and `import lattice/or_set` to `import lattice_sets/g_set`, `import lattice_sets/two_p_set`, and `import lattice_sets/or_set`. Update all import paths accordingly. See the [packages overview](https://lattice.tylerbutler.com/packages/) for the full package structure.
 time: 2026-04-07T19:36:33.000000000Z

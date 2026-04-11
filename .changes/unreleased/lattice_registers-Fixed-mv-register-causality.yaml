@@ -1,7 +1,7 @@
 project: lattice_registers
 kind: Fixed
 body: |-
-  Enforce causality invariants during MVRegister JSON deserialization
+  Validate MVRegister state during JSON deserialization
 
-  Entry tags are now validated to have positive counters and must not exceed the attached version vector, preventing causally inconsistent state from being decoded.
+  `mv_register.from_json` now rejects payloads with invalid causal metadata (e.g. negative counters or tags that exceed the version vector). Previously, malformed JSON could produce a register in an inconsistent state that would behave incorrectly on merge.
 time: 2026-04-07T22:32:00.000000000Z

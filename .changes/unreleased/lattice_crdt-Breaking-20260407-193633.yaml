@@ -1,7 +1,18 @@
 project: lattice_crdt
 kind: Breaking
 body: |-
-  Split monolithic `lattice` package into multi-package monorepo
+  Split into multi-package monorepo
 
-  The single `lattice` package has been reorganized into 6 independently-versioned packages: `lattice_core`, `lattice_counters`, `lattice_sets`, `lattice_registers`, `lattice_maps`, and `lattice_crdt` (umbrella). All import paths change from `import lattice/<module>` to the appropriate sub-package (e.g. `import lattice/g_counter` becomes `import lattice_counters/g_counter`). Depend on `lattice_crdt` to get all sub-packages, or depend on individual packages for minimal dependencies. See each sub-package's changelog for complete import path mappings.
+  The single `lattice` package has been reorganized into 6 independently-versioned packages. You can depend on `lattice_crdt` to get everything, or depend on individual packages for smaller dependency footprints:
+
+  | Package | Contents |
+  |---------|----------|
+  | `lattice_core` | `version_vector`, `dot_context`, `replica_id` |
+  | `lattice_counters` | `g_counter`, `pn_counter` |
+  | `lattice_sets` | `g_set`, `two_p_set`, `or_set` |
+  | `lattice_registers` | `lww_register`, `mv_register` |
+  | `lattice_maps` | `lww_map`, `or_map`, `crdt` |
+  | `lattice_crdt` | Umbrella — depends on all above |
+
+  All import paths change from `import lattice/<module>` to the appropriate sub-package (e.g. `import lattice/g_counter` becomes `import lattice_counters/g_counter`). See the [packages overview](https://lattice.tylerbutler.com/packages/) for the full dependency graph.
 time: 2026-04-07T19:36:33.000000000Z
