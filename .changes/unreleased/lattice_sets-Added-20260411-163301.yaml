@@ -1,0 +1,7 @@
+project: lattice_sets
+kind: Added
+body: |-
+  Add `or_set.remove_with_bound` and `or_set.pruned_vv`
+
+  `remove_with_bound` behaves like `remove` but also returns a `VersionVector` representing the causal bound of the removed tags. `pruned_vv` exposes the causal horizon below which tombstones have been garbage collected. Together these enable downstream data structures (e.g. ORMap) to determine when a removal is causally stable and safely discard associated values.
+time: 2026-04-11T16:33:01.000000000Z

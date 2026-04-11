@@ -1,7 +1,7 @@
 project: lattice_maps
 kind: Added
 body: |-
-  Add `or_map.prune(stable_vv)` for tombstone compaction
+  Add `or_map.prune(stable_vv)` for tombstone and value compaction
 
-  Delegates to `or_set.prune` on the internal key tracker. Values for removed keys are retained for concurrent merge correctness.
+  Delegates to `or_set.prune` on the internal key tracker and compacts CRDT values for removed keys whose removal is causally stable (the pruned version vector dominates the remove bound). Values for removed keys with unstable removals are retained for concurrent merge correctness. The JSON serialization format is bumped to v2 to persist remove bounds; v1 payloads are still accepted on read with empty bounds.
 time: 2026-04-07T20:00:02.000000000Z
