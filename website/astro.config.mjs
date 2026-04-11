@@ -57,10 +57,6 @@ export default defineConfig({
 							slug: "packages",
 						},
 						{
-							label: "Replica IDs",
-							slug: "replica-ids",
-						},
-						{
 							label: "Installation",
 							slug: "installation",
 						},
@@ -73,6 +69,10 @@ export default defineConfig({
 				{
 					label: "Guides",
 					items: [
+						{
+							label: "Replica IDs",
+							slug: "guides/replica-ids",
+						},
 						{
 							label: "Counters",
 							slug: "guides/counters",
