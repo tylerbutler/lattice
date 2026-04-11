@@ -1,7 +1,0 @@
-project: lattice_maps
-kind: Added
-body: |-
-  Add `or_map.prune(stable_vv)` for garbage collection
-
-  Call `or_map.prune(map, stable_vv)` with a version vector that all replicas have acknowledged to reclaim memory from removed keys and their associated CRDT values. Removals that are not yet causally stable are preserved to maintain merge correctness across replicas. The JSON format is bumped to v2 to persist removal metadata; v1 payloads are still accepted on read.
-time: 2026-04-07T20:00:02.000000000Z

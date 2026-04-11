@@ -1,9 +1,0 @@
-project: lattice_maps
-kind: Added
-body: |-
-  Add `MergeError` type and `crdt.type_name` function
-
-  `MergeError` has a single variant `TypeMismatch(expected: String, found: String)`
-  with human-readable CRDT type names. `crdt.type_name(value)` returns the name
-  string for any wrapped `Crdt` value (e.g., `"g_counter"`, `"or_set"`).
-time: 2026-04-08T22:39:57.000000000+00:00

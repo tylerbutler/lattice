@@ -1,7 +1,0 @@
-project: lattice_sets
-kind: Added
-body: |-
-  Add `or_set.remove_with_bound` and `or_set.pruned_vv`
-
-  `remove_with_bound(set, element)` works like `remove` but also returns a `VersionVector` representing the causal context of the removal. `pruned_vv(set)` returns the version vector below which tombstones have been garbage-collected. These are primarily useful for building higher-level data structures like `or_map` that need to track when a removal is safe to finalize.
-time: 2026-04-11T16:33:01.000000000Z

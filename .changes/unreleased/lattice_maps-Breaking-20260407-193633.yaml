@@ -1,7 +1,0 @@
-project: lattice_maps
-kind: Breaking
-body: |-
-  Extracted from monolithic `lattice` package into standalone `lattice_maps` package
-
-  Imports change from `import lattice/lww_map`, `import lattice/or_map`, and `import lattice/crdt` to `import lattice_maps/lww_map`, `import lattice_maps/or_map`, and `import lattice_maps/crdt`. Update all import paths accordingly. See the [packages overview](https://lattice.tylerbutler.com/packages/) for the full package structure.
-time: 2026-04-07T19:36:33.000000000Z
