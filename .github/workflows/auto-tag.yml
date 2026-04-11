@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   auto-tag:
-    uses: tylerbutler/actions/.github/workflows/auto-tag.yml@4d7b8407d2c23fd22c750af2504940b13bdc3ee5 # ratchet:tylerbutler/actions/.github/workflows/auto-tag.yml@main
+    uses: tylerbutler/actions/.github/workflows/auto-tag.yml@a9225b67462603a5aebff2450a7ef02b820b6eb7 # ratchet:tylerbutler/actions/.github/workflows/auto-tag.yml@main
     with:
       workspace-file: workspace.toml
       create-release: true
