@@ -7,9 +7,9 @@ versionFooterPath: ""
 versionExt: md
 envPrefix: CHANGIE
 versionFormat: '## {{.Version}} - {{.Time.Format "2006-01-02"}}'
-kindFormat: '#### {{.Kind}}'
+kindFormat: '### {{.Kind}}'
 changeFormat: |-
-    ##### {{(splitn "\n" 2 .Body)._0}}
+    #### {{(splitn "\n" 2 .Body)._0}}
     {{with (splitn "\n" 2 .Body)._1 | default "" | trim}}
     {{.}}
     {{end}}
