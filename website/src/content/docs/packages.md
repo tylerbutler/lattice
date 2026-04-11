@@ -9,14 +9,14 @@ or pick individual packages for minimal dependencies.
 
 ## Packages
 
-| Package | What it provides |
-|---|---|
-| `lattice_core` | `ReplicaId`, `VersionVector`, `DotContext` — shared causal infrastructure |
-| `lattice_counters` | `GCounter`, `PNCounter` |
-| `lattice_registers` | `LWWRegister`, `MVRegister` |
-| `lattice_sets` | `GSet`, `TwoPSet`, `ORSet` |
-| `lattice_maps` | `LWWMap`, `ORMap`, `Crdt` dispatch |
-| `lattice_crdt` | Umbrella — depends on all of the above |
+| Package | Version | Docs | What it provides |
+|---|---|---|---|
+| `lattice_crdt` | [![](https://img.shields.io/hexpm/v/lattice_crdt)](https://hex.pm/packages/lattice_crdt) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_crdt/) | Umbrella — depends on all of the below |
+| `lattice_core` | [![](https://img.shields.io/hexpm/v/lattice_core)](https://hex.pm/packages/lattice_core) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_core/) | `ReplicaId`, `VersionVector`, `DotContext` — shared causal infrastructure |
+| `lattice_counters` | [![](https://img.shields.io/hexpm/v/lattice_counters)](https://hex.pm/packages/lattice_counters) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_counters/) | `GCounter`, `PNCounter` |
+| `lattice_registers` | [![](https://img.shields.io/hexpm/v/lattice_registers)](https://hex.pm/packages/lattice_registers) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_registers/) | `LWWRegister`, `MVRegister` |
+| `lattice_sets` | [![](https://img.shields.io/hexpm/v/lattice_sets)](https://hex.pm/packages/lattice_sets) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_sets/) | `GSet`, `TwoPSet`, `ORSet` |
+| `lattice_maps` | [![](https://img.shields.io/hexpm/v/lattice_maps)](https://hex.pm/packages/lattice_maps) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_maps/) | `LWWMap`, `ORMap`, `Crdt` dispatch |
 
 ## Dependencies
 
