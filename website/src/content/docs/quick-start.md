@@ -3,13 +3,14 @@ title: Quick Start
 description: Get up and running with lattice in minutes.
 ---
 
-Install the package:
+Install the umbrella package:
 
 ```sh
 gleam add lattice_crdt
 ```
 
-Then import the CRDTs you need from the `lattice/` namespace.
+This gives you all lattice packages. See [Installation](/installation/) for
+individual package options.
 
 ## Merge counters from multiple replicas
 
@@ -17,15 +18,16 @@ Then import the CRDTs you need from the `lattice/` namespace.
 own contribution, and merging takes the per-replica maximum.
 
 ```gleam
-import lattice/g_counter
+import lattice_core/replica_id
+import lattice_counters/g_counter
 
 pub fn main() {
   let counter_a =
-    g_counter.new("node-a")
+    g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(2)
 
   let counter_b =
-    g_counter.new("node-b")
+    g_counter.new(replica_id.new("node-b"))
     |> g_counter.increment(3)
 
   let merged = g_counter.merge(counter_a, counter_b)
@@ -36,26 +38,28 @@ pub fn main() {
 ```
 
 `g_counter.increment` rejects negative deltas. If you need a counter that can
-go down, use `lattice/pn_counter`; both `increment` and `decrement` still take
-non-negative deltas because the underlying state is grow-only.
+go down, use `pn_counter` from `lattice_counters`; both `increment` and
+`decrement` still take non-negative deltas because the underlying state is
+grow-only.
 
 ## Resolve ties deterministically with LWW registers
 
 `LWWRegister` stores a value plus a timestamp. Newer timestamps win. If two
 replicas write at the same timestamp, lattice breaks the tie deterministically
-by choosing the lexicographically greater string.
+using the replica ID.
 
 ```gleam
-import lattice/lww_register
+import lattice_core/replica_id
+import lattice_registers/lww_register
 
 pub fn main() {
-  let left = lww_register.new("apple", 7)
-  let right = lww_register.new("zebra", 7)
+  let left = lww_register.new("apple", 7, replica_id.new("node-a"))
+  let right = lww_register.new("zebra", 7, replica_id.new("node-b"))
 
   let merged = lww_register.merge(left, right)
 
   lww_register.value(merged)
-  // -> "zebra"
+  // -> "zebra"  (node-b > node-a lexicographically)
 }
 ```
 
@@ -69,9 +73,10 @@ key. The `CrdtSpec` you choose when creating the map determines the default
 value used when `or_map.update` sees a missing key.
 
 ```gleam
-import lattice/crdt
-import lattice/g_counter
-import lattice/or_map
+import lattice_core/replica_id
+import lattice_counters/g_counter
+import lattice_maps/crdt
+import lattice_maps/or_map
 
 fn add_points(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
   case value {
@@ -84,14 +89,14 @@ fn add_points(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
 
 pub fn main() {
   let scoreboard_a =
-    or_map.new("node-a", crdt.GCounterSpec)
+    or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
     |> or_map.update("alice", fn(value) { add_points(value, 2) })
 
   let scoreboard_b =
-    or_map.new("node-b", crdt.GCounterSpec)
+    or_map.new(replica_id.new("node-b"), crdt.GCounterSpec)
     |> or_map.update("alice", fn(value) { add_points(value, 3) })
 
-  let merged = or_map.merge(scoreboard_a, scoreboard_b)
+  let assert Ok(merged) = or_map.merge(scoreboard_a, scoreboard_b)
 
   case or_map.get(merged, "alice") {
     Ok(crdt.CrdtGCounter(counter)) -> g_counter.value(counter)
@@ -102,4 +107,5 @@ pub fn main() {
 ```
 
 For more detail, see the [Counters guide](/guides/counters/),
-[Registers guide](/guides/registers/), and [Maps guide](/guides/maps/).
+[Registers guide](/guides/registers/), [Sets guide](/guides/sets/),
+and [Maps guide](/guides/maps/).

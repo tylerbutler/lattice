@@ -3,6 +3,9 @@ title: Counters
 description: Using GCounter and PNCounter for distributed counting.
 ---
 
+Counters are provided by the `lattice_counters` package. If you installed the
+`lattice_crdt` umbrella, they are already available.
+
 Use counters when replicas need to accumulate numeric state and later merge
 without coordination.
 
@@ -12,15 +15,16 @@ without coordination.
 merge takes the per-replica maximum before summing the result.
 
 ```gleam
-import lattice/g_counter
+import lattice_core/replica_id
+import lattice_counters/g_counter
 
 pub fn main() {
   let left =
-    g_counter.new("node-a")
+    g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(2)
 
   let right =
-    g_counter.new("node-b")
+    g_counter.new(replica_id.new("node-b"))
     |> g_counter.increment(5)
 
   let merged = g_counter.merge(left, right)
@@ -39,11 +43,12 @@ value is invalid because it would break the grow-only invariant.
 `GCounter`s.
 
 ```gleam
-import lattice/pn_counter
+import lattice_core/replica_id
+import lattice_counters/pn_counter
 
 pub fn main() {
   let counter =
-    pn_counter.new("node-a")
+    pn_counter.new(replica_id.new("node-a"))
     |> pn_counter.increment(10)
     |> pn_counter.decrement(3)
 

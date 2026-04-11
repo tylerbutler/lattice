@@ -8,13 +8,16 @@ after merging, even when replicas update independently.
 
 ## What you get
 
-The library includes:
+The library is organized across [focused packages](/packages/):
 
-- counters: `GCounter`, `PNCounter`
-- registers: `LWWRegister`, `MVRegister`
-- sets: `GSet`, `TwoPSet`, `ORSet`
-- maps: `LWWMap`, `ORMap`
-- supporting structures such as `VersionVector` and `DotContext`
+- **counters** (`lattice_counters`): `GCounter`, `PNCounter`
+- **registers** (`lattice_registers`): `LWWRegister`, `MVRegister`
+- **sets** (`lattice_sets`): `GSet`, `TwoPSet`, `ORSet`
+- **maps** (`lattice_maps`): `LWWMap`, `ORMap`
+- **causal infrastructure** (`lattice_core`): `ReplicaId`, `VersionVector`, `DotContext`
+
+The umbrella package `lattice_crdt` depends on all of the above, so a single
+`gleam add lattice_crdt` gives you everything.
 
 Each CRDT module follows the same basic shape:
 
