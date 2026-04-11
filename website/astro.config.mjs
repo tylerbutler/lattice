@@ -1,6 +1,7 @@
 import starlight from "@astrojs/starlight";
 import a11yEmoji from "@fec/remark-a11y-emoji";
 import { defineConfig } from "astro/config";
+import mermaid from "astro-mermaid";
 import starlightLinksValidator from "starlight-links-validator";
 import starlightLlmsTxt from "starlight-llms-txt";
 
@@ -12,6 +13,7 @@ export default defineConfig({
 		prefetchAll: true,
 	},
 	integrations: [
+		mermaid(),
 		starlight({
 			title: "lattice",
 			editLink: {
@@ -51,6 +53,10 @@ export default defineConfig({
 							slug: "introduction",
 						},
 						{
+							label: "Packages",
+							slug: "packages",
+						},
+						{
 							label: "Installation",
 							slug: "installation",
 						},
@@ -63,6 +69,10 @@ export default defineConfig({
 				{
 					label: "Guides",
 					items: [
+						{
+							label: "Replica IDs",
+							slug: "guides/replica-ids",
+						},
 						{
 							label: "Counters",
 							slug: "guides/counters",

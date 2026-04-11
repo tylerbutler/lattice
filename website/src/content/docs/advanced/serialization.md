@@ -3,7 +3,7 @@ title: JSON Serialization
 description: Serializing and deserializing CRDTs with JSON.
 ---
 
-Every CRDT module in lattice exposes `to_json` and `from_json`.
+Every CRDT module across all lattice packages exposes `to_json` and `from_json`.
 
 The encoded JSON includes a `"type"` discriminator and a schema version so the
 decoder can dispatch to the right implementation.
@@ -12,11 +12,12 @@ decoder can dispatch to the right implementation.
 
 ```gleam
 import gleam/json
-import lattice/g_counter
+import lattice_core/replica_id
+import lattice_counters/g_counter
 
 pub fn main() {
   let counter =
-    g_counter.new("node-a")
+    g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(3)
 
   let encoded =
@@ -38,9 +39,10 @@ pub fn main() {
 
 ```gleam
 import gleam/json
-import lattice/crdt
-import lattice/g_counter
-import lattice/or_map
+import lattice_core/replica_id
+import lattice_counters/g_counter
+import lattice_maps/crdt
+import lattice_maps/or_map
 
 fn add_points(value: crdt.Crdt) -> crdt.Crdt {
   case value {
@@ -53,7 +55,7 @@ fn add_points(value: crdt.Crdt) -> crdt.Crdt {
 
 pub fn main() {
   let map =
-    or_map.new("node-a", crdt.GCounterSpec)
+    or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
     |> or_map.update("alice", add_points)
 
   let encoded =

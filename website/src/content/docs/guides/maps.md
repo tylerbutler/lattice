@@ -3,17 +3,20 @@ title: Maps
 description: Using LWWMap and ORMap for distributed key-value storage.
 ---
 
-`lattice` ships with two map CRDTs:
+Maps are provided by the `lattice_maps` package. If you installed the
+`lattice_crdt` umbrella, they are already available.
 
-- `lattice/lww_map` for timestamp-based last-writer-wins key/value storage
-- `lattice/or_map` for add-wins maps whose values are themselves CRDTs
+lattice ships with two map CRDTs:
 
-## LWWMap
+- `LWWMap` for timestamp-based last-writer-wins key/value storage
+- `ORMap` for add-wins maps whose values are themselves CRDTs
+
+## LWWMap (Last-Writer-Wins Map)
 
 `LWWMap` stores `String` keys and `String` values with timestamps.
 
 ```gleam
-import lattice/lww_map
+import lattice_maps/lww_map
 
 pub fn main() {
   let profile =
@@ -44,7 +47,7 @@ newest timestamp.
 - when both sides hold active values, the lexicographically greater string wins
 
 ```gleam
-import lattice/lww_map
+import lattice_maps/lww_map
 
 pub fn main() {
   let left = lww_map.new() |> lww_map.set("label", "apple", 7)
@@ -60,16 +63,20 @@ pub fn main() {
 This tie-break keeps merges replica-order independent even when timestamps are
 equal.
 
-## ORMap
+## ORMap (Observed-Remove Map)
 
 `ORMap` is for maps whose values should also converge as CRDTs. You choose the
 value type up front with a `CrdtSpec`.
 
-```gleam
-import lattice/crdt
-import lattice/or_map
+Because `ORMap` uses types from multiple lattice packages, it is a good example
+of where the `lattice_crdt` umbrella is convenient.
 
-let counters = or_map.new("node-a", crdt.GCounterSpec)
+```gleam
+import lattice_core/replica_id
+import lattice_maps/crdt
+import lattice_maps/or_map
+
+let counters = or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
 ```
 
 When you call `or_map.update`, lattice looks up the current value for that key.
@@ -78,13 +85,14 @@ If the key does not exist yet, it creates a default value from the chosen
 
 ### Safe update helpers
 
-Avoid examples that destructure the `Crdt` union with `assert`. A `case`
-expression is clearer and keeps the example safe if you refactor it later.
+A `case` expression is clearer than `assert` for destructuring the `Crdt` union
+and keeps the example safe if you refactor later.
 
 ```gleam
-import lattice/crdt
-import lattice/g_counter
-import lattice/or_map
+import lattice_core/replica_id
+import lattice_counters/g_counter
+import lattice_maps/crdt
+import lattice_maps/or_map
 
 fn add_stock(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
   case value {
@@ -97,7 +105,7 @@ fn add_stock(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
 
 pub fn main() {
   let inventory =
-    or_map.new("node-a", crdt.GCounterSpec)
+    or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
     |> or_map.update("widgets", fn(value) { add_stock(value, 4) })
     |> or_map.update("widgets", fn(value) { add_stock(value, 1) })
 
@@ -114,7 +122,14 @@ at the default `GCounter` value of zero.
 
 ### Merge behavior
 
-`ORMap` merges two pieces of state:
+`or_map.merge` returns a `Result` because it checks that both maps use the same
+`CrdtSpec`:
+
+```gleam
+let assert Ok(merged) = or_map.merge(map_a, map_b)
+```
+
+The merge combines two pieces of state:
 
 1. the key tracker, using add-wins observed-remove semantics
 2. the value at each key, using `crdt.merge`
@@ -122,7 +137,3 @@ at the default `GCounter` value of zero.
 That means a concurrent `update` and `remove` of the same key keeps the key in
 the merged map, and concurrent updates to the nested CRDT converge using that
 CRDT's own merge rules.
-
-For example, an `ORMap` full of `LWWRegister` values inherits the same
-equal-timestamp tie rule as `lww_register.merge`: the lexicographically greater
-string wins when timestamps are equal.
