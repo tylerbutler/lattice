@@ -1,7 +1,0 @@
-project: lattice_counters
-kind: Breaking
-body: |-
-  Extracted from monolithic `lattice` package into standalone `lattice_counters` package
-
-  Imports change from `import lattice/g_counter` and `import lattice/pn_counter` to `import lattice_counters/g_counter` and `import lattice_counters/pn_counter`. Update all import paths accordingly. See the [packages overview](https://lattice.tylerbutler.com/packages/) for the full package structure.
-time: 2026-04-07T19:36:33.000000000Z

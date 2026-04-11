@@ -1,7 +1,0 @@
-project: lattice_sets
-kind: Added
-body: |-
-  Add `or_set.prune(stable_vv)` for tombstone compaction
-
-  Call `or_set.prune(set, stable_vv)` with a version vector that all replicas have acknowledged to reclaim memory from removed elements. The merge algorithm detects stale tags from replicas that haven't caught up, preventing removed elements from reappearing after pruning.
-time: 2026-04-07T20:00:00.000000000Z

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-04-11
+
+
+### Breaking
+
+#### Split into multi-package monorepo
+
+The single `lattice` package has been reorganized into 6 independently-versioned packages. You can depend on `lattice_crdt` to get everything, or depend on individual packages for smaller dependency footprints:
+
+| Package | Contents |
+|---------|----------|
+| `lattice_core` | `version_vector`, `dot_context`, `replica_id` |
+| `lattice_counters` | `g_counter`, `pn_counter` |
+| `lattice_sets` | `g_set`, `two_p_set`, `or_set` |
+| `lattice_registers` | `lww_register`, `mv_register` |
+| `lattice_maps` | `lww_map`, `or_map`, `crdt` |
+| `lattice_crdt` | Umbrella — depends on all above |
+
+All import paths change from `import lattice/<module>` to the appropriate sub-package (e.g. `import lattice/g_counter` becomes `import lattice_counters/g_counter`). See the [packages overview](https://lattice.tylerbutler.com/packages/) for the full dependency graph.
+
+#### Add opaque `ReplicaId` type for type-safe replica identification
+
+Functions that previously accepted raw `String` replica identifiers now require a `ReplicaId` value. Create one with `replica_id.new("node-a")`. This affects `g_counter.new`, `pn_counter.new`, `lww_register.new`, `or_set.new`, `mv_register.new`, and `or_map.new`. See the [replica IDs guide](https://lattice.tylerbutler.com/guides/replica-ids/) for details.
+
+
 ## v1.0.0 - 2026-03-06
 
 Initial release of lattice — a [CRDT](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) library for Gleam targeting both Erlang and JavaScript runtimes. Every type converges automatically when replicas merge, with no coordination required. See the [documentation](https://lattice.tylerbutler.com) for guides and API reference.
@@ -76,3 +101,4 @@ All types include `to_json` and `from_json` functions for persisting state and t
 let json_str = g_counter.to_json(counter) |> json.to_string
 let assert Ok(restored) = g_counter.from_json(json_str)
 ```
+
