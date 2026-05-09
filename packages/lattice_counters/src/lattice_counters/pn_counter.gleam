@@ -63,10 +63,44 @@ pub fn try_increment(
   counter: PNCounter,
   delta: Int,
 ) -> Result(PNCounter, UpdateError) {
+  case try_increment_with_delta(counter, delta) {
+    Ok(#(updated, _)) -> Ok(updated)
+    Error(e) -> Error(e)
+  }
+}
+
+/// Increment the counter by `delta` and return both the new state and a delta.
+///
+/// The returned delta is a `PNCounter` whose positive G-Counter contains
+/// only this replica's new positive count and whose negative G-Counter is
+/// empty. Merging the delta into a remote replica via `merge` produces the
+/// same observable result as merging the full new state.
+pub fn increment_with_delta(
+  counter: PNCounter,
+  delta: Int,
+) -> #(PNCounter, PNCounter) {
+  let assert Ok(result) = try_increment_with_delta(counter, delta)
+  result
+}
+
+/// Safely increment the counter by `delta`, returning the new state and a delta.
+///
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+pub fn try_increment_with_delta(
+  counter: PNCounter,
+  delta: Int,
+) -> Result(#(PNCounter, PNCounter), UpdateError) {
   let PNCounter(positive, negative) = counter
-  case g_counter.try_increment(positive, delta) {
-    Ok(updated_positive) ->
-      Ok(PNCounter(positive: updated_positive, negative: negative))
+  case g_counter.try_increment_with_delta(positive, delta) {
+    Ok(#(updated_positive, positive_delta)) -> {
+      let updated = PNCounter(positive: updated_positive, negative: negative)
+      let delta_state =
+        PNCounter(
+          positive: positive_delta,
+          negative: g_counter.new(self_id_of(negative)),
+        )
+      Ok(#(updated, delta_state))
+    }
     Error(g_counter.NegativeDelta(d)) -> Error(NegativeDelta(d))
   }
 }
@@ -88,12 +122,51 @@ pub fn try_decrement(
   counter: PNCounter,
   delta: Int,
 ) -> Result(PNCounter, UpdateError) {
+  case try_decrement_with_delta(counter, delta) {
+    Ok(#(updated, _)) -> Ok(updated)
+    Error(e) -> Error(e)
+  }
+}
+
+/// Decrement the counter by `delta` and return both the new state and a delta.
+///
+/// The returned delta is a `PNCounter` whose negative G-Counter contains
+/// only this replica's new negative count and whose positive G-Counter is
+/// empty. Merging the delta into a remote replica via `merge` produces the
+/// same observable result as merging the full new state.
+pub fn decrement_with_delta(
+  counter: PNCounter,
+  delta: Int,
+) -> #(PNCounter, PNCounter) {
+  let assert Ok(result) = try_decrement_with_delta(counter, delta)
+  result
+}
+
+/// Safely decrement the counter by `delta`, returning the new state and a delta.
+///
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+pub fn try_decrement_with_delta(
+  counter: PNCounter,
+  delta: Int,
+) -> Result(#(PNCounter, PNCounter), UpdateError) {
   let PNCounter(positive, negative) = counter
-  case g_counter.try_increment(negative, delta) {
-    Ok(updated_negative) ->
-      Ok(PNCounter(positive: positive, negative: updated_negative))
+  case g_counter.try_increment_with_delta(negative, delta) {
+    Ok(#(updated_negative, negative_delta)) -> {
+      let updated = PNCounter(positive: positive, negative: updated_negative)
+      let delta_state =
+        PNCounter(
+          positive: g_counter.new(self_id_of(positive)),
+          negative: negative_delta,
+        )
+      Ok(#(updated, delta_state))
+    }
     Error(g_counter.NegativeDelta(d)) -> Error(NegativeDelta(d))
   }
+}
+
+fn self_id_of(c: g_counter.GCounter) -> ReplicaId {
+  let #(_, self_id) = g_counter.to_parts(c)
+  self_id
 }
 
 /// Get the current value of the counter.

@@ -40,7 +40,19 @@ pub fn new() -> GSet(a) {
 /// This operation is idempotent: adding the same element multiple times is
 /// equivalent to adding it once.
 pub fn add(g_set: GSet(a), element: a) -> GSet(a) {
-  GSet(elements: set.insert(g_set.elements, element))
+  let #(updated, _) = add_with_delta(g_set, element)
+  updated
+}
+
+/// Add an element to the set and return both the new state and a delta.
+///
+/// The returned delta is a `GSet` containing only the inserted element.
+/// Merging the delta into a remote replica via `merge` (set union) produces
+/// the same result as merging the full new state, but ships only the change.
+pub fn add_with_delta(g_set: GSet(a), element: a) -> #(GSet(a), GSet(a)) {
+  let updated = GSet(elements: set.insert(g_set.elements, element))
+  let delta = GSet(elements: set.from_list([element]))
+  #(updated, delta)
 }
 
 /// Check if the set contains the given element.

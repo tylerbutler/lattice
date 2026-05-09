@@ -20,5 +20,27 @@
 //// import lattice_sets/or_set
 //// import lattice_maps/or_map
 //// ```
+////
+//// ## Delta-state replication
+////
+//// Every leaf CRDT exposes a delta-state mutator alongside its state-based
+//// API. Each `op` of type `T -> args -> T` has a companion `op_with_delta`
+//// of type `T -> args -> #(T, T)` that returns both the new state and a
+//// small delta. The delta is itself a value of type `T` and merges into
+//// remote replicas via the existing `merge` function — there is no separate
+//// "apply delta" code path for leaf CRDTs.
+////
+//// `ORMap` exposes `update_with_delta`, `remove_with_delta`, `apply_delta`,
+//// and `merge_deltas` for the composite case, with a dedicated `ORMapDelta`
+//// type for type safety.
+////
+//// Delta merge is idempotent, commutative, and associative — safe under
+//// at-least-once delivery, reconnects, and out-of-order arrival. This makes
+//// delta-state CRDTs the natural foundation for websocket-based replication.
+//// See `DEV.md` for the full convention and usage notes, and the
+//// `examples/or_map_delta_websocket_example.gleam` example for a runnable
+//// demo of two replicas exchanging deltas.
+////
+//// Reference: Almeida, Shoker, Baquero — *Delta State Replicated Data Types*.
 
 pub const version = "0.1.0"

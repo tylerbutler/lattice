@@ -64,12 +64,48 @@ pub fn try_increment(
   counter: GCounter,
   delta: Int,
 ) -> Result(GCounter, IncrementError) {
+  case try_increment_with_delta(counter, delta) {
+    Ok(#(updated, _)) -> Ok(updated)
+    Error(e) -> Error(e)
+  }
+}
+
+/// Increment the counter by `delta` and return both the new state and a delta.
+///
+/// The returned delta is itself a `GCounter` containing only this replica's
+/// new count. Merging the delta into a remote replica via `merge` produces
+/// the same result as merging the full new state — but the delta is a
+/// minimal payload suitable for incremental sync (e.g., over websockets).
+///
+/// See `try_increment_with_delta` for an error-safe variant. `delta` should
+/// be non-negative; a negative value will panic.
+pub fn increment_with_delta(
+  counter: GCounter,
+  delta: Int,
+) -> #(GCounter, GCounter) {
+  let assert Ok(result) = try_increment_with_delta(counter, delta)
+  result
+}
+
+/// Safely increment the counter by `delta`, returning the new state and a delta.
+///
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative. On success,
+/// returns `Ok(#(new_state, delta))` where `delta` is a `GCounter` containing
+/// only the changed self-replica entry.
+pub fn try_increment_with_delta(
+  counter: GCounter,
+  delta: Int,
+) -> Result(#(GCounter, GCounter), IncrementError) {
   case delta < 0 {
     True -> Error(NegativeDelta(delta))
     False -> {
       let GCounter(dict, self_id) = counter
       let current = result.unwrap(dict.get(dict, self_id), 0)
-      Ok(GCounter(dict.insert(dict, self_id, current + delta), self_id))
+      let new_count = current + delta
+      let updated = GCounter(dict.insert(dict, self_id, new_count), self_id)
+      let delta_state =
+        GCounter(dict.from_list([#(self_id, new_count)]), self_id)
+      Ok(#(updated, delta_state))
     }
   }
 }

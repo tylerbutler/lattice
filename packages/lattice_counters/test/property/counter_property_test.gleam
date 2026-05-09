@@ -135,3 +135,136 @@ pub fn pn_counter_simple_idempotency__test() {
     Nil
   })
 }
+
+// ----------------------------------------------------------------------------
+// Delta-state property tests.
+//
+// For each delta-aware mutator we verify the three δ-CRDT laws:
+//   (1) Delta correctness:
+//         merge(state, delta_of_op(state)) == op(state)
+//   (2) Delta sufficiency on arbitrary remotes:
+//         merge(remote, delta) == merge(remote, op(local))
+//   (3) Idempotent + commutative replay:
+//         merging a sequence of deltas in any order/duplication into a
+//         fresh state converges to the same value as applying the ops
+//         locally.
+// ----------------------------------------------------------------------------
+
+pub fn g_counter_delta_correctness__test() {
+  qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(n) {
+    let counter = g_counter.new(rid("A")) |> g_counter.increment(7)
+    let direct = g_counter.increment(counter, n)
+    let #(_, delta) = g_counter.increment_with_delta(counter, n)
+    g_counter.value(g_counter.merge(counter, delta))
+    |> expect.to_equal(g_counter.value(direct))
+    Nil
+  })
+}
+
+pub fn g_counter_delta_sufficiency_on_remote__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(a, b, c) = triple
+      // Local replica A starts at `a`, then increments by `b`.
+      let local_before = g_counter.new(rid("A")) |> g_counter.increment(a)
+      let local_after = g_counter.increment(local_before, b)
+      let #(_, delta) = g_counter.increment_with_delta(local_before, b)
+      // Arbitrary remote replica B at `c`.
+      let remote = g_counter.new(rid("B")) |> g_counter.increment(c)
+      // Applying the delta should converge equivalently to merging full state.
+      g_counter.value(g_counter.merge(remote, delta))
+      |> expect.to_equal(g_counter.value(g_counter.merge(remote, local_after)))
+      Nil
+    },
+  )
+}
+
+pub fn g_counter_delta_idempotent_commutative__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(a, b, c) = triple
+      // Three sequential local mutations on replica A produce three deltas.
+      let s0 = g_counter.new(rid("A"))
+      let #(s1, d1) = g_counter.increment_with_delta(s0, a)
+      let #(s2, d2) = g_counter.increment_with_delta(s1, b)
+      let #(_s3, d3) = g_counter.increment_with_delta(s2, c)
+      // Apply the deltas to a fresh remote in a scrambled order, with a
+      // duplicate of d2, then verify convergence.
+      let fresh = g_counter.new(rid("B"))
+      let merged =
+        fresh
+        |> g_counter.merge(d2)
+        |> g_counter.merge(d1)
+        |> g_counter.merge(d3)
+        |> g_counter.merge(d2)
+      g_counter.value(merged) |> expect.to_equal(a + b + c)
+      Nil
+    },
+  )
+}
+
+pub fn pn_counter_increment_delta_correctness__test() {
+  qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(n) {
+    let counter = pn_counter.new(rid("A")) |> pn_counter.increment(3)
+    let direct = pn_counter.increment(counter, n)
+    let #(_, delta) = pn_counter.increment_with_delta(counter, n)
+    pn_counter.value(pn_counter.merge(counter, delta))
+    |> expect.to_equal(pn_counter.value(direct))
+    Nil
+  })
+}
+
+pub fn pn_counter_decrement_delta_correctness__test() {
+  qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(n) {
+    let counter = pn_counter.new(rid("A")) |> pn_counter.increment(20)
+    let direct = pn_counter.decrement(counter, n)
+    let #(_, delta) = pn_counter.decrement_with_delta(counter, n)
+    pn_counter.value(pn_counter.merge(counter, delta))
+    |> expect.to_equal(pn_counter.value(direct))
+    Nil
+  })
+}
+
+pub fn pn_counter_delta_idempotent_commutative__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      qcheck.small_non_negative_int(),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(inc1, dec1, inc2) = triple
+      // Three sequential mutations: +inc1, -dec1, +inc2 on replica A.
+      let s0 = pn_counter.new(rid("A"))
+      let #(s1, d1) = pn_counter.increment_with_delta(s0, inc1)
+      let #(s2, d2) = pn_counter.decrement_with_delta(s1, dec1)
+      let #(_s3, d3) = pn_counter.increment_with_delta(s2, inc2)
+      // Apply scrambled + duplicated to fresh remote.
+      let fresh = pn_counter.new(rid("B"))
+      let merged =
+        fresh
+        |> pn_counter.merge(d3)
+        |> pn_counter.merge(d1)
+        |> pn_counter.merge(d2)
+        |> pn_counter.merge(d1)
+      pn_counter.value(merged) |> expect.to_equal(inc1 - dec1 + inc2)
+      Nil
+    },
+  )
+}

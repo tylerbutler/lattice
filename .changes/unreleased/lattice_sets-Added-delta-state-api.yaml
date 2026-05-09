@@ -1,0 +1,7 @@
+project: lattice_sets
+kind: Added
+body: |-
+  Add delta-state mutator APIs to GSet, TwoPSet, and ORSet
+
+  New `g_set.add_with_delta`, `two_p_set.{add,remove}_with_delta`, and `or_set.{add,remove}_with_delta` return both the new state and a small delta of the same type. The OR-Set delta carries only the changed dot/tombstones plus the causal context required for any remote (including ones that have never observed the element) to converge. Deltas merge into remotes via the existing `merge` function. Existing mutators are unchanged and now delegate to the delta versions internally.
+time: 2026-05-09T16:13:04.752065852+00:00

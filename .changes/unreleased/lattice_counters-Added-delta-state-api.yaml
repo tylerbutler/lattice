@@ -1,0 +1,7 @@
+project: lattice_counters
+kind: Added
+body: |-
+  Add delta-state mutator APIs to GCounter and PNCounter
+
+  New `g_counter.increment_with_delta` / `try_increment_with_delta` and `pn_counter.{increment,decrement}_with_delta` / their `try_*` variants return both the new state and a small delta of the same type. Deltas are merged into remote replicas via the existing `merge` function, enabling efficient incremental sync over unreliable transports (e.g. websockets) without shipping full state. Existing mutators are unchanged and now delegate to the delta versions internally.
+time: 2026-05-09T16:13:04.752065852+00:00

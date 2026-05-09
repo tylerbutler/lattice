@@ -95,25 +95,19 @@ pub fn new(replica_id: ReplicaId, crdt_spec: CrdtSpec) -> ORMap {
 /// If the key does not exist, a default value is created from `crdt_spec`
 /// and passed to `f`. The key is added to the OR-Set, marking it active.
 /// The return value of `f` replaces (or sets) the value for that key.
+///
+/// State-only convenience wrapper around `update_with_delta` — the produced
+/// delta is discarded.
 pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
-  let current = case
-    or_set.contains(map.key_set, key),
-    dict.get(map.values, key)
-  {
-    True, Ok(crdt_val) -> crdt_val
-    _, _ -> crdt.default_crdt(map.crdt_spec, map.replica_id)
-  }
-  let updated = case matches_spec(f(current), map.crdt_spec) {
-    True -> f(current)
-    False -> current
-  }
-  ORMap(
-    replica_id: map.replica_id,
-    crdt_spec: map.crdt_spec,
-    key_set: or_set.add(map.key_set, key),
-    values: dict.insert(map.values, key, updated),
-    remove_bounds: dict.delete(map.remove_bounds, key),
-  )
+  let #(updated, _) =
+    update_with_delta(map, key, fn(c) {
+      let new_value = f(c)
+      // Default delta is an identity that won't disturb merge correctness;
+      // we don't actually use it because callers of `update` discard the
+      // delta anyway.
+      #(new_value, crdt.default_delta(map.crdt_spec, map.replica_id))
+    })
+  updated
 }
 
 /// Get the CRDT value at `key`.
@@ -138,13 +132,12 @@ pub fn get(map: ORMap, key: String) -> Result(Crdt, Nil) {
 /// CRDT value is retained until prune determines the removal is causally
 /// stable. A causal bound is recorded so prune can later decide when it is
 /// safe to discard the value.
+///
+/// State-only convenience wrapper around `remove_with_delta` — the produced
+/// delta is discarded.
 pub fn remove(map: ORMap, key: String) -> ORMap {
-  let #(updated_key_set, bound) = or_set.remove_with_bound(map.key_set, key)
-  let updated_bounds = case version_vector.is_empty(bound) {
-    True -> map.remove_bounds
-    False -> dict.insert(map.remove_bounds, key, bound)
-  }
-  ORMap(..map, key_set: updated_key_set, remove_bounds: updated_bounds)
+  let #(updated, _) = remove_with_delta(map, key)
+  updated
 }
 
 /// Return the list of all active keys (those present in the OR-Set).
@@ -512,5 +505,433 @@ fn crdt_name(value: Crdt) -> String {
     crdt.CrdtTwoPSet(_) -> "two_p_set"
     crdt.CrdtOrSet(_) -> "or_set"
     crdt.CrdtVersionVector(_) -> "version_vector"
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Delta-state API
+//
+// `update_with_delta` and `remove_with_delta` return both the new map state
+// and an `ORMapDelta` capturing only the change. Deltas are merged into a
+// remote replica via `apply_delta`, producing the same convergence as
+// merging the full state but with much smaller payloads.
+//
+// See DEV.md "Delta-State CRDTs" for the contract and the "Operationalizing
+// over websockets" section for transport guidance.
+// ----------------------------------------------------------------------------
+
+/// A delta describing changes to an `ORMap`.
+///
+/// Carries only the touched keys and their value-CRDT deltas, plus the
+/// key-set delta from the underlying `ORSet`. The `crdt_spec` and
+/// `replica_id` are included so `apply_delta` can validate and route the
+/// merge correctly.
+///
+/// An `ORMapDelta` is structurally a sparse `ORMap`: it can be applied to
+/// any remote `ORMap` of the same `crdt_spec` via `apply_delta`. Multiple
+/// deltas can also be combined into a single delta via `merge_deltas`
+/// before transmission.
+pub opaque type ORMapDelta {
+  ORMapDelta(
+    replica_id: ReplicaId,
+    crdt_spec: CrdtSpec,
+    key_set_delta: ORSet(String),
+    value_deltas: dict.Dict(String, Crdt),
+    remove_bounds_delta: dict.Dict(String, VersionVector),
+  )
+}
+
+/// Return the empty/identity delta for a map.
+///
+/// `apply_delta(m, empty_delta(m))` returns `m` unchanged. Useful as the
+/// starting accumulator when folding multiple delta-producing operations.
+pub fn empty_delta(map: ORMap) -> ORMapDelta {
+  ORMapDelta(
+    replica_id: map.replica_id,
+    crdt_spec: map.crdt_spec,
+    key_set_delta: or_set.new(map.replica_id),
+    value_deltas: dict.new(),
+    remove_bounds_delta: dict.new(),
+  )
+}
+
+/// Apply a delta-producing function to the value at `key` and return both
+/// the new map and a delta capturing only the change.
+///
+/// The callback `f` receives the current value (or a default if absent) and
+/// must return a tuple `#(new_value, value_delta)`. Use the `_with_delta`
+/// variants of the underlying CRDT modules (e.g. `g_counter.increment_with_delta`)
+/// to produce the value delta:
+///
+/// ```gleam
+/// or_map.update_with_delta(map, "score", fn(c) {
+///   let assert crdt.CrdtGCounter(gc) = c
+///   let #(new_gc, delta_gc) = g_counter.increment_with_delta(gc, 5)
+///   #(crdt.CrdtGCounter(new_gc), crdt.CrdtGCounter(delta_gc))
+/// })
+/// ```
+///
+/// If the returned new value or delta does not match the map's `crdt_spec`,
+/// both are coerced to the spec's default and an empty delta is emitted —
+/// matching the safety behavior of `update`.
+pub fn update_with_delta(
+  map: ORMap,
+  key: String,
+  f: fn(Crdt) -> #(Crdt, Crdt),
+) -> #(ORMap, ORMapDelta) {
+  let current = case
+    or_set.contains(map.key_set, key),
+    dict.get(map.values, key)
+  {
+    True, Ok(crdt_val) -> crdt_val
+    _, _ -> crdt.default_crdt(map.crdt_spec, map.replica_id)
+  }
+  let #(new_value, value_delta) = f(current)
+  let #(safe_value, safe_delta) = case
+    matches_spec(new_value, map.crdt_spec),
+    matches_spec(value_delta, map.crdt_spec)
+  {
+    True, True -> #(new_value, value_delta)
+    _, _ -> #(current, crdt.default_delta(map.crdt_spec, map.replica_id))
+  }
+  let #(updated_key_set, key_set_delta) =
+    or_set.add_with_delta(map.key_set, key)
+  let updated =
+    ORMap(
+      replica_id: map.replica_id,
+      crdt_spec: map.crdt_spec,
+      key_set: updated_key_set,
+      values: dict.insert(map.values, key, safe_value),
+      remove_bounds: dict.delete(map.remove_bounds, key),
+    )
+  let delta =
+    ORMapDelta(
+      replica_id: map.replica_id,
+      crdt_spec: map.crdt_spec,
+      key_set_delta: key_set_delta,
+      value_deltas: dict.from_list([#(key, safe_delta)]),
+      remove_bounds_delta: dict.new(),
+    )
+  #(updated, delta)
+}
+
+/// Remove a key and return both the new map and a delta capturing the
+/// remove.
+///
+/// The delta carries the OR-Set tombstones from `or_set.remove_with_delta`
+/// and the recorded causal bound, which together let any remote replica
+/// retract the key while preserving add-wins semantics for concurrent adds.
+pub fn remove_with_delta(map: ORMap, key: String) -> #(ORMap, ORMapDelta) {
+  let #(updated_key_set, key_set_delta) =
+    or_set.remove_with_delta(map.key_set, key)
+  let bound = or_set_bound_after_remove(map.key_set, key)
+  let updated_bounds = case version_vector.is_empty(bound) {
+    True -> map.remove_bounds
+    False -> dict.insert(map.remove_bounds, key, bound)
+  }
+  let bounds_delta = case version_vector.is_empty(bound) {
+    True -> dict.new()
+    False -> dict.from_list([#(key, bound)])
+  }
+  let updated =
+    ORMap(..map, key_set: updated_key_set, remove_bounds: updated_bounds)
+  let delta =
+    ORMapDelta(
+      replica_id: map.replica_id,
+      crdt_spec: map.crdt_spec,
+      key_set_delta: key_set_delta,
+      value_deltas: dict.new(),
+      remove_bounds_delta: bounds_delta,
+    )
+  #(updated, delta)
+}
+
+fn or_set_bound_after_remove(
+  key_set: ORSet(String),
+  key: String,
+) -> VersionVector {
+  let #(_, bound) = or_set.remove_with_bound(key_set, key)
+  bound
+}
+
+/// Apply a delta to a map, producing a new map.
+///
+/// Returns `Error(TypeMismatch(...))` if the delta and map have different
+/// `crdt_spec` values. Otherwise reconstructs the delta as a sparse
+/// `ORMap` and merges it via `merge`, so the returned map converges with
+/// what would result from merging the delta source's full state.
+///
+/// Idempotent and commutative: applying the same delta twice, or applying
+/// deltas in any order, yields the same final state.
+pub fn apply_delta(
+  map: ORMap,
+  delta: ORMapDelta,
+) -> Result(ORMap, crdt.MergeError) {
+  case map.crdt_spec == delta.crdt_spec {
+    False ->
+      Error(crdt.TypeMismatch(
+        expected: spec_to_string(map.crdt_spec),
+        found: spec_to_string(delta.crdt_spec),
+      ))
+    True -> {
+      let delta_as_map =
+        ORMap(
+          replica_id: delta.replica_id,
+          crdt_spec: delta.crdt_spec,
+          key_set: delta.key_set_delta,
+          values: delta.value_deltas,
+          remove_bounds: delta.remove_bounds_delta,
+        )
+      merge(map, delta_as_map)
+    }
+  }
+}
+
+/// Combine two deltas into a single delta.
+///
+/// Useful for transport layers that batch unacked deltas before
+/// transmission: instead of sending N small deltas, merge them once and
+/// send the join. Equivalent under `apply_delta` to applying both deltas
+/// individually in either order.
+///
+/// Returns `Error(TypeMismatch(...))` if the two deltas have different
+/// `crdt_spec` values.
+pub fn merge_deltas(
+  a: ORMapDelta,
+  b: ORMapDelta,
+) -> Result(ORMapDelta, crdt.MergeError) {
+  case a.crdt_spec == b.crdt_spec {
+    False ->
+      Error(crdt.TypeMismatch(
+        expected: spec_to_string(a.crdt_spec),
+        found: spec_to_string(b.crdt_spec),
+      ))
+    True -> {
+      let merged_key_set = or_set.merge(a.key_set_delta, b.key_set_delta)
+      let all_value_keys =
+        set.to_list(set.union(
+          set.from_list(dict.keys(a.value_deltas)),
+          set.from_list(dict.keys(b.value_deltas)),
+        ))
+      let merged_values =
+        list.fold(all_value_keys, dict.new(), fn(acc, key) {
+          let merged = case
+            dict.get(a.value_deltas, key),
+            dict.get(b.value_deltas, key)
+          {
+            Ok(va), Ok(vb) ->
+              case crdt.merge(va, vb) {
+                Ok(m) -> m
+                Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
+              }
+            Ok(va), Error(_) -> va
+            Error(_), Ok(vb) -> vb
+            Error(_), Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
+          }
+          dict.insert(acc, key, merged)
+        })
+      let all_bound_keys =
+        set.to_list(set.union(
+          set.from_list(dict.keys(a.remove_bounds_delta)),
+          set.from_list(dict.keys(b.remove_bounds_delta)),
+        ))
+      let merged_bounds =
+        list.fold(all_bound_keys, dict.new(), fn(acc, key) {
+          case
+            dict.get(a.remove_bounds_delta, key),
+            dict.get(b.remove_bounds_delta, key)
+          {
+            Ok(ba), Ok(bb) ->
+              dict.insert(acc, key, version_vector.merge(ba, bb))
+            Ok(ba), Error(_) -> dict.insert(acc, key, ba)
+            Error(_), Ok(bb) -> dict.insert(acc, key, bb)
+            Error(_), Error(_) -> acc
+          }
+        })
+      Ok(ORMapDelta(
+        replica_id: a.replica_id,
+        crdt_spec: a.crdt_spec,
+        key_set_delta: merged_key_set,
+        value_deltas: merged_values,
+        remove_bounds_delta: merged_bounds,
+      ))
+    }
+  }
+}
+
+/// Encode an `ORMapDelta` as a self-describing JSON value.
+///
+/// Format mirrors `to_json` for ORMap but uses `"type": "or_map_delta"`.
+/// Use `delta_from_json` to decode.
+pub fn delta_to_json(delta: ORMapDelta) -> json.Json {
+  let ORMapDelta(rid, crdt_spec, key_set_delta, value_deltas, bounds_delta) =
+    delta
+  let values_json =
+    json.array(dict.to_list(value_deltas), fn(pair) {
+      let #(key, crdt_val) = pair
+      json.object([
+        #("key", json.string(key)),
+        #("crdt", json.string(json.to_string(crdt.to_json(crdt_val)))),
+      ])
+    })
+  let bounds_json =
+    json.dict(bounds_delta, fn(k) { k }, fn(vv) { version_vector.to_json(vv) })
+  json.object([
+    #("type", json.string("or_map_delta")),
+    #("v", json.int(1)),
+    #(
+      "state",
+      json.object([
+        #("replica_id", json.string(replica_id.to_string(rid))),
+        #("crdt_spec", json.string(spec_to_string(crdt_spec))),
+        #(
+          "key_set_delta",
+          json.string(json.to_string(or_set.to_json(key_set_delta))),
+        ),
+        #("value_deltas", values_json),
+        #("remove_bounds_delta", bounds_json),
+      ]),
+    ),
+  ])
+}
+
+/// Decode an `ORMapDelta` from a JSON string produced by `delta_to_json`.
+pub fn delta_from_json(
+  json_string: String,
+) -> Result(ORMapDelta, json.DecodeError) {
+  let value_pair_decoder = {
+    use key <- decode.field("key", decode.string)
+    use crdt_str <- decode.field("crdt", decode.string)
+    decode.success(#(key, crdt_str))
+  }
+  let bounds_decoder = decode.dict(decode.string, version_vector.decoder())
+  let state_decoder = {
+    use state <- decode.field("state", {
+      use replica_id_str <- decode.field("replica_id", decode.string)
+      use crdt_spec_str <- decode.field("crdt_spec", decode.string)
+      use key_set_str <- decode.field("key_set_delta", decode.string)
+      use values_list <- decode.field(
+        "value_deltas",
+        decode.list(value_pair_decoder),
+      )
+      use bounds <- decode.optional_field(
+        "remove_bounds_delta",
+        dict.new(),
+        bounds_decoder,
+      )
+      decode.success(#(
+        replica_id_str,
+        crdt_spec_str,
+        key_set_str,
+        values_list,
+        bounds,
+      ))
+    })
+    decode.success(state)
+  }
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "or_map_delta" {
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=or_map_delta",
+                found: type_tag,
+                path: [],
+              ),
+            ]),
+          )
+        True ->
+          case version {
+            1 ->
+              case json.parse(from: json_string, using: state_decoder) {
+                Error(e) -> Error(e)
+                Ok(#(rid_str, spec_str, key_set_str, values_list, bounds)) ->
+                  decode_or_map_delta_state(
+                    rid_str,
+                    spec_str,
+                    key_set_str,
+                    values_list,
+                    bounds,
+                  )
+              }
+            _ ->
+              Error(
+                json.UnableToDecode([
+                  decode.DecodeError(
+                    expected: "v=1",
+                    found: int.to_string(version),
+                    path: ["v"],
+                  ),
+                ]),
+              )
+          }
+      }
+  }
+}
+
+fn decode_or_map_delta_state(
+  replica_id_str: String,
+  crdt_spec_str: String,
+  key_set_str: String,
+  values_list: List(#(String, String)),
+  bounds: dict.Dict(String, VersionVector),
+) -> Result(ORMapDelta, json.DecodeError) {
+  case string_to_spec(crdt_spec_str) {
+    Error(_) ->
+      Error(
+        json.UnableToDecode([
+          decode.DecodeError(
+            expected: "known CrdtSpec",
+            found: crdt_spec_str,
+            path: ["state", "crdt_spec"],
+          ),
+        ]),
+      )
+    Ok(crdt_spec) ->
+      case or_set.from_json(key_set_str) {
+        Error(e) -> Error(e)
+        Ok(key_set_delta) -> {
+          let values_result =
+            list.try_map(values_list, fn(pair) {
+              let #(key, crdt_str) = pair
+              case crdt.from_json(crdt_str) {
+                Ok(c) ->
+                  case matches_spec(c, crdt_spec) {
+                    True -> Ok(#(key, c))
+                    False ->
+                      Error(
+                        json.UnableToDecode([
+                          decode.DecodeError(
+                            expected: spec_to_string(crdt_spec),
+                            found: crdt_name(c),
+                            path: ["state", "value_deltas"],
+                          ),
+                        ]),
+                      )
+                  }
+                Error(e) -> Error(e)
+              }
+            })
+          case values_result {
+            Error(e) -> Error(e)
+            Ok(pairs) ->
+              Ok(ORMapDelta(
+                replica_id: replica_id.new(replica_id_str),
+                crdt_spec: crdt_spec,
+                key_set_delta: key_set_delta,
+                value_deltas: dict.from_list(pairs),
+                remove_bounds_delta: bounds,
+              ))
+          }
+        }
+      }
   }
 }
