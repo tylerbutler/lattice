@@ -294,7 +294,9 @@ pub fn to_json(orset: ORSet(String)) -> json.Json {
 ///
 /// Supports both v1 (no pruned field) and v2 formats. Returns `Error` if the
 /// string is not valid JSON or does not match the expected format.
-pub fn from_json(json_string: String) -> Result(ORSet(String), json.DecodeError) {
+pub fn from_json(
+  json_string: String,
+) -> Result(ORSet(String), json.DecodeError) {
   let tag_decoder = {
     use r <- decode.field("r", replica_id.decoder())
     use c <- decode.field("c", decode.int)

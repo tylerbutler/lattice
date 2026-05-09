@@ -87,7 +87,9 @@ pub fn to_json(g_set: GSet(String)) -> json.Json {
 ///
 /// Returns `Error` if the string is not valid JSON or does not match the
 /// expected format.
-pub fn from_json(json_string: String) -> Result(GSet(String), json.DecodeError) {
+pub fn from_json(
+  json_string: String,
+) -> Result(GSet(String), json.DecodeError) {
   let state_decoder = {
     use state <- decode.field("state", {
       use elements <- decode.field("elements", decode.list(decode.string))
