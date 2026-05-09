@@ -9,7 +9,7 @@ Ensure you have the following installed:
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Erlang/OTP | 27.2.1+ | BEAM runtime |
-| Gleam | 1.14.0+ | Compiler and tooling |
+| Gleam | 1.16.0+ | Compiler and tooling |
 | just | 1.38.0+ | Task runner |
 | changie | latest | Changelog management |
 

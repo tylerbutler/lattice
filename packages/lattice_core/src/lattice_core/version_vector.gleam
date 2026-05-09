@@ -194,7 +194,9 @@ pub fn to_json(vv: VersionVector) -> json.Json {
 ///
 /// Returns `Ok(VersionVector)` on success, or `Error(json.DecodeError)` if
 /// the input is not a valid version-vector JSON envelope.
-pub fn from_json(json_string: String) -> Result(VersionVector, json.DecodeError) {
+pub fn from_json(
+  json_string: String,
+) -> Result(VersionVector, json.DecodeError) {
   let state_decoder = {
     use state <- decode.field("state", {
       use clocks <- decode.field(

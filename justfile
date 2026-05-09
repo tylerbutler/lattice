@@ -25,7 +25,7 @@ deps:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: downloading deps"
-        cd packages/$pkg && gleam deps download && cd ../..
+        ( cd packages/$pkg && gleam deps download )
     done
 
 # === BUILD ===
@@ -36,7 +36,7 @@ build:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: building"
-        cd packages/$pkg && gleam build && cd ../..
+        ( cd packages/$pkg && gleam build )
     done
 
 # Build all packages with warnings as errors
@@ -45,7 +45,7 @@ build-strict:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: building (strict)"
-        cd packages/$pkg && gleam build --warnings-as-errors && cd ../..
+        ( cd packages/$pkg && gleam build --warnings-as-errors )
     done
 
 # === TESTING ===
@@ -56,7 +56,7 @@ test:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: testing (erlang)"
-        cd packages/$pkg && gleam test && cd ../..
+        ( cd packages/$pkg && gleam test )
     done
 
 # === CODE QUALITY ===
@@ -66,7 +66,7 @@ format:
     #!/usr/bin/env bash
     set -euo pipefail
     for pkg in {{ packages }}; do
-        cd packages/$pkg && gleam format src test && cd ../..
+        ( cd packages/$pkg && gleam format src test )
     done
     cd examples && gleam format src
 
@@ -76,7 +76,7 @@ format-check:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: format check"
-        cd packages/$pkg && gleam format --check src test && cd ../..
+        ( cd packages/$pkg && gleam format --check src test )
     done
     cd examples && gleam format --check src
 
@@ -86,7 +86,7 @@ check:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: type check"
-        cd packages/$pkg && gleam check && cd ../..
+        ( cd packages/$pkg && gleam check )
     done
 
 # === DOCUMENTATION ===
@@ -97,7 +97,7 @@ docs:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: building docs"
-        cd packages/$pkg && gleam docs build && cd ../..
+        ( cd packages/$pkg && gleam docs build )
     done
 
 # === CHANGELOG ===
@@ -191,7 +191,7 @@ build-js:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: building (javascript)"
-        cd packages/$pkg && gleam build --target javascript && cd ../..
+        ( cd packages/$pkg && gleam build --target javascript )
     done
 
 # Build all targets
@@ -203,7 +203,7 @@ build-strict-js:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: building strict (javascript)"
-        cd packages/$pkg && gleam build --target javascript --warnings-as-errors && cd ../..
+        ( cd packages/$pkg && gleam build --target javascript --warnings-as-errors )
     done
 
 # Build all targets strictly
@@ -218,7 +218,7 @@ test-js:
     set -euo pipefail
     for pkg in {{ packages }}; do
         echo "==> $pkg: testing (javascript)"
-        cd packages/$pkg && gleam test --target javascript && cd ../..
+        ( cd packages/$pkg && gleam test --target javascript )
     done
 
 # Test on all targets
