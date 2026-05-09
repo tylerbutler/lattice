@@ -96,19 +96,13 @@ pub fn set_with_delta(
     version_vector.increment(register.vclock, register.replica_id)
   let new_counter = version_vector.get(new_vclock, register.replica_id)
   let tag = Tag(replica_id: register.replica_id, counter: new_counter)
-  let updated =
+  let new_state =
     MVRegister(
       replica_id: register.replica_id,
       entries: dict.insert(dict.new(), tag, val),
       vclock: new_vclock,
     )
-  let delta =
-    MVRegister(
-      replica_id: register.replica_id,
-      entries: dict.insert(dict.new(), tag, val),
-      vclock: new_vclock,
-    )
-  #(updated, delta)
+  #(new_state, new_state)
 }
 
 /// Return all concurrent values in the register.

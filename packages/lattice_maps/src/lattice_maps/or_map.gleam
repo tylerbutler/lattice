@@ -96,19 +96,16 @@ pub fn new(replica_id: ReplicaId, crdt_spec: CrdtSpec) -> ORMap {
 /// and passed to `f`. The key is added to the OR-Set, marking it active.
 /// The return value of `f` replaces (or sets) the value for that key.
 ///
-/// State-only convenience wrapper around `update_with_delta` — the produced
-/// delta is discarded. See `update_with_delta` for the delta-state variant
-/// that also returns a small payload suitable for incremental sync (e.g.
-/// over websockets).
+/// See `update_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
-  let #(updated, _) =
-    update_with_delta(map, key, fn(c) {
-      let new_value = f(c)
-      // Default delta is an identity that won't disturb merge correctness;
-      // we don't actually use it because callers of `update` discard the
-      // delta anyway.
-      #(new_value, crdt.default_delta(map.crdt_spec, map.replica_id))
-    })
+  let current = current_value(map, key)
+  let new_value = f(current)
+  let safe_value = case matches_spec(new_value, map.crdt_spec) {
+    True -> new_value
+    False -> current
+  }
+  let #(updated, _) = put_value(map, key, safe_value)
   updated
 }
 
@@ -583,13 +580,7 @@ pub fn update_with_delta(
   key: String,
   f: fn(Crdt) -> #(Crdt, Crdt),
 ) -> #(ORMap, ORMapDelta) {
-  let current = case
-    or_set.contains(map.key_set, key),
-    dict.get(map.values, key)
-  {
-    True, Ok(crdt_val) -> crdt_val
-    _, _ -> crdt.default_crdt(map.crdt_spec, map.replica_id)
-  }
+  let current = current_value(map, key)
   let #(new_value, value_delta) = f(current)
   let #(safe_value, safe_delta) = case
     matches_spec(new_value, map.crdt_spec),
@@ -598,16 +589,7 @@ pub fn update_with_delta(
     True, True -> #(new_value, value_delta)
     _, _ -> #(current, crdt.default_delta(map.crdt_spec, map.replica_id))
   }
-  let #(updated_key_set, key_set_delta) =
-    or_set.add_with_delta(map.key_set, key)
-  let updated =
-    ORMap(
-      replica_id: map.replica_id,
-      crdt_spec: map.crdt_spec,
-      key_set: updated_key_set,
-      values: dict.insert(map.values, key, safe_value),
-      remove_bounds: dict.delete(map.remove_bounds, key),
-    )
+  let #(updated, key_set_delta) = put_value(map, key, safe_value)
   let delta =
     ORMapDelta(
       replica_id: map.replica_id,
@@ -617,6 +599,28 @@ pub fn update_with_delta(
       remove_bounds_delta: dict.new(),
     )
   #(updated, delta)
+}
+
+fn current_value(map: ORMap, key: String) -> Crdt {
+  case or_set.contains(map.key_set, key), dict.get(map.values, key) {
+    True, Ok(crdt_val) -> crdt_val
+    _, _ -> crdt.default_crdt(map.crdt_spec, map.replica_id)
+  }
+}
+
+fn put_value(map: ORMap, key: String, value: Crdt) -> #(ORMap, ORSet(String)) {
+  let #(updated_key_set, key_set_delta) =
+    or_set.add_with_delta(map.key_set, key)
+  #(
+    ORMap(
+      replica_id: map.replica_id,
+      crdt_spec: map.crdt_spec,
+      key_set: updated_key_set,
+      values: dict.insert(map.values, key, value),
+      remove_bounds: dict.delete(map.remove_bounds, key),
+    ),
+    key_set_delta,
+  )
 }
 
 /// Remove a key and return both the new map and a delta capturing the
@@ -730,7 +734,8 @@ pub fn merge_deltas(
               }
             Ok(va), Error(_) -> va
             Error(_), Ok(vb) -> vb
-            Error(_), Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
+            Error(_), Error(_) ->
+              panic as "unreachable: key must exist in at least one delta"
           }
           dict.insert(acc, key, merged)
         })
@@ -749,7 +754,8 @@ pub fn merge_deltas(
               dict.insert(acc, key, version_vector.merge(ba, bb))
             Ok(ba), Error(_) -> dict.insert(acc, key, ba)
             Error(_), Ok(bb) -> dict.insert(acc, key, bb)
-            Error(_), Error(_) -> acc
+            Error(_), Error(_) ->
+              panic as "unreachable: key must exist in at least one delta"
           }
         })
       Ok(ORMapDelta(

@@ -11,6 +11,8 @@ import gleam/int
 import gleam/io
 import gleam/json as gleam_json
 import gleam/list
+import gleam/order as order_module
+import gleam/string
 import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
@@ -84,25 +86,17 @@ fn render(map: or_map.ORMap) -> String {
     }
     key <> "=" <> int.to_string(v)
   })
-  |> list.fold("", fn(acc, s) {
-    case acc {
-      "" -> s
-      _ -> acc <> ", " <> s
-    }
-  })
+  |> string.join(", ")
 }
 
 fn wire_size(d: or_map.ORMapDelta) -> Int {
-  string_module.length(gleam_json.to_string(or_map.delta_to_json(d)))
+  string.length(gleam_json.to_string(or_map.delta_to_json(d)))
 }
 
 fn wire_size_full(m: or_map.ORMap) -> Int {
-  string_module.length(gleam_json.to_string(or_map.to_json(m)))
+  string.length(gleam_json.to_string(or_map.to_json(m)))
 }
 
 fn string_compare(a: String, b: String) -> order_module.Order {
-  string_module.compare(a, b)
+  string.compare(a, b)
 }
-
-import gleam/order as order_module
-import gleam/string as string_module

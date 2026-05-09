@@ -203,7 +203,7 @@ The delta API is the foundation for websocket replication. Each local mutation p
 
 A complete websocket layer additionally needs:
 
-- A **per-peer outbox** of unjoined deltas (so `merge_deltas` can batch them into a single message before sending)
+- A **per-peer outbox** of unmerged deltas (so `merge_deltas` can batch them into a single message before sending)
 - An **ack protocol** (so acknowledged deltas can be garbage-collected)
 - **Reconnect catch-up** via the join of all unacked deltas for the peer
 
