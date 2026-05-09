@@ -78,6 +78,9 @@ pub fn new(replica_id: ReplicaId) -> ORSet(a) {
 /// Creates a fresh unique tag for this add operation using the replica's
 /// monotonically-increasing counter. The element may already be present;
 /// in that case a new tag is added alongside existing ones.
+///
+/// See `add_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
   let #(updated, _) = add_with_delta(orset, element)
   updated
@@ -122,6 +125,8 @@ pub fn add_with_delta(orset: ORSet(a), element: a) -> #(ORSet(a), ORSet(a)) {
 /// Removes all currently observed tags for the element (observed-remove
 /// semantics). Any concurrent add on another replica that created a new tag
 /// not yet observed here will survive this remove after merging.
+///
+/// See `remove_with_delta` for the delta-state variant.
 pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
   let #(updated, _) = remove_with_delta(orset, element)
   updated

@@ -50,6 +50,9 @@ pub fn new(val: a, timestamp: Int, replica_id: ReplicaId) -> LWWRegister(a) {
 /// timestamp with the new ones. Otherwise returns the register unchanged.
 /// This ensures only strictly newer writes are accepted.
 /// The `replica_id` is preserved from the original register.
+///
+/// See `set_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn set(register: LWWRegister(a), val: a, timestamp: Int) -> LWWRegister(a) {
   let #(updated, _) = set_with_delta(register, val, timestamp)
   updated

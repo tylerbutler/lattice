@@ -68,6 +68,9 @@ pub fn new(replica_id: ReplicaId) -> MVRegister(a) {
 /// clears all prior entries (this write causally supersedes everything in the
 /// current vclock), and inserts the new tag-value pair. After a `set`, calling
 /// `value` returns a single-element list containing `val`.
+///
+/// See `set_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn set(register: MVRegister(a), val: a) -> MVRegister(a) {
   let #(updated, _) = set_with_delta(register, val)
   updated

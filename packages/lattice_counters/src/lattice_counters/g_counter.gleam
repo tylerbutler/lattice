@@ -52,6 +52,9 @@ pub fn new(replica_id: ReplicaId) -> GCounter {
 /// Adds `delta` to this replica's count. `delta` should be a non-negative
 /// integer; passing a negative value will decrease the local count, which
 /// violates the grow-only invariant and may cause incorrect merge results.
+///
+/// See `increment_with_delta` for the delta-state variant that also returns
+/// a small payload suitable for incremental sync (e.g. over websockets).
 pub fn increment(counter: GCounter, delta: Int) -> GCounter {
   let assert Ok(updated) = try_increment(counter, delta)
   updated
@@ -60,6 +63,8 @@ pub fn increment(counter: GCounter, delta: Int) -> GCounter {
 /// Safely increment the counter by `delta`.
 ///
 /// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+///
+/// See `try_increment_with_delta` for the delta-state variant.
 pub fn try_increment(
   counter: GCounter,
   delta: Int,

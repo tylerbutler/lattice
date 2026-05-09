@@ -97,7 +97,9 @@ pub fn new(replica_id: ReplicaId, crdt_spec: CrdtSpec) -> ORMap {
 /// The return value of `f` replaces (or sets) the value for that key.
 ///
 /// State-only convenience wrapper around `update_with_delta` — the produced
-/// delta is discarded.
+/// delta is discarded. See `update_with_delta` for the delta-state variant
+/// that also returns a small payload suitable for incremental sync (e.g.
+/// over websockets).
 pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
   let #(updated, _) =
     update_with_delta(map, key, fn(c) {
@@ -134,7 +136,9 @@ pub fn get(map: ORMap, key: String) -> Result(Crdt, Nil) {
 /// safe to discard the value.
 ///
 /// State-only convenience wrapper around `remove_with_delta` — the produced
-/// delta is discarded.
+/// delta is discarded. See `remove_with_delta` for the delta-state variant
+/// that also returns a small payload suitable for incremental sync (e.g.
+/// over websockets).
 pub fn remove(map: ORMap, key: String) -> ORMap {
   let #(updated, _) = remove_with_delta(map, key)
   updated

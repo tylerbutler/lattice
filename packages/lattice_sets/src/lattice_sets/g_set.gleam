@@ -39,6 +39,9 @@ pub fn new() -> GSet(a) {
 ///
 /// This operation is idempotent: adding the same element multiple times is
 /// equivalent to adding it once.
+///
+/// See `add_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn add(g_set: GSet(a), element: a) -> GSet(a) {
   let #(updated, _) = add_with_delta(g_set, element)
   updated

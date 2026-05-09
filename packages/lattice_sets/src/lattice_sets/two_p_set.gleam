@@ -43,6 +43,9 @@ pub fn new() -> TwoPSet(a) {
 /// If the element has already been tombstoned (removed), this call records the
 /// element in `added` but the element will not be considered active because
 /// the tombstone takes precedence.
+///
+/// See `add_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn add(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
   let #(updated, _) = add_with_delta(tpset, element)
   updated
@@ -68,6 +71,8 @@ pub fn add_with_delta(
 ///
 /// Once tombstoned, the element is permanently inactive. Removing an element
 /// that was never added is also valid and creates a preemptive tombstone.
+///
+/// See `remove_with_delta` for the delta-state variant.
 pub fn remove(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
   let #(updated, _) = remove_with_delta(tpset, element)
   updated

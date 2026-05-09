@@ -51,6 +51,9 @@ pub fn new(replica_id: ReplicaId) -> PNCounter {
 /// Adds `delta` to the positive G-Counter. `delta` should be a non-negative
 /// integer; the positive G-Counter is grow-only so passing a negative value
 /// violates the invariant.
+///
+/// See `increment_with_delta` for the delta-state variant that also returns
+/// a small payload suitable for incremental sync (e.g. over websockets).
 pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
   let assert Ok(updated) = try_increment(counter, delta)
   updated
@@ -59,6 +62,8 @@ pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
 /// Safely increment the counter by `delta`.
 ///
 /// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+///
+/// See `try_increment_with_delta` for the delta-state variant.
 pub fn try_increment(
   counter: PNCounter,
   delta: Int,
@@ -110,6 +115,8 @@ pub fn try_increment_with_delta(
 /// Adds `delta` to the negative G-Counter (which reduces the visible value).
 /// `delta` should be a non-negative integer; the negative G-Counter is
 /// grow-only so passing a negative value violates the invariant.
+///
+/// See `decrement_with_delta` for the delta-state variant.
 pub fn decrement(counter: PNCounter, delta: Int) -> PNCounter {
   let assert Ok(updated) = try_decrement(counter, delta)
   updated
@@ -118,6 +125,8 @@ pub fn decrement(counter: PNCounter, delta: Int) -> PNCounter {
 /// Safely decrement the counter by `delta`.
 ///
 /// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+///
+/// See `try_decrement_with_delta` for the delta-state variant.
 pub fn try_decrement(
   counter: PNCounter,
   delta: Int,
