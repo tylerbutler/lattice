@@ -1,8 +1,8 @@
 # Lattice — CRDT Library for Gleam
 
-**Version:** 1.0  
-**Date:** February 2026  
-**Status:** Draft  
+**Version:** 2.0
+**Date:** May 2026
+**Status:** Living document — updated after the multi-package v2 split
 
 ---
 
@@ -23,8 +23,8 @@ The name **lattice** reflects the mathematical foundation of CRDTs: join-semilat
 - Complete catalog of standard CRDT types (counters, sets, registers, maps)
 - Works identically on Erlang and JavaScript targets
 - Correct merge semantics verified by property-based tests
-- Composable types (e.g., map values can be any CRDT)
-- Zero runtime dependencies beyond `gleam_stdlib`
+- Composable types (OR-Map values use the built-in `Crdt` dispatch union)
+- Minimal runtime dependencies: `gleam_stdlib` plus `gleam_json` for built-in JSON support
 - Clear documentation with distributed systems context
 
 ---
@@ -64,10 +64,10 @@ The name **lattice** reflects the mathematical foundation of CRDTs: join-semilat
 | **P0** | State-based (CvRDT) implementations of all core types |
 | **P0** | Correct, commutative, associative, idempotent merge for every type |
 | **P0** | Composable types (CRDTs as values in maps) |
-| **P1** | Operation-based (CmRDT) variants for common types |
 | **P1** | Delta-state CRDT support for efficient replication |
 | **P1** | JSON serialization/deserialization |
 | **P1** | Version vectors and causal context utilities |
+| **P2** | Operation-based (CmRDT) variants for common types |
 | **P2** | Sequence/list CRDTs (RGA or similar) |
 | **P2** | Text CRDT for collaborative editing |
 | **P2** | Erlang distribution helpers (gossip, anti-entropy) |
@@ -114,12 +114,12 @@ Replica IDs MUST be opaque, comparable values:
 
 ```gleam
 /// A unique identifier for a replica/node
-pub type ReplicaId {
+pub opaque type ReplicaId {
   ReplicaId(String)
 }
 ```
 
-Replica IDs are required for types that track per-node state (counters, OR-sets) but not for types that don't (G-Set, LWW-Register with external timestamps).
+Replica IDs are constructed with `lattice_core/replica_id.new`. They are required for types that track per-node state (counters, OR-sets, MV-registers, OR-Maps) and for LWW-Registers, where they provide deterministic tie-breaking when timestamps are equal.
 
 ### 4.2 Counters
 
@@ -128,14 +128,15 @@ Replica IDs are required for types that track per-node state (counters, OR-sets)
 A counter that can only be incremented.
 
 ```gleam
-import lattice/counter/g_counter
+import lattice_core/replica_id
+import lattice_counters/g_counter
 
-let c = g_counter.new(ReplicaId("node1"))
+let c = g_counter.new(replica_id.new("node1"))
 let c = c |> g_counter.increment(1)
 g_counter.value(c)  // => 1
 
 // Merge from another replica
-let c2 = g_counter.new(ReplicaId("node2"))
+let c2 = g_counter.new(replica_id.new("node2"))
   |> g_counter.increment(5)
 let merged = g_counter.merge(c, c2)
 g_counter.value(merged)  // => 6
@@ -148,9 +149,10 @@ Internal representation: `Dict(ReplicaId, Int)` — each replica's contribution.
 A counter that supports both increment and decrement.
 
 ```gleam
-import lattice/counter/pn_counter
+import lattice_core/replica_id
+import lattice_counters/pn_counter
 
-let c = pn_counter.new(ReplicaId("node1"))
+let c = pn_counter.new(replica_id.new("node1"))
 let c = c |> pn_counter.increment(10)
 let c = c |> pn_counter.decrement(3)
 pn_counter.value(c)  // => 7
@@ -165,33 +167,35 @@ Internal representation: pair of G-Counters (positive, negative). Value = P - N.
 A register that resolves conflicts by timestamp, keeping the most recent write.
 
 ```gleam
-import lattice/register/lww_register
+import lattice_core/replica_id
+import lattice_registers/lww_register
 
-let r = lww_register.new("initial_value", timestamp: 1000)
-let r = lww_register.set(r, "updated", timestamp: 2000)
+let r = lww_register.new("initial_value", 1000, replica_id.new("node1"))
+let r = lww_register.set(r, "updated", 2000)
 lww_register.value(r)  // => "updated"
 
 // Concurrent writes: higher timestamp wins
-let r1 = lww_register.set(r, "from_node_a", timestamp: 3000)
-let r2 = lww_register.set(r, "from_node_b", timestamp: 3001)
+let r1 = lww_register.set(r, "from_node_a", 3000)
+let r2 = lww_register.set(r, "from_node_b", 3001)
 let merged = lww_register.merge(r1, r2)
 lww_register.value(merged)  // => "from_node_b"
 ```
 
-The register MUST be generic over its value type. Timestamps MUST be comparable (Int or custom clock).
+The register MUST be generic over its value type. Timestamps are explicit `Int` values supplied by the caller. If timestamps are equal, the register with the lexicographically greater `ReplicaId` wins so that merge remains commutative.
 
 #### FR-6: MV-Register (Multi-Value Register)
 
 A register that preserves all concurrently written values, letting the application decide.
 
 ```gleam
-import lattice/register/mv_register
+import lattice_core/replica_id
+import lattice_registers/mv_register
 
-let r = mv_register.new(ReplicaId("node1"))
+let r = mv_register.new(replica_id.new("node1"))
 let r = mv_register.set(r, "value_a")
 
 // Concurrent writes on different replicas
-let r2 = mv_register.new(ReplicaId("node2"))
+let r2 = mv_register.new(replica_id.new("node2"))
 let r2 = mv_register.set(r2, "value_b")
 
 let merged = mv_register.merge(r, r2)
@@ -211,7 +215,7 @@ Uses version vectors for causal tracking.
 A set that supports add only. Elements can never be removed.
 
 ```gleam
-import lattice/set/g_set
+import lattice_sets/g_set
 
 let s = g_set.new()
 let s = s |> g_set.add("alice") |> g_set.add("bob")
@@ -227,12 +231,12 @@ let merged = g_set.merge(s1, s2)
 A set that supports add and remove, but removed elements can never be re-added.
 
 ```gleam
-import lattice/set/two_phase_set
+import lattice_sets/two_p_set
 
-let s = two_phase_set.new()
-let s = s |> two_phase_set.add("alice") |> two_phase_set.remove("alice")
-two_phase_set.contains(s, "alice")  // => False
-// two_phase_set.add(s, "alice") has no effect — "alice" is in the tombstone set
+let s = two_p_set.new()
+let s = s |> two_p_set.add("alice") |> two_p_set.remove("alice")
+two_p_set.contains(s, "alice")  // => False
+// two_p_set.add(s, "alice") has no effect — "alice" is in the tombstone set
 ```
 
 Internal representation: pair of G-Sets (added, removed). Value = added - removed.
@@ -242,9 +246,10 @@ Internal representation: pair of G-Sets (added, removed). Value = added - remove
 A set that supports add and remove with add-wins semantics on concurrent operations. Elements can be re-added after removal.
 
 ```gleam
-import lattice/set/or_set
+import lattice_core/replica_id
+import lattice_sets/or_set
 
-let s = or_set.new(ReplicaId("node1"))
+let s = or_set.new(replica_id.new("node1"))
 let s = s |> or_set.add("alice")
 let s = s |> or_set.remove("alice")
 let s = s |> or_set.add("alice")  // Re-add works!
@@ -266,15 +271,25 @@ Uses unique tags (replica ID + logical clock) to track individual add operations
 A map whose keys can be added and removed (with add-wins semantics), and whose values are themselves CRDTs that merge automatically.
 
 ```gleam
-import lattice/map/or_map
-import lattice/counter/pn_counter
+import lattice_core/replica_id
+import lattice_counters/pn_counter
+import lattice_maps/crdt
+import lattice_maps/or_map
 
 // Map from String keys to PN-Counter values
-let m = or_map.new(ReplicaId("node1"))
-let m = m |> or_map.update("likes", pn_counter.increment(_, 1))
-let m = m |> or_map.update("likes", pn_counter.increment(_, 1))
+let m = or_map.new(replica_id.new("node1"), crdt.PnCounterSpec)
+let m =
+  m
+  |> or_map.update("likes", fn(value) {
+    case value {
+      crdt.CrdtPnCounter(counter) ->
+        crdt.CrdtPnCounter(pn_counter.increment(counter, 1))
+      other -> other
+    }
+  })
 
-or_map.get(m, "likes") |> pn_counter.value  // => 2
+let assert Ok(crdt.CrdtPnCounter(counter)) = or_map.get(m, "likes")
+pn_counter.value(counter)  // => 1
 
 // Remove a key
 let m = m |> or_map.remove("likes")
@@ -287,22 +302,22 @@ let m = m |> or_map.remove("likes")
 A simpler map using LWW-Register semantics for each key. More space-efficient than OR-Map for use cases that don't need add-wins behavior.
 
 ```gleam
-import lattice/map/lww_map
+import lattice_maps/lww_map
 
 let m = lww_map.new()
-let m = m |> lww_map.set("name", "Alice", timestamp: 1000)
-let m = m |> lww_map.set("name", "Bob", timestamp: 2000)
+let m = m |> lww_map.set("name", "Alice", 1000)
+let m = m |> lww_map.set("name", "Bob", 2000)
 lww_map.get(m, "name")  // => Ok("Bob")
 ```
 
 **Tombstone management:** Removing a key creates a tombstone that persists until explicitly pruned. `tombstone_count` reports the number of tombstoned entries for monitoring growth. `prune(map, stable_timestamp)` removes tombstones at or below the given timestamp.
 
-**Safety contract:** The caller must ensure all replicas have synced past the stable timestamp before pruning. Pruning before full sync can cause "zombie" key resurrection. See [#18](https://github.com/tylerbutler/lattice/issues/18) for the planned v2 API with automatic zombie detection.
+**Safety contract:** `prune` records a `pruned_timestamp` so stale entries at or below that timestamp are rejected during merge. Callers still need a stability protocol before pruning aggressively; see [#18](https://github.com/tylerbutler/lattice/issues/18) for the remaining tombstone-safety discussion.
 
 ```gleam
 // Monitor and prune tombstones
 lww_map.tombstone_count(m)  // => number of tombstoned entries
-let pruned = lww_map.prune(m, stable_timestamp: 1000)
+let pruned = lww_map.prune(m, 1000)
 ```
 
 ### 4.6 Causal Context Utilities
@@ -312,12 +327,14 @@ let pruned = lww_map.prune(m, stable_timestamp: 1000)
 A vector clock tracking causal history per replica.
 
 ```gleam
-import lattice/clock/version_vector
+import lattice_core/replica_id
+import lattice_core/version_vector
 
 let vv = version_vector.new()
-let vv = vv |> version_vector.increment(ReplicaId("node1"))
-let vv = vv |> version_vector.increment(ReplicaId("node1"))
-version_vector.get(vv, ReplicaId("node1"))  // => 2
+let rid = replica_id.new("node1")
+let vv = vv |> version_vector.increment(rid)
+let vv = vv |> version_vector.increment(rid)
+version_vector.get(vv, rid)  // => 2
 
 // Causal ordering
 version_vector.compare(vv1, vv2)
@@ -329,10 +346,11 @@ version_vector.compare(vv1, vv2)
 A dot (replica, sequence number) context for tracking individual operations, used internally by OR-Set and OR-Map.
 
 ```gleam
-import lattice/clock/dot_context
+import lattice_core/dot_context
+import lattice_core/replica_id
 
 pub type Dot {
-  Dot(replica: ReplicaId, counter: Int)
+  Dot(replica: replica_id.ReplicaId, counter: Int)
 }
 ```
 
@@ -343,14 +361,14 @@ pub type Dot {
 Every CRDT type MUST provide JSON encoder/decoder functions:
 
 ```gleam
-import lattice/counter/g_counter
 import gleam/json
+import lattice_counters/g_counter
 
 let encoded = g_counter.to_json(counter)
 let decoded = g_counter.from_json(json_string)
 ```
 
-The JSON format MUST be stable across versions for wire compatibility.
+The JSON format MUST be stable across versions for wire compatibility. Encoded payloads include a `type` discriminator and `v` schema version.
 
 ### 4.8 Delta-State Support
 
@@ -360,10 +378,10 @@ For efficient replication, CRDT types SHOULD support producing and applying delt
 
 ```gleam
 // Produce a delta for the last mutation
-let #(updated_counter, delta) = g_counter.increment_delta(counter, 1)
+let #(updated_counter, delta) = g_counter.increment_with_delta(counter, 1)
 
-// Apply delta on remote replica (smaller than full state)
-let remote = g_counter.apply_delta(remote, delta)
+// Apply leaf deltas by merging them on the remote replica
+let remote = g_counter.merge(remote, delta)
 ```
 
 Delta-state support allows sending only changes rather than full state, critical for bandwidth-constrained scenarios.
@@ -406,9 +424,9 @@ Delta-state support allows sending only changes rather than full state, critical
 Minimize external dependencies:
 
 - `gleam_stdlib` — Required (Dict, Set, List, Option, Order)
-- `gleam_json` — For JSON serialization (optional, behind feature flag or separate package)
+- `gleam_json` — Required for built-in JSON serialization
 
-No other dependencies. Counters, sets, registers, maps, and clocks are all implementable with `gleam_stdlib` primitives.
+Lattice packages are otherwise self-contained. `lattice_counters`, `lattice_sets`, and `lattice_registers` depend on `lattice_core`; `lattice_maps` depends on the leaf CRDT packages; `lattice_crdt` depends on all packages as the umbrella.
 
 ---
 
@@ -417,20 +435,33 @@ No other dependencies. Counters, sets, registers, maps, and clocks are all imple
 ### 6.1 Progressive Disclosure
 
 ```gleam
+import lattice_core/replica_id
+import lattice_counters/g_counter
+import lattice_counters/pn_counter
+import lattice_maps/crdt
+import lattice_maps/or_map
+
 // Level 1: Simple counter
-let c = g_counter.new(ReplicaId("node1"))
+let rid = replica_id.new("node1")
+let c = g_counter.new(rid)
 let c = g_counter.increment(c, 1)
 
 // Level 2: Merge replicas
 let merged = g_counter.merge(c1, c2)
 
 // Level 3: Compose types
-let m = or_map.new(ReplicaId("node1"))
-let m = or_map.update(m, "score", pn_counter.increment(_, 1))
+let m = or_map.new(rid, crdt.PnCounterSpec)
+let m = or_map.update(m, "score", fn(value) {
+  case value {
+    crdt.CrdtPnCounter(counter) ->
+      crdt.CrdtPnCounter(pn_counter.increment(counter, 1))
+    other -> other
+  }
+})
 
 // Level 4: Delta-state replication
-let #(c, delta) = g_counter.increment_delta(c, 1)
-let remote = g_counter.apply_delta(remote, delta)
+let #(c, delta) = g_counter.increment_with_delta(c, 1)
+let remote = g_counter.merge(remote, delta)
 ```
 
 ### 6.2 Type Safety Over Convenience
@@ -442,11 +473,16 @@ let remote = g_counter.apply_delta(remote, delta)
 
 ### 6.3 Composition Over Inheritance
 
-CRDTs compose via nesting rather than via shared behavior/trait abstractions. An OR-Map of PN-Counters is expressed as a concrete type, not via dynamic dispatch:
+CRDTs compose via nesting rather than via shared behavior/trait abstractions. OR-Map stores supported leaf CRDTs through the `lattice_maps/crdt.Crdt` dispatch union:
 
 ```gleam
-// Explicit composition, not abstract CRDT interface
-or_map.update(m, "likes", fn(counter) { pn_counter.increment(counter, 1) })
+or_map.update(m, "likes", fn(value) {
+  case value {
+    crdt.CrdtPnCounter(counter) ->
+      crdt.CrdtPnCounter(pn_counter.increment(counter, 1))
+    other -> other
+  }
+})
 ```
 
 ### 6.4 Functional Purity
@@ -460,37 +496,23 @@ or_map.update(m, "likes", fn(counter) { pn_counter.increment(counter, 1) })
 
 - All types work on both Erlang and JavaScript targets
 - No target-specific FFI in core types
-- Implementation uses only `gleam_stdlib` data structures (Dict, Set, List)
+- Implementation uses portable Gleam libraries only; core CRDT logic has no target-specific FFI
 
 ---
 
 ## 7. Module Structure
 
 ```
-src/
-├── lattice.gleam                  # Re-exports and top-level docs
-├── lattice/
-│   ├── replica.gleam              # ReplicaId type
-│   ├── counter/
-│   │   ├── g_counter.gleam        # Grow-only counter
-│   │   └── pn_counter.gleam       # Positive-negative counter
-│   ├── register/
-│   │   ├── lww_register.gleam     # Last-write-wins register
-│   │   └── mv_register.gleam      # Multi-value register
-│   ├── set/
-│   │   ├── g_set.gleam            # Grow-only set
-│   │   ├── two_phase_set.gleam    # Two-phase set
-│   │   └── or_set.gleam           # Observed-remove set
-│   ├── map/
-│   │   ├── lww_map.gleam          # LWW-element map
-│   │   └── or_map.gleam           # Observed-remove map
-│   ├── clock/
-│   │   ├── version_vector.gleam   # Version vector
-│   │   └── dot_context.gleam      # Dot context for causal tracking
-│   └── json/
-│       ├── encode.gleam           # JSON encoders for all types
-│       └── decode.gleam           # JSON decoders for all types
+packages/
+├── lattice_core/                  # replica_id, version_vector, dot_context
+├── lattice_counters/              # g_counter, pn_counter
+├── lattice_sets/                  # g_set, two_p_set, or_set
+├── lattice_registers/             # lww_register, mv_register
+├── lattice_maps/                  # lww_map, or_map, crdt dispatch
+└── lattice_crdt/                  # umbrella package depending on all above
 ```
+
+`workspace.toml` is the source of truth for package membership. JSON encoders and decoders live in the package modules themselves rather than in a separate `lattice_json` package.
 
 ---
 
@@ -504,7 +526,7 @@ src/
 | **B** | Dot-kernel / optimized (ORSWOT) | More compact, but complex implementation |
 | **C** | Start with A, optimize to B in Phase 2 | Pragmatic, but API may need to change |
 
-**Recommendation:** Option C — ship the simple version first, optimize with ORSWOT-style compaction later. Keep the public API stable across both.
+**Status:** The current OR-Set uses the classic unique-tag design with explicit tombstones and pruning support. ORSWOT-style dot-kernel compaction remains future Phase 3 work. Keep the public API stable across both implementations.
 
 ### 8.2 Generic CRDT Composition for OR-Map
 
@@ -516,20 +538,20 @@ How should OR-Map accept arbitrary CRDT value types?
 | **B** | Separate OR-Map modules per value type | Type-safe, but boilerplate |
 | **C** | Higher-kinded type emulation via callbacks | Gleam-idiomatic, composable |
 
-**Recommendation:** Option A — pass a "CRDT spec" record containing `new`, `merge` functions. This is the most Gleam-idiomatic approach:
+**Status:** Implemented as a closed `lattice_maps/crdt.CrdtSpec` enum plus `Crdt` dispatch union. This keeps OR-Map JSON and merge behavior explicit for the v1 public API, but it means OR-Map values are limited to the supported leaf CRDT variants.
 
 ```gleam
-pub type CrdtSpec(a) {
-  CrdtSpec(
-    empty: a,
-    merge: fn(a, a) -> a,
-  )
+pub type CrdtSpec {
+  GCounterSpec
+  PnCounterSpec
+  LwwRegisterSpec
+  MvRegisterSpec
+  GSetSpec
+  TwoPSetSpec
+  OrSetSpec
 }
 
-let counter_map = or_map.new(
-  ReplicaId("node1"),
-  CrdtSpec(empty: pn_counter.new(rid), merge: pn_counter.merge),
-)
+let counter_map = or_map.new(replica_id.new("node1"), crdt.PnCounterSpec)
 ```
 
 ### 8.3 Timestamp Strategy for LWW Types
@@ -540,7 +562,7 @@ let counter_map = or_map.new(
 | **B** | Wall-clock with platform FFI | Convenient, but impure and clock-skew risk |
 | **C** | Hybrid Logical Clocks (HLC) | Best correctness, more complex |
 
-**Recommendation:** Option A for Phase 1 (keep it pure), with HLC utilities in Phase 3.
+**Status:** Implemented with explicit `Int` timestamps supplied by the caller. LWW-Register also stores `ReplicaId` for deterministic equal-timestamp tie-breaking. HLC utilities remain future Phase 3 work.
 
 ### 8.4 Separate JSON Package?
 
@@ -549,46 +571,46 @@ let counter_map = or_map.new(
 | **A** | JSON support in main package | Convenient, adds `gleam_json` dependency |
 | **B** | Separate `lattice_json` package | Core stays dependency-free |
 
-**Recommendation:** Option B — keep the core package dependency-free. Provide `lattice_json` as a companion.
+**Status:** Implemented with JSON support inside each package. All CRDT payloads include a `type` discriminator and `v` schema version. There is no separate `lattice_json` package.
 
 ### 8.5 Sequence/Text CRDTs
 
 Sequence CRDTs (RGA, Logoot, LSEQ) and text CRDTs (Yjs-style, Peritext) are significantly more complex than the basic types. Should they be in-scope?
 
-**Recommendation:** Defer to Phase 3 or a separate package (`lattice_text`). Focus on getting counters, registers, sets, and maps right first.
+**Status:** Deferred. No sequence/text CRDT module or `lattice_text` package exists yet.
 
 ---
 
 ## 9. Implementation Phases
 
-### Phase 1: Core Types (MVP)
+### Phase 1: Core Types (MVP) — Complete
 
-- [ ] `ReplicaId` type
-- [ ] `GCounter` — new, increment, value, merge
-- [ ] `PNCounter` — new, increment, decrement, value, merge
-- [ ] `GSet` — new, add, contains, value, merge
-- [ ] `TwoPhaseSet` — new, add, remove, contains, value, merge
-- [ ] `LWWRegister` — new, set, value, merge
-- [ ] `VersionVector` — new, increment, get, compare, merge
-- [ ] Property-based tests for all merge laws
-- [ ] Works on Erlang and JavaScript targets
+- [x] `ReplicaId` type
+- [x] `GCounter` — new, increment, value, merge
+- [x] `PNCounter` — new, increment, decrement, value, merge
+- [x] `GSet` — new, add, contains, value, merge
+- [x] `TwoPSet` — new, add, remove, contains, value, merge
+- [x] `LWWRegister` — new, set, value, merge
+- [x] `VersionVector` — new, increment, get, compare, merge
+- [x] Property-based tests for core merge laws
+- [x] Works on Erlang and JavaScript targets
 
 **Deliverable:** Usable CRDT primitives for basic distributed state
 
-### Phase 2: Advanced Types
+### Phase 2: Advanced Types — Complete
 
-- [ ] `ORSet` — add, remove, contains, value, merge (add-wins)
-- [ ] `MVRegister` — set, value, merge (preserves concurrent values)
-- [ ] `LWWMap` — set, get, remove, keys, value, merge
-- [ ] `ORMap` — update, get, remove, keys, merge (with CrdtSpec composition)
-- [ ] `DotContext` — causal tracking for OR types
-- [ ] JSON serialization (`lattice_json` companion package)
+- [x] `ORSet` — add, remove, contains, value, merge (add-wins)
+- [x] `MVRegister` — set, value, merge (preserves concurrent values)
+- [x] `LWWMap` — set, get, remove, keys, value, merge
+- [x] `ORMap` — update, get, remove, keys, merge (with `CrdtSpec` enum composition)
+- [x] `DotContext` — causal tracking for OR types
+- [x] JSON serialization (inline in each package)
 
 **Deliverable:** Full CRDT toolkit for production distributed applications
 
-### Phase 3: Optimization & Extensions
+### Phase 3: Optimization & Extensions — In progress
 
-- [ ] Delta-state support for all types
+- [x] Delta-state support for all types (implemented locally; pending release)
 - [ ] ORSWOT-optimized OR-Set (dot-kernel compaction)
 - [ ] Hybrid Logical Clock utility
 - [ ] Sequence CRDT (RGA or similar)
@@ -712,8 +734,8 @@ Every CRDT type MUST have property tests for:
 | OR-Set | ❌ | ✅ |
 | OR-Map | ❌ | ✅ |
 | Version Vectors | ❌ | ✅ |
-| Delta-state support | ❌ | ✅ (Phase 3) |
-| JSON serialization | ❌ | ✅ (companion pkg) |
+| Delta-state support | ❌ | ✅ (implemented locally; pending release) |
+| JSON serialization | ❌ | ✅ (inline per package) |
 | Property-based tests | ❌ | ✅ |
 | Composable types | ❌ | ✅ |
 
@@ -722,16 +744,16 @@ Every CRDT type MUST have property tests for:
 ### Distributed Counter
 
 ```gleam
-import lattice/counter/g_counter
-import lattice/replica.{ReplicaId}
+import lattice_core/replica_id
+import lattice_counters/g_counter
 
 pub fn main() {
   // Node 1 increments
-  let c1 = g_counter.new(ReplicaId("node1"))
+  let c1 = g_counter.new(replica_id.new("node1"))
     |> g_counter.increment(5)
 
   // Node 2 increments independently
-  let c2 = g_counter.new(ReplicaId("node2"))
+  let c2 = g_counter.new(replica_id.new("node2"))
     |> g_counter.increment(3)
 
   // After state exchange, both merge
@@ -743,61 +765,67 @@ pub fn main() {
 ### Collaborative Tags with OR-Set
 
 ```gleam
-import lattice/set/or_set
-import lattice/replica.{ReplicaId}
+import gleam/set
+import lattice_sets/or_set.{type ORSet}
 
 pub fn handle_tag_sync(local: ORSet(String), remote: ORSet(String)) {
   let merged = or_set.merge(local, remote)
   // If Alice added "urgent" while Bob removed "urgent",
   // add-wins: "urgent" is present in merged
-  or_set.to_list(merged)
+  merged |> or_set.value |> set.to_list
 }
 ```
 
 ### Nested State with OR-Map
 
 ```gleam
-import lattice/map/or_map
-import lattice/counter/pn_counter
-import lattice/replica.{ReplicaId}
+import lattice_core/replica_id
+import lattice_counters/pn_counter
+import lattice_maps/crdt
+import lattice_maps/or_map
 
 pub fn shopping_cart_example() {
-  let rid = ReplicaId("client1")
-  let spec = or_map.CrdtSpec(
-    empty: pn_counter.new(rid),
-    merge: pn_counter.merge,
-  )
-
-  let cart = or_map.new(rid, spec)
+  let rid = replica_id.new("client1")
+  let cart = or_map.new(rid, crdt.PnCounterSpec)
   let cart = cart
-    |> or_map.update("apples", pn_counter.increment(_, 3))
-    |> or_map.update("bananas", pn_counter.increment(_, 2))
-    |> or_map.update("apples", pn_counter.decrement(_, 1))
+    |> update_count("apples", 3)
+    |> update_count("bananas", 2)
+    |> update_count("apples", -1)
 
   // apples: 2, bananas: 2
-  or_map.get(cart, "apples") |> pn_counter.value  // => 2
+  let assert Ok(crdt.CrdtPnCounter(apples)) = or_map.get(cart, "apples")
+  pn_counter.value(apples)  // => 2
+}
+
+fn update_count(map, key, delta) {
+  or_map.update(map, key, fn(value) {
+    case value {
+      crdt.CrdtPnCounter(counter) ->
+        case delta >= 0 {
+          True -> crdt.CrdtPnCounter(pn_counter.increment(counter, delta))
+          False -> crdt.CrdtPnCounter(pn_counter.decrement(counter, 0 - delta))
+        }
+      other -> other
+    }
+  })
 }
 ```
 
 ### Presence Tracking (Beryl Integration)
 
 ```gleam
-import lattice/map/or_map
-import lattice/register/lww_register
-import lattice/replica.{ReplicaId}
+import lattice_core/replica_id
+import lattice_maps/crdt
+import lattice_maps/or_map
+import lattice_registers/lww_register
 
 /// Track online users with metadata (status, last_seen)
-pub fn presence_example() {
-  let node = ReplicaId("web1")
-  let spec = or_map.CrdtSpec(
-    empty: lww_register.new("", timestamp: 0),
-    merge: lww_register.merge,
-  )
-
-  let presence = or_map.new(node, spec)
+pub fn presence_example(current_timestamp: Int) {
+  let node = replica_id.new("web1")
+  let presence = or_map.new(node, crdt.LwwRegisterSpec)
   let presence = presence
     |> or_map.update("user:alice", fn(_) {
-      lww_register.new("online", timestamp: now())
+      crdt.CrdtLwwRegister(lww_register.new("online", current_timestamp, node))
     })
 
   // When Alice disconnects on another node, merge resolves via LWW
