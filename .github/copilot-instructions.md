@@ -22,7 +22,7 @@ Run a single test by name:
 gleam test -- --filter "test_name"
 ```
 
-Tool versions are pinned in `.tool-versions` (Erlang 27.2.1, Gleam 1.14.0).
+Tool versions are pinned in `.tool-versions` (Erlang 27.2.1, Gleam 1.16.0).
 
 ## Architecture
 

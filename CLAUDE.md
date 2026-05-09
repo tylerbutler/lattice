@@ -88,7 +88,7 @@ just test-pkg <name>   # Single package
 
 Managed via `.tool-versions` (source of truth for CI):
 - Erlang 27.2.1
-- Gleam 1.14.0
+- Gleam 1.16.0
 - just 1.38.0
 
 ## CI/CD
