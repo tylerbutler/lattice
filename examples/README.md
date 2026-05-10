@@ -18,6 +18,8 @@ gleam run -m or_set_example
 gleam run -m lww_map_example
 gleam run -m or_map_example
 gleam run -m version_vector_example
+gleam run -m sequence_example
+gleam run -m text_example
 
 # Run on JavaScript target
 gleam run -m g_counter_example --target javascript
@@ -59,6 +61,13 @@ gleam run -m g_counter_example --target javascript
 | Example | Description |
 |---------|-------------|
 | `version_vector_example` | Version vectors — logical clocks for causality tracking |
+
+### Sequences and Text
+
+| Example | Description |
+|---------|-------------|
+| `sequence_example` | Generic sequence CRDT — ordered list insert and merge |
+| `text_example` | Plain-text CRDT — collaborative text insert and merge |
 
 ## About These Examples
 

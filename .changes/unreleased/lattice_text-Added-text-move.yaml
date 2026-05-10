@@ -1,0 +1,7 @@
+project: lattice_text
+kind: Added
+body: |-
+  Add text move helpers
+
+  Adds text-level move APIs that delegate to `lattice_sequence`, allowing visible text segments to be reordered while preserving CRDT identity and delta merge behavior.
+time: 2026-05-10T05:14:59.442871546+00:00

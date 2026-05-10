@@ -1,0 +1,7 @@
+project: lattice_sequence
+kind: Added
+body: |-
+  Add identity-preserving move operations for sequences
+
+  Adds `move`, `try_move`, `move_with_delta`, and `try_move_with_delta` APIs. Moves preserve item identity, merge through per-item move metadata, keep delete-wins behavior, and remain in the unshipped v1 sequence JSON envelope.
+time: 2026-05-10T05:14:59.442871546+00:00

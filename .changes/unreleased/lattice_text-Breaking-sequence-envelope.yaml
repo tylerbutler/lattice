@@ -1,0 +1,7 @@
+project: lattice_text
+kind: Breaking
+body: |-
+  Back text storage with `lattice_sequence`
+
+  `lattice_text/text` now delegates to the generic sequence CRDT and emits the canonical `type: "sequence"` JSON envelope. Consumers persisting text JSON should migrate from the previous `type: "text"` envelope.
+time: 2026-05-10T04:44:26.565581798+00:00

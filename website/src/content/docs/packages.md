@@ -17,6 +17,8 @@ or pick individual packages for minimal dependencies.
 | `lattice_registers` | [![](https://img.shields.io/hexpm/v/lattice_registers)](https://hex.pm/packages/lattice_registers) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_registers/) | `LWWRegister`, `MVRegister` |
 | `lattice_sets` | [![](https://img.shields.io/hexpm/v/lattice_sets)](https://hex.pm/packages/lattice_sets) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_sets/) | `GSet`, `TwoPSet`, `ORSet` |
 | `lattice_maps` | [![](https://img.shields.io/hexpm/v/lattice_maps)](https://hex.pm/packages/lattice_maps) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_maps/) | `LWWMap`, `ORMap`, `Crdt` dispatch |
+| `lattice_sequence` | [![](https://img.shields.io/hexpm/v/lattice_sequence)](https://hex.pm/packages/lattice_sequence) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_sequence/) | Generic ordered-list CRDT with move support |
+| `lattice_text` | [![](https://img.shields.io/hexpm/v/lattice_text)](https://hex.pm/packages/lattice_text) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_text/) | Plain-text CRDT backed by `lattice_sequence` |
 
 ## Dependencies
 
@@ -27,6 +29,8 @@ graph BT
     registers[lattice_registers]
     sets[lattice_sets]
     maps[lattice_maps]
+    sequence[lattice_sequence]
+    text[lattice_text]
     crdt[lattice_crdt]
 
     registers --> core
@@ -34,11 +38,14 @@ graph BT
     maps --> counters
     maps --> registers
     maps --> sets
+    text --> sequence
     crdt --> core
     crdt --> counters
     crdt --> registers
     crdt --> sets
     crdt --> maps
+    crdt --> sequence
+    crdt --> text
 ```
 
 `lattice_counters` and `lattice_sets` have no lattice dependencies beyond
@@ -54,6 +61,8 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_sets/or_set
 import lattice_maps/or_map
+import lattice_sequence/sequence
+import lattice_text/text
 ```
 
 ## Which approach to choose

@@ -1,6 +1,6 @@
-name = "lattice_text"
+name = "lattice_sequence"
 version = "1.0.0"
-description = "Plain-text CRDT for Gleam using YATA-style left/right origins"
+description = "Generic sequence CRDT for Gleam using YATA-style left/right origins"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
 gleam = ">= 1.7.0"
@@ -9,7 +9,6 @@ gleam = ">= 1.7.0"
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"
 lattice_core = { path = "../lattice_core" }
-lattice_sequence = { path = "../lattice_sequence" }
 
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"

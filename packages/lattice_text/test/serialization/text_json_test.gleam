@@ -1,4 +1,5 @@
 import gleam/json
+import gleam/string
 import lattice_core/replica_id
 import lattice_text/text
 import startest/expect
@@ -28,6 +29,15 @@ pub fn text_round_trip_with_tombstone_test() {
   json.to_string(text.to_json(doc))
   |> text.from_json()
   |> expect.to_equal(Ok(doc))
+}
+
+pub fn text_to_json_uses_sequence_envelope_test() {
+  let doc = text.new(rid("A")) |> text.insert(0, "x")
+
+  text.to_json(doc)
+  |> json.to_string()
+  |> string.contains("\"type\":\"sequence\"")
+  |> expect.to_be_true()
 }
 
 pub fn text_from_json_wrong_type_rejected_test() {

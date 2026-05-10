@@ -138,3 +138,34 @@ pub fn merge_applies_delete_delta_test() {
   text.merge(base, delta)
   |> expect.to_equal(updated)
 }
+
+pub fn move_reorders_text_segments_test() {
+  text.new(rid("A"))
+  |> text.insert(0, "a")
+  |> text.insert(1, "b")
+  |> text.insert(2, "c")
+  |> text.move(0, 2)
+  |> text.value()
+  |> expect.to_equal("bca")
+}
+
+pub fn try_move_to_index_out_of_bounds_test() {
+  text.new(rid("A"))
+  |> text.insert(0, "a")
+  |> text.try_move(0, 2)
+  |> expect.to_equal(
+    Error(text.MoveToIndexOutOfBounds(index: 2, length_after_removal: 0)),
+  )
+}
+
+pub fn merge_applies_move_delta_test() {
+  let base =
+    text.new(rid("A"))
+    |> text.insert(0, "a")
+    |> text.insert(1, "b")
+    |> text.insert(2, "c")
+  let #(updated, delta) = text.move_with_delta(base, 0, 2)
+
+  text.merge(base, delta)
+  |> expect.to_equal(updated)
+}

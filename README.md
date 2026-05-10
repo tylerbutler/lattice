@@ -17,6 +17,8 @@ Conflict-free replicated data types (CRDTs) for Gleam. Tested with property-base
 | [`lattice_sets`](https://hex.pm/packages/lattice_sets) | [![](https://img.shields.io/hexpm/v/lattice_sets)](https://hex.pm/packages/lattice_sets) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_sets/) | GSet, TwoPSet, ORSet |
 | [`lattice_registers`](https://hex.pm/packages/lattice_registers) | [![](https://img.shields.io/hexpm/v/lattice_registers)](https://hex.pm/packages/lattice_registers) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_registers/) | LWWRegister, MVRegister |
 | [`lattice_maps`](https://hex.pm/packages/lattice_maps) | [![](https://img.shields.io/hexpm/v/lattice_maps)](https://hex.pm/packages/lattice_maps) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_maps/) | LWWMap, ORMap, Crdt dispatch |
+| [`lattice_sequence`](https://hex.pm/packages/lattice_sequence) | [![](https://img.shields.io/hexpm/v/lattice_sequence)](https://hex.pm/packages/lattice_sequence) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_sequence/) | Generic sequence CRDT with move support |
+| [`lattice_text`](https://hex.pm/packages/lattice_text) | [![](https://img.shields.io/hexpm/v/lattice_text)](https://hex.pm/packages/lattice_text) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_text/) | Plain-text CRDT |
 | [`lattice_core`](https://hex.pm/packages/lattice_core) | [![](https://img.shields.io/hexpm/v/lattice_core)](https://hex.pm/packages/lattice_core) | [![](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/lattice_core/) | VersionVector, DotContext |
 
 ### Modules
@@ -33,6 +35,8 @@ Conflict-free replicated data types (CRDTs) for Gleam. Tested with property-base
 | lattice_maps | `lww_map` | LWWMap — last-writer-wins map |
 | | `or_map` | ORMap — observed-remove map |
 | | `crdt` | Crdt — tagged union for heterogeneous ORMap values |
+| lattice_sequence | `sequence` | Sequence — generic ordered-list CRDT with insert, delete, and move |
+| lattice_text | `text` | Text — plain-text CRDT backed by Sequence |
 | lattice_core | `version_vector` | VersionVector — logical clocks for causality tracking |
 | | `dot_context` | DotContext — causal context for OR-types |
 
@@ -51,6 +55,8 @@ gleam add lattice_counters   # GCounter, PNCounter
 gleam add lattice_sets       # GSet, TwoPSet, ORSet
 gleam add lattice_registers  # LWWRegister, MVRegister
 gleam add lattice_maps       # LWWMap, ORMap, Crdt dispatch
+gleam add lattice_sequence   # Generic sequence CRDT
+gleam add lattice_text       # Plain-text CRDT
 gleam add lattice_core       # VersionVector, DotContext
 ```
 

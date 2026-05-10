@@ -14,6 +14,8 @@ lattice/                               # git repo root (NOT a Gleam package)
 │   ├── lattice_sets/                  # GSet, TwoPSet, ORSet
 │   ├── lattice_registers/             # LWWRegister, MVRegister
 │   ├── lattice_maps/                  # LWWMap, ORMap
+│   ├── lattice_sequence/              # Generic sequence CRDT
+│   ├── lattice_text/                  # Plain-text CRDT backed by sequence
 │   └── lattice_crdt/                  # Umbrella — depends on all above
 ├── examples/                          # Runnable examples
 ├── workspace.toml                     # Gleam workspace definition (source of truth)
@@ -30,6 +32,8 @@ lattice_counters      (no lattice deps)
 lattice_sets          (no lattice deps)
 lattice_registers  →  lattice_core
 lattice_maps       →  lattice_core, lattice_counters, lattice_registers, lattice_sets
+lattice_sequence   →  lattice_core
+lattice_text       →  lattice_core, lattice_sequence
 lattice_crdt       →  all of the above (umbrella)
 ```
 
