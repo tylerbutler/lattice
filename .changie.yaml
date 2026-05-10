@@ -74,6 +74,13 @@ projects:
           - path: packages/lattice_sets/gleam.toml
             find: 'version = ".*"'
             replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Text
+      key: lattice_text
+      changelog: packages/lattice_text/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_text/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
     - label: Maps
       key: lattice_maps
       changelog: packages/lattice_maps/CHANGELOG.md

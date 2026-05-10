@@ -15,7 +15,7 @@ default:
     @just --list
 
 # Packages in topological (dependency) order
-packages := "lattice_core lattice_counters lattice_sets lattice_registers lattice_maps lattice_crdt"
+packages := "lattice_core lattice_text lattice_counters lattice_sets lattice_registers lattice_maps lattice_crdt"
 
 # === DEPENDENCIES ===
 
@@ -154,7 +154,7 @@ examples-run: examples-build
     #!/usr/bin/env bash
     set -euo pipefail
     cd examples
-    for mod in g_counter_example pn_counter_example lww_register_example mv_register_example g_set_example two_p_set_example or_set_example lww_map_example or_map_example version_vector_example; do
+    for mod in g_counter_example pn_counter_example lww_register_example mv_register_example g_set_example two_p_set_example or_set_example lww_map_example or_map_example version_vector_example text_example; do
         gleam run -m "$mod"
     done
 
@@ -163,7 +163,7 @@ examples-run-js: examples-build-js
     #!/usr/bin/env bash
     set -euo pipefail
     cd examples
-    for mod in g_counter_example pn_counter_example lww_register_example mv_register_example g_set_example two_p_set_example or_set_example lww_map_example or_map_example version_vector_example; do
+    for mod in g_counter_example pn_counter_example lww_register_example mv_register_example g_set_example two_p_set_example or_set_example lww_map_example or_map_example version_vector_example text_example; do
         gleam run -m "$mod" --target javascript
     done
 

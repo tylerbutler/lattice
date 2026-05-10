@@ -1,0 +1,7 @@
+project: lattice_text
+kind: Added
+body: |-
+  Add a plain-text CRDT package
+
+  Introduces `lattice_text/text` with index-based insert/delete operations, YATA-style left/right origins, tombstone deletes, merge support, delta-state mutators, and JSON serialization.
+time: 2026-05-10T03:13:13.821740363+00:00

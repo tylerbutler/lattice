@@ -9,5 +9,6 @@ lattice_counters = { path = "../packages/lattice_counters" }
 lattice_registers = { path = "../packages/lattice_registers" }
 lattice_sets = { path = "../packages/lattice_sets" }
 lattice_maps = { path = "../packages/lattice_maps" }
+lattice_text = { path = "../packages/lattice_text" }
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"

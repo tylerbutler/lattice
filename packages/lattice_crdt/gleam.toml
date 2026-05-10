@@ -11,6 +11,7 @@ lattice_counters = { path = "../lattice_counters" }
 lattice_registers = { path = "../lattice_registers" }
 lattice_sets = { path = "../lattice_sets" }
 lattice_maps = { path = "../lattice_maps" }
+lattice_text = { path = "../lattice_text" }
 
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
