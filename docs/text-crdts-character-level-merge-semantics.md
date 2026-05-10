@@ -338,6 +338,54 @@ Both are mature, production-tested libraries with large ecosystems and bindings 
 
 ---
 
+## Roadmap for `lattice_text`
+
+The initial `lattice_text` package provides a plain-text CRDT with stable item IDs, left/right origins, tombstone deletes, deterministic merge, delta mutators, and JSON serialization. The next improvements should keep the base CRDT small while strengthening correctness, ergonomics, and production readiness.
+
+### 1. Correctness hardening
+
+- Add adversarial examples for prepend/backward typing, concurrent inserts around deleted anchors, duplicated delta delivery, and shuffled merge order.
+- Add generated operation-trace tests that apply the same operation set in multiple delivery orders and assert equal visible values.
+- Keep tests aligned with the merge examples in this document so changes to ordering semantics are intentional.
+
+### 2. API ergonomics
+
+- Add stable cursor or position-handle helpers for callers that need to preserve insertion points across edits.
+- Add batch insertion helpers for strings, graphemes, or caller-defined spans while documenting the tradeoff between per-character precision and span compaction.
+- Add debugging/introspection helpers that expose item IDs and origins without making users construct IDs manually.
+
+### 3. Performance and storage
+
+- Add benchmarks for insert, delete, merge, JSON encoding/decoding, and large-document workloads.
+- Investigate span/run compaction for sequential local inserts, similar to Yjs item merging or Diamond Types spans.
+- Consider an indexed sequence structure so visible-index lookup and insertion do not require scanning the full item list.
+
+### 4. Tombstone lifecycle
+
+- Design safe tombstone pruning around causal stability instead of deleting anchors eagerly.
+- Document the replica-acknowledgement assumptions required before pruning.
+- Add tests proving pruned replicas do not resurrect deleted content or misplace inserts.
+
+### 5. Replication and wire compatibility
+
+- Document delta sync patterns for at-least-once and out-of-order delivery.
+- Add websocket/offline examples showing text deltas alongside the existing ORMap delta examples.
+- Treat the JSON envelope as a compatibility surface and add tests for malformed, duplicated, and old-version payloads.
+
+### 6. Rich-text layer
+
+- Evaluate a Peritext-style mark layer as a separate module or package after the plain-text CRDT stabilizes.
+- Keep formatting, comments, links, and block structure out of the base `text` module so plain text remains easy to reason about.
+- Reuse before/after anchor semantics from the research section if rich text is added.
+
+### 7. Release readiness
+
+- Add user-facing guides and examples for common editor integration patterns.
+- Document known limitations, especially tombstone growth and the lack of rich-text marks.
+- Decide whether text CRDT values belong in a future heterogeneous dispatch layer; avoid coupling `lattice_maps` to `lattice_text` unless there is a concrete use case.
+
+---
+
 ## Confidence Assessment
 
 ### Certain (directly verified from source code or primary papers)
