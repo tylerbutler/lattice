@@ -60,14 +60,35 @@ pub type ReplicaStatus {
   Down
 }
 
-/// The CRDT state
+/// The CRDT state.
+///
+/// ## Why not reuse `lattice_core/version_vector` or `dot_context`?
+///
+/// The causal context here is the Phoenix.Tracker-style pair of
+/// (`context`, `clouds`): a compacted vector-clock prefix plus per-replica
+/// sets of observed-but-not-yet-contiguous clocks. `merge` and `compact`
+/// rely on the gap-tracking that `clouds` provides — that is what makes
+/// the add-wins observed-remove semantics work with a constant-size
+/// header in the common case.
+///
+/// `lattice_core/version_vector` is a plain `Dict(ReplicaId, Int)` with
+/// no gap tracking, and `lattice_core/dot_context` stores every observed
+/// dot individually (no compaction). Neither captures the invariant
+/// "every clock <= `context[replica]` has been observed AND any clock
+/// listed in `clouds[replica]` has been observed", which `tag_is_in`,
+/// `compact`, and `next_clock` all depend on. Adopting either type would
+/// either lose information or change the on-the-wire shape; reuse is
+/// possible only after extending lattice_core with a compacted variant,
+/// which is intentionally deferred.
 pub type State {
   State(
     /// This node's replica name
     replica: Replica,
     /// Vector clock: replica -> latest compacted clock value
     context: Dict(Replica, Clock),
-    /// Per-replica sets of observed-but-not-compacted clock values
+    /// Per-replica sets of observed-but-not-compacted clock values.
+    /// Stays small in practice because `compact` runs at the end of every
+    /// `merge` and folds any contiguous prefix into `context`.
     clouds: Dict(Replica, Set(Clock)),
     /// Tag -> Entry: all tracked presences
     values: Dict(Tag, Entry),
@@ -152,18 +173,20 @@ pub fn leave_by_pid(state: State, pid: String) -> State {
 
 // ── Query operations ────────────────────────────────────────────────
 
+/// Collect entries from non-down replicas that satisfy `predicate`.
+fn visible_entries(state: State, predicate: fn(Entry) -> Bool) -> List(Entry) {
+  dict.fold(state.values, [], fn(acc, tag, entry) {
+    case is_replica_up(state, tag.replica) && predicate(entry) {
+      True -> [entry, ..acc]
+      False -> acc
+    }
+  })
+}
+
 /// List all online presences across all topics (from non-down replicas)
 pub fn online_list(state: State) -> List(#(String, String, String, json.Json)) {
-  state.values
-  |> dict.to_list()
-  |> list.filter(fn(kv) {
-    let #(tag, _) = kv
-    is_replica_up(state, tag.replica)
-  })
-  |> list.map(fn(kv) {
-    let #(_, entry) = kv
-    #(entry.pid, entry.topic, entry.key, entry.meta)
-  })
+  visible_entries(state, fn(_) { True })
+  |> list.map(fn(entry) { #(entry.pid, entry.topic, entry.key, entry.meta) })
 }
 
 /// Get all presences for a topic (from non-down replicas)
@@ -171,16 +194,8 @@ pub fn get_by_topic(
   state: State,
   topic: String,
 ) -> List(#(String, String, json.Json)) {
-  state.values
-  |> dict.to_list()
-  |> list.filter(fn(kv) {
-    let #(tag, entry) = kv
-    entry.topic == topic && is_replica_up(state, tag.replica)
-  })
-  |> list.map(fn(kv) {
-    let #(_, entry) = kv
-    #(entry.pid, entry.key, entry.meta)
-  })
+  visible_entries(state, fn(entry) { entry.topic == topic })
+  |> list.map(fn(entry) { #(entry.pid, entry.key, entry.meta) })
 }
 
 /// Get presences for a specific key within a topic
@@ -189,18 +204,8 @@ pub fn get_by_key(
   topic: String,
   key: String,
 ) -> List(#(String, json.Json)) {
-  state.values
-  |> dict.to_list()
-  |> list.filter(fn(kv) {
-    let #(tag, entry) = kv
-    entry.topic == topic
-    && entry.key == key
-    && is_replica_up(state, tag.replica)
-  })
-  |> list.map(fn(kv) {
-    let #(_, entry) = kv
-    #(entry.pid, entry.meta)
-  })
+  visible_entries(state, fn(entry) { entry.topic == topic && entry.key == key })
+  |> list.map(fn(entry) { #(entry.pid, entry.meta) })
 }
 
 // ── Merge ───────────────────────────────────────────────────────────
@@ -211,6 +216,11 @@ pub fn get_by_key(
 /// Note: `replicas` (per-node liveness view) is **not** merged — see the
 /// `State.replicas` field docs.
 pub fn merge(local: State, remote: State) -> #(State, Diff) {
+  // The `joins` and `removes` lists are materialized (rather than folded
+  // straight into the new values dict) because they are reused below to
+  // build the `Diff`. Doing it as a single dict.fold would save one
+  // allocation but require a second pass for the diff.
+
   // 1. Find new entries from remote (tags we haven't seen)
   let joins =
     dict.to_list(remote.values)
@@ -372,6 +382,16 @@ pub fn clocks(state: State) -> Dict(Replica, Clock) {
 
 // ── Replica lifecycle ────────────────────────────────────────────────
 
+/// Collect all entries currently owned by `replica`.
+fn entries_for_replica(state: State, replica: Replica) -> List(Entry) {
+  dict.fold(state.values, [], fn(acc, tag, entry) {
+    case tag.replica == replica {
+      True -> [entry, ..acc]
+      False -> acc
+    }
+  })
+}
+
 /// Mark a replica as down. Returns entries that are now invisible (leaves).
 ///
 /// Idempotent: if the replica is already `Down`, the state is unchanged
@@ -382,13 +402,7 @@ pub fn replica_down(state: State, replica: Replica) -> #(State, Diff) {
     _ -> {
       let new_replicas = dict.insert(state.replicas, replica, Down)
       let new_state = State(..state, replicas: new_replicas)
-
-      // Compute what just "left" — all entries from this replica
-      let hidden =
-        dict.to_list(state.values)
-        |> list.filter(fn(kv) { { kv.0 }.replica == replica })
-        |> list.map(fn(kv) { kv.1 })
-
+      let hidden = entries_for_replica(state, replica)
       let diff = Diff(joins: dict.new(), leaves: entries_to_topic_diff(hidden))
       #(new_state, diff)
     }
@@ -405,21 +419,15 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
     Ok(Down) -> {
       let new_replicas = dict.insert(state.replicas, replica, Up)
       let new_state = State(..state, replicas: new_replicas)
-
-      // Compute what just "joined" — all entries from this replica
-      let restored =
-        dict.to_list(state.values)
-        |> list.filter(fn(kv) { { kv.0 }.replica == replica })
-        |> list.map(fn(kv) { kv.1 })
-
+      let restored = entries_for_replica(state, replica)
       let diff =
         Diff(joins: entries_to_topic_diff(restored), leaves: dict.new())
       #(new_state, diff)
     }
     Ok(Up) -> #(state, Diff(joins: dict.new(), leaves: dict.new()))
     Error(_) -> {
-      // First time we hear of this replica — record it as Up but emit no
-      // diff (it was already treated as up by `is_replica_up`).
+      // First contact: record as Up but emit no diff (it was already
+      // treated as up by `is_replica_up`).
       let new_replicas = dict.insert(state.replicas, replica, Up)
       #(
         State(..state, replicas: new_replicas),
@@ -448,6 +456,10 @@ pub fn remove_down_replicas(state: State, replica: Replica) -> State {
 // ── Internal helpers ────────────────────────────────────────────────
 
 fn next_clock(state: State, replica: Replica) -> Clock {
+  // Read max of both compacted context and uncompacted cloud values so
+  // we never reuse a clock still pending in the cloud. The set.fold is
+  // O(cloud size), which stays small because compact() runs after every
+  // merge — tracking the max incrementally would optimize a non-hot path.
   let ctx_clock = case dict.get(state.context, replica) {
     Ok(c) -> c
     Error(_) -> 0

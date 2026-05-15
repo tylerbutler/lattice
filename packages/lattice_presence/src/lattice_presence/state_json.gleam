@@ -197,6 +197,11 @@ fn json_value_decoder() -> decode.Decoder(json.Json) {
   ])
 }
 
+// `json_value_list` and `json_value_dict` share the same recursive
+// structure but produce different `json.Json` shapes (array vs. object)
+// and consume different element types. Unifying them through a higher-
+// order helper obscures the decoder shape without saving real code, so
+// they are kept as two parallel functions.
 fn json_value_list(
   items: List(decode.Dynamic),
   acc: List(json.Json),
