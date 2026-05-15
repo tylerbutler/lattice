@@ -556,49 +556,48 @@ pub fn empty_delta(map: ORMap) -> ORMapDelta {
   )
 }
 
-/// Apply a delta-producing function to the value at `key` and return both
-/// the new map and a delta capturing only the change.
+/// Apply a function to the value at `key` and return both the new map and a
+/// delta capturing the touched key.
 ///
 /// The callback `f` receives the current value (or a default if absent) and
-/// must return a tuple `#(new_value, value_delta)`. Use the `_with_delta`
-/// variants of the underlying CRDT modules (e.g. `g_counter.increment_with_delta`)
-/// to produce the value delta:
+/// returns the new value. The delta contains that per-key CRDT value, which is
+/// sparse at the map level and safe to apply to any replica of the same spec.
 ///
 /// ```gleam
 /// or_map.update_with_delta(map, "score", fn(c) {
 ///   let assert crdt.CrdtGCounter(gc) = c
-///   let #(new_gc, delta_gc) = g_counter.increment_with_delta(gc, 5)
-///   #(crdt.CrdtGCounter(new_gc), crdt.CrdtGCounter(delta_gc))
+///   crdt.CrdtGCounter(g_counter.increment(gc, 5))
 /// })
 /// ```
 ///
-/// If the returned new value or delta does not match the map's `crdt_spec`,
-/// both are coerced to the spec's default and an empty delta is emitted —
-/// matching the safety behavior of `update`.
+/// Returns `Error(TypeMismatch(...))` if the returned value does not match the
+/// map's `crdt_spec`.
 pub fn update_with_delta(
   map: ORMap,
   key: String,
-  f: fn(Crdt) -> #(Crdt, Crdt),
-) -> #(ORMap, ORMapDelta) {
+  f: fn(Crdt) -> Crdt,
+) -> Result(#(ORMap, ORMapDelta), crdt.MergeError) {
   let current = current_value(map, key)
-  let #(new_value, value_delta) = f(current)
-  let #(safe_value, safe_delta) = case
-    matches_spec(new_value, map.crdt_spec),
-    matches_spec(value_delta, map.crdt_spec)
-  {
-    True, True -> #(new_value, value_delta)
-    _, _ -> #(current, crdt.default_delta(map.crdt_spec, map.replica_id))
+  let new_value = f(current)
+  case matches_spec(new_value, map.crdt_spec) {
+    False ->
+      Error(crdt.TypeMismatch(
+        expected: spec_to_string(map.crdt_spec),
+        found: crdt_name(new_value),
+      ))
+    True -> {
+      let #(updated, key_set_delta) = put_value(map, key, new_value)
+      let delta =
+        ORMapDelta(
+          replica_id: map.replica_id,
+          crdt_spec: map.crdt_spec,
+          key_set_delta: key_set_delta,
+          value_deltas: dict.from_list([#(key, new_value)]),
+          remove_bounds_delta: dict.new(),
+        )
+      Ok(#(updated, delta))
+    }
   }
-  let #(updated, key_set_delta) = put_value(map, key, safe_value)
-  let delta =
-    ORMapDelta(
-      replica_id: map.replica_id,
-      crdt_spec: map.crdt_spec,
-      key_set_delta: key_set_delta,
-      value_deltas: dict.from_list([#(key, safe_delta)]),
-      remove_bounds_delta: dict.new(),
-    )
-  #(updated, delta)
 }
 
 fn current_value(map: ORMap, key: String) -> Crdt {
@@ -632,14 +631,13 @@ fn put_value(map: ORMap, key: String, value: Crdt) -> #(ORMap, ORSet(String)) {
 pub fn remove_with_delta(map: ORMap, key: String) -> #(ORMap, ORMapDelta) {
   let #(updated_key_set, key_set_delta) =
     or_set.remove_with_delta(map.key_set, key)
-  let bound = or_set_bound_after_remove(map.key_set, key)
-  let updated_bounds = case version_vector.is_empty(bound) {
-    True -> map.remove_bounds
-    False -> dict.insert(map.remove_bounds, key, bound)
-  }
-  let bounds_delta = case version_vector.is_empty(bound) {
-    True -> dict.new()
-    False -> dict.from_list([#(key, bound)])
+  let #(_, bound) = or_set.remove_with_bound(map.key_set, key)
+  let #(updated_bounds, bounds_delta) = case version_vector.is_empty(bound) {
+    True -> #(map.remove_bounds, dict.new())
+    False -> #(
+      dict.insert(map.remove_bounds, key, bound),
+      dict.from_list([#(key, bound)]),
+    )
   }
   let updated =
     ORMap(..map, key_set: updated_key_set, remove_bounds: updated_bounds)
@@ -654,20 +652,11 @@ pub fn remove_with_delta(map: ORMap, key: String) -> #(ORMap, ORMapDelta) {
   #(updated, delta)
 }
 
-fn or_set_bound_after_remove(
-  key_set: ORSet(String),
-  key: String,
-) -> VersionVector {
-  let #(_, bound) = or_set.remove_with_bound(key_set, key)
-  bound
-}
-
 /// Apply a delta to a map, producing a new map.
 ///
 /// Returns `Error(TypeMismatch(...))` if the delta and map have different
 /// `crdt_spec` values. Otherwise reconstructs the delta as a sparse
-/// `ORMap` and merges it via `merge`, so the returned map converges with
-/// what would result from merging the delta source's full state.
+/// sparse state, so only the keys carried by the delta need value/bound work.
 ///
 /// Idempotent and commutative: applying the same delta twice, or applying
 /// deltas in any order, yields the same final state.
@@ -681,18 +670,44 @@ pub fn apply_delta(
         expected: spec_to_string(map.crdt_spec),
         found: spec_to_string(delta.crdt_spec),
       ))
-    True -> {
-      let delta_as_map =
-        ORMap(
-          replica_id: delta.replica_id,
-          crdt_spec: delta.crdt_spec,
-          key_set: delta.key_set_delta,
-          values: delta.value_deltas,
-          remove_bounds: delta.remove_bounds_delta,
-        )
-      merge(map, delta_as_map)
-    }
+    True -> apply_delta_unchecked(map, delta)
   }
+}
+
+fn apply_delta_unchecked(
+  map: ORMap,
+  delta: ORMapDelta,
+) -> Result(ORMap, crdt.MergeError) {
+  let merged_key_set = or_set.merge(map.key_set, delta.key_set_delta)
+  let merged_values =
+    dict.combine(map.values, delta.value_deltas, fn(local, incoming) {
+      case crdt.merge(local, incoming) {
+        Ok(merged) -> merged
+        Error(_) -> crdt.default_crdt(map.crdt_spec, map.replica_id)
+      }
+    })
+  let merged_bounds =
+    dict.combine(
+      map.remove_bounds,
+      delta.remove_bounds_delta,
+      version_vector.merge,
+    )
+    |> delete_bounds_for(dict.keys(delta.value_deltas))
+
+  Ok(ORMap(
+    replica_id: map.replica_id,
+    crdt_spec: map.crdt_spec,
+    key_set: merged_key_set,
+    values: merged_values,
+    remove_bounds: merged_bounds,
+  ))
+}
+
+fn delete_bounds_for(
+  bounds: dict.Dict(String, VersionVector),
+  keys: List(String),
+) -> dict.Dict(String, VersionVector) {
+  list.fold(keys, bounds, fn(acc, key) { dict.delete(acc, key) })
 }
 
 /// Combine two deltas into a single delta.
@@ -716,48 +731,19 @@ pub fn merge_deltas(
       ))
     True -> {
       let merged_key_set = or_set.merge(a.key_set_delta, b.key_set_delta)
-      let all_value_keys =
-        set.to_list(set.union(
-          set.from_list(dict.keys(a.value_deltas)),
-          set.from_list(dict.keys(b.value_deltas)),
-        ))
       let merged_values =
-        list.fold(all_value_keys, dict.new(), fn(acc, key) {
-          let merged = case
-            dict.get(a.value_deltas, key),
-            dict.get(b.value_deltas, key)
-          {
-            Ok(va), Ok(vb) ->
-              case crdt.merge(va, vb) {
-                Ok(m) -> m
-                Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
-              }
-            Ok(va), Error(_) -> va
-            Error(_), Ok(vb) -> vb
-            Error(_), Error(_) ->
-              panic as "unreachable: key must exist in at least one delta"
+        dict.combine(a.value_deltas, b.value_deltas, fn(va, vb) {
+          case crdt.merge(va, vb) {
+            Ok(m) -> m
+            Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
           }
-          dict.insert(acc, key, merged)
         })
-      let all_bound_keys =
-        set.to_list(set.union(
-          set.from_list(dict.keys(a.remove_bounds_delta)),
-          set.from_list(dict.keys(b.remove_bounds_delta)),
-        ))
       let merged_bounds =
-        list.fold(all_bound_keys, dict.new(), fn(acc, key) {
-          case
-            dict.get(a.remove_bounds_delta, key),
-            dict.get(b.remove_bounds_delta, key)
-          {
-            Ok(ba), Ok(bb) ->
-              dict.insert(acc, key, version_vector.merge(ba, bb))
-            Ok(ba), Error(_) -> dict.insert(acc, key, ba)
-            Error(_), Ok(bb) -> dict.insert(acc, key, bb)
-            Error(_), Error(_) ->
-              panic as "unreachable: key must exist in at least one delta"
-          }
-        })
+        dict.combine(
+          a.remove_bounds_delta,
+          b.remove_bounds_delta,
+          version_vector.merge,
+        )
       Ok(ORMapDelta(
         replica_id: a.replica_id,
         crdt_spec: a.crdt_spec,

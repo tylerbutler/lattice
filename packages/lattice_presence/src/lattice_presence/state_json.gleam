@@ -10,47 +10,44 @@ import gleam/list
 import gleam/option
 import gleam/set
 import lattice_presence/presence_state.{
-  type Entry, type ReplicaStatus, type State, type Tag, Down, Entry, State, Tag,
-  Up,
+  type Entry, type State, type Tag, Entry, Tag,
 }
 
+const max_meta_depth = 64
+
 /// Encode a CRDT State to JSON
-pub fn encode(s: State) -> json.Json {
+pub fn to_json(s: State) -> json.Json {
+  let #(replica, context, clouds, values) = presence_state.replicated_parts(s)
   json.object([
-    #("replica", json.string(s.replica)),
-    #("context", encode_context(s.context)),
-    #("clouds", encode_clouds(s.clouds)),
-    #("values", encode_values(s.values)),
-    #("replicas", encode_replicas(s.replicas)),
+    #("replica", json.string(replica)),
+    #("context", encode_context(context)),
+    #("clouds", encode_clouds(clouds)),
+    #("values", encode_values(values)),
   ])
 }
 
 /// Encode a State to a JSON string
-pub fn encode_to_string(s: State) -> String {
-  encode(s) |> json.to_string
+pub fn to_json_string(s: State) -> String {
+  to_json(s) |> json.to_string
 }
 
 /// Decode a JSON string into a State
-pub fn decode_from_string(
-  json_string: String,
-) -> Result(State, json.DecodeError) {
-  json.parse(from: json_string, using: state_decoder())
+pub fn from_json(json_string: String) -> Result(State, json.DecodeError) {
+  json.parse(from: json_string, using: decoder())
 }
 
-/// Decoder for the CRDT State type. Used by `decode_from_string` and
+/// Decoder for the CRDT State type. Used by `from_json` and
 /// available for embedding in larger decoders (e.g. sync envelope parsing).
-pub fn state_decoder() -> decode.Decoder(State) {
+pub fn decoder() -> decode.Decoder(State) {
   use replica <- decode.field("replica", decode.string)
   use context <- decode.field("context", context_decoder())
   use clouds <- decode.field("clouds", clouds_decoder())
   use values <- decode.field("values", values_decoder())
-  use replicas <- decode.field("replicas", replicas_decoder())
-  decode.success(State(
-    replica: replica,
-    context: context,
-    clouds: clouds,
-    values: values,
-    replicas: replicas,
+  decode.success(presence_state.from_replicated_parts(
+    replica,
+    context,
+    clouds,
+    values,
   ))
 }
 
@@ -65,6 +62,12 @@ fn encode_context(context: dict.Dict(String, Int)) -> json.Json {
 
 fn context_decoder() -> decode.Decoder(dict.Dict(String, Int)) {
   decode.dict(decode.string, decode.int)
+  |> decode.then(fn(context) {
+    case all_dict_values(context, fn(clock) { clock >= 0 }) {
+      True -> decode.success(context)
+      False -> decode.failure(context, "non-negative context clocks")
+    }
+  })
 }
 
 // ── Clouds ──────────────────────────────────────────────────────────
@@ -78,8 +81,14 @@ fn encode_clouds(clouds: dict.Dict(String, set.Set(Int))) -> json.Json {
 
 fn clouds_decoder() -> decode.Decoder(dict.Dict(String, set.Set(Int))) {
   decode.dict(decode.string, decode.list(decode.int))
-  |> decode.map(fn(d) {
-    dict.map_values(d, fn(_, clocks) { set.from_list(clocks) })
+  |> decode.then(fn(d) {
+    case all_cloud_clocks_positive(d) {
+      True ->
+        decode.success(
+          dict.map_values(d, fn(_, clocks) { set.from_list(clocks) }),
+        )
+      False -> decode.failure(dict.new(), "positive cloud clocks")
+    }
   })
 }
 
@@ -95,7 +104,11 @@ fn encode_tag(tag: Tag) -> json.Json {
 fn tag_decoder() -> decode.Decoder(Tag) {
   use replica <- decode.field("replica", decode.string)
   use clock <- decode.field("clock", decode.int)
-  decode.success(Tag(replica: replica, clock: clock))
+  case clock > 0 {
+    True -> decode.success(Tag(replica: replica, clock: clock))
+    False ->
+      decode.failure(Tag(replica: replica, clock: clock), "positive tag clock")
+  }
 }
 
 fn encode_entry(entry: Entry) -> json.Json {
@@ -139,43 +152,36 @@ fn values_decoder() -> decode.Decoder(dict.Dict(Tag, Entry)) {
   |> decode.map(dict.from_list)
 }
 
-// ── Replicas ────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────
 
-fn encode_replica_status(status: ReplicaStatus) -> json.Json {
-  case status {
-    Up -> json.string("up")
-    Down -> json.string("down")
-  }
+fn all_dict_values(
+  values: dict.Dict(String, Int),
+  predicate: fn(Int) -> Bool,
+) -> Bool {
+  dict.fold(values, True, fn(valid, _, value) { valid && predicate(value) })
 }
 
-fn replica_status_decoder() -> decode.Decoder(ReplicaStatus) {
-  decode.string
-  |> decode.then(fn(s) {
-    case s {
-      "up" -> decode.success(Up)
-      "down" -> decode.success(Down)
-      _ -> decode.failure(Up, "ReplicaStatus")
-    }
+fn all_cloud_clocks_positive(values: dict.Dict(String, List(Int))) -> Bool {
+  dict.fold(values, True, fn(valid, _, clocks) {
+    valid && list.all(clocks, fn(clock) { clock > 0 })
   })
 }
-
-fn encode_replicas(replicas: dict.Dict(String, ReplicaStatus)) -> json.Json {
-  replicas
-  |> dict.to_list
-  |> list.map(fn(kv) { #(kv.0, encode_replica_status(kv.1)) })
-  |> json.object
-}
-
-fn replicas_decoder() -> decode.Decoder(dict.Dict(String, ReplicaStatus)) {
-  decode.dict(decode.string, replica_status_decoder())
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────
 
 /// Decoder that reconstructs a json.Json value from parsed JSON. Uses
 /// standard decoder combinators instead of BEAM-specific dynamic.classify
 /// so the same code works on both the Erlang and JavaScript targets.
 fn json_value_decoder() -> decode.Decoder(json.Json) {
+  json_value_decoder_at(0)
+}
+
+fn json_value_decoder_at(depth: Int) -> decode.Decoder(json.Json) {
+  case depth > max_meta_depth {
+    True -> decode.failure(json.null(), "metadata depth within limit")
+    False -> json_value_decoder_within_limit(depth)
+  }
+}
+
+fn json_value_decoder_within_limit(depth: Int) -> decode.Decoder(json.Json) {
   decode.one_of(decode.string |> decode.map(json.string), [
     decode.int |> decode.map(json.int),
     decode.float |> decode.map(json.float),
@@ -188,11 +194,11 @@ fn json_value_decoder() -> decode.Decoder(json.Json) {
         }
       }),
     decode.list(decode.dynamic)
-      |> decode.then(fn(items) { json_value_list(items, []) }),
+      |> decode.then(fn(items) { json_value_list(items, [], depth + 1) }),
     decode.dict(decode.string, decode.dynamic)
       |> decode.then(fn(d) {
         let pairs = dict.to_list(d)
-        json_value_dict(pairs, [])
+        json_value_dict(pairs, [], depth + 1)
       }),
   ])
 }
@@ -205,12 +211,13 @@ fn json_value_decoder() -> decode.Decoder(json.Json) {
 fn json_value_list(
   items: List(decode.Dynamic),
   acc: List(json.Json),
+  depth: Int,
 ) -> decode.Decoder(json.Json) {
   case items {
     [] -> decode.success(json.preprocessed_array(list.reverse(acc)))
     [item, ..rest] ->
-      case decode.run(item, json_value_decoder()) {
-        Ok(val) -> json_value_list(rest, [val, ..acc])
+      case decode.run(item, json_value_decoder_at(depth)) {
+        Ok(val) -> json_value_list(rest, [val, ..acc], depth)
         Error(_) -> decode.failure(json.null(), "valid JSON value in array")
       }
   }
@@ -219,12 +226,13 @@ fn json_value_list(
 fn json_value_dict(
   pairs: List(#(String, decode.Dynamic)),
   acc: List(#(String, json.Json)),
+  depth: Int,
 ) -> decode.Decoder(json.Json) {
   case pairs {
     [] -> decode.success(json.object(list.reverse(acc)))
     [#(key, value), ..rest] ->
-      case decode.run(value, json_value_decoder()) {
-        Ok(val) -> json_value_dict(rest, [#(key, val), ..acc])
+      case decode.run(value, json_value_decoder_at(depth)) {
+        Ok(val) -> json_value_dict(rest, [#(key, val), ..acc], depth)
         Error(_) -> decode.failure(json.null(), "valid JSON value in object")
       }
   }

@@ -18,7 +18,7 @@
 ////   |> state.join("pid-1", "room:lobby", "alice", json.object([]))
 //// let b = state.new("node-b")
 ////   |> state.join("pid-2", "room:lobby", "bob", json.object([]))
-//// let #(merged, _diff) = state.merge(a, b)
+//// let merged = state.merge(a, b)
 //// state.get_by_topic(merged, "room:lobby")
 //// // -> [#("pid-1", "alice", _), #("pid-2", "bob", _)]
 //// ```
@@ -80,7 +80,7 @@ pub type ReplicaStatus {
 /// either lose information or change the on-the-wire shape; reuse is
 /// possible only after extending lattice_core with a compacted variant,
 /// which is intentionally deferred.
-pub type State {
+pub opaque type State {
   State(
     /// This node's replica name
     replica: Replica,
@@ -211,11 +211,16 @@ pub fn get_by_key(
 // ── Merge ───────────────────────────────────────────────────────────
 
 /// Merge remote state into local state.
-/// Returns the new merged state and a diff of what changed.
 ///
-/// Note: `replicas` (per-node liveness view) is **not** merged — see the
-/// `State.replicas` field docs.
-pub fn merge(local: State, remote: State) -> #(State, Diff) {
+/// `replicas` (per-node liveness view) is **not** merged because it is
+/// local-only view state, not part of the replicated CRDT payload.
+pub fn merge(local: State, remote: State) -> State {
+  let #(merged, _) = merge_with_diff(local, remote)
+  merged
+}
+
+/// Merge remote state into local state and return a diff of what changed.
+pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
   // The `joins` and `removes` lists are materialized (rather than folded
   // straight into the new values dict) because they are reused below to
   // build the `Diff`. Doing it as a single dict.fold would save one
@@ -369,15 +374,40 @@ fn entries_to_topic_diff(
 /// `context` to filter to only the tags the remote hasn't seen — that
 /// will be exposed as a separate function rather than retrofitted onto
 /// this one.
-pub fn extract(state: State) -> State {
+pub fn extract_full_state(state: State) -> State {
   state
 }
 
 // ── Introspection ───────────────────────────────────────────────────
 
 /// Get the current vector clock
-pub fn clocks(state: State) -> Dict(Replica, Clock) {
+pub fn replica(state: State) -> Replica {
+  state.replica
+}
+
+/// Get the compacted vector clock.
+pub fn compacted_clocks(state: State) -> Dict(Replica, Clock) {
   state.context
+}
+
+/// Return the number of entries retained by the CRDT state.
+pub fn entry_count(state: State) -> Int {
+  dict.size(state.values)
+}
+
+/// Return the number of uncompacted cloud entries retained by the state.
+pub fn cloud_count(state: State) -> Int {
+  dict.size(state.clouds)
+}
+
+@internal
+pub fn internal_values(state: State) -> Dict(Tag, Entry) {
+  state.values
+}
+
+@internal
+pub fn internal_clouds(state: State) -> Dict(Replica, Set(Clock)) {
+  state.clouds
 }
 
 // ── Replica lifecycle ────────────────────────────────────────────────
@@ -438,7 +468,7 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
 }
 
 /// Permanently remove all entries and context for a downed replica
-pub fn remove_down_replicas(state: State, replica: Replica) -> State {
+pub fn remove_down_replica(state: State, replica: Replica) -> State {
   let new_values =
     dict.filter(state.values, fn(tag, _) { tag.replica != replica })
   let new_context = dict.delete(state.context, replica)
@@ -450,6 +480,34 @@ pub fn remove_down_replicas(state: State, replica: Replica) -> State {
     context: new_context,
     clouds: new_clouds,
     replicas: new_replicas,
+  )
+}
+
+@internal
+pub fn replicated_parts(
+  state: State,
+) -> #(
+  Replica,
+  Dict(Replica, Clock),
+  Dict(Replica, Set(Clock)),
+  Dict(Tag, Entry),
+) {
+  #(state.replica, state.context, state.clouds, state.values)
+}
+
+@internal
+pub fn from_replicated_parts(
+  replica: Replica,
+  context: Dict(Replica, Clock),
+  clouds: Dict(Replica, Set(Clock)),
+  values: Dict(Tag, Entry),
+) -> State {
+  State(
+    replica: replica,
+    context: context,
+    clouds: clouds,
+    values: values,
+    replicas: dict.from_list([#(replica, Up)]),
   )
 }
 

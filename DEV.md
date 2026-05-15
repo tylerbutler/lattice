@@ -193,7 +193,7 @@ State-based replication ships the full CRDT on every sync, which is wasteful —
 `ORMap` composes the delta APIs of its key-set (`ORSet`) and value CRDTs to produce an `ORMapDelta` that carries only touched keys. `apply_delta(map, delta)` performs the merge:
 
 ```gleam
-let #(local_new, delta) = or_map.update_with_delta(local, "score", inc)
+let assert Ok(#(local_new, delta)) = or_map.update_with_delta(local, "score", inc)
 let assert Ok(remote_new) = or_map.apply_delta(remote, delta)
 ```
 
