@@ -95,6 +95,13 @@ projects:
           - path: packages/lattice_maps/gleam.toml
             find: 'version = ".*"'
             replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Presence
+      key: lattice_presence
+      changelog: packages/lattice_presence/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_presence/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
     - label: Lattice CRDT
       key: lattice_crdt
       changelog: packages/lattice_crdt/CHANGELOG.md
