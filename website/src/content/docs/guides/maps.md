@@ -137,3 +137,20 @@ The merge combines two pieces of state:
 That means a concurrent `update` and `remove` of the same key keeps the key in
 the merged map, and concurrent updates to the nested CRDT converge using that
 CRDT's own merge rules.
+
+## ORMap delta-state replication
+
+`ORMap` exposes a dedicated `ORMapDelta` API for incremental sync:
+
+- `or_map.update_with_delta`
+- `or_map.remove_with_delta`
+- `or_map.apply_delta`
+- `or_map.merge_deltas`
+- `or_map.empty_delta`
+- `or_map.delta_to_json`
+- `or_map.delta_from_json`
+
+Use `update_with_delta` or `remove_with_delta` for local changes, send the
+returned delta to peers, and apply it remotely with `apply_delta`. `merge_deltas`
+can batch multiple pending deltas before transmission. See
+[Delta-State Replication](/advanced/delta-state/) for examples.

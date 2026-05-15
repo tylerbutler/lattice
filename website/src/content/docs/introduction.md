@@ -26,10 +26,13 @@ The library is organized across [focused packages](/packages/):
 - **registers** (`lattice_registers`): LWWRegister (Last-Writer-Wins Register), MVRegister (Multi-Value Register)
 - **sets** (`lattice_sets`): GSet (Grow-only Set), TwoPSet (Two-Phase Set), ORSet (Observed-Remove Set)
 - **maps** (`lattice_maps`): LWWMap (Last-Writer-Wins Map), ORMap (Observed-Remove Map)
+- **presence** (`lattice_presence`): distributed topic/key/pid presence tracking
 - **causal infrastructure** (`lattice_core`): `ReplicaId`, `VersionVector`, `DotContext`
 
-The umbrella package `lattice_crdt` depends on all of the above, so a single
-`gleam add lattice_crdt` gives you everything.
+The umbrella package `lattice_crdt` depends on the core CRDT packages, so a
+single `gleam add lattice_crdt` gives you counters, registers, sets, maps, and
+causal infrastructure. Add `lattice_presence` separately when you need presence
+tracking.
 
 Each CRDT module follows the same basic shape:
 
@@ -39,6 +42,11 @@ Each CRDT module follows the same basic shape:
 - `value` to read the user-facing value
 - `to_json` / `from_json` for serialization
 
+Many state-changing functions also expose `*_with_delta` companions. These
+return both the new state and a compact delta that remote replicas merge with
+the same CRDT semantics. See [Delta-State Replication](/advanced/delta-state/)
+for details.
+
 ## Choosing the right CRDT
 
 - Use **counters** for totals that must converge across replicas.
@@ -46,5 +54,7 @@ Each CRDT module follows the same basic shape:
   multi-value conflict handling.
 - Use **sets** for membership tracking.
 - Use **maps** when each key needs its own convergent value.
+- Use **presence** when you need topic/key membership with metadata and local
+  replica visibility.
 
 If you are new to the library, start with the [Quick Start](/quick-start/).

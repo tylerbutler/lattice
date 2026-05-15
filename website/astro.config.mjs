@@ -89,11 +89,19 @@ export default defineConfig({
 							label: "Maps",
 							slug: "guides/maps",
 						},
+						{
+							label: "Presence",
+							slug: "guides/presence",
+						},
 					],
 				},
 				{
 					label: "Advanced",
 					items: [
+						{
+							label: "Delta-State Replication",
+							slug: "advanced/delta-state",
+						},
 						{
 							label: "Version Vectors",
 							slug: "advanced/version-vectors",
