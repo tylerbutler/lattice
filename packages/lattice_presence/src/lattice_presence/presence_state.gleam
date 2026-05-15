@@ -24,6 +24,7 @@
 //// ```
 
 import gleam/dict.{type Dict}
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/set.{type Set}
@@ -70,7 +71,15 @@ pub type State {
     clouds: Dict(Replica, Set(Clock)),
     /// Tag -> Entry: all tracked presences
     values: Dict(Tag, Entry),
-    /// Replica status tracking
+    /// Replica status tracking.
+    ///
+    /// This field is **local-only** and intentionally **not** propagated
+    /// during `merge`. Up/Down transitions originate from cluster-level
+    /// signals (e.g. net-kernel monitors, gossip heartbeats) that the
+    /// embedder observes locally; each node is responsible for calling
+    /// `replica_up` / `replica_down` when it detects the corresponding
+    /// event. Replicating `replicas` via CRDT merge would conflate the
+    /// per-node liveness view with the globally-replicated presence set.
     replicas: Dict(Replica, ReplicaStatus),
   )
 }
@@ -112,18 +121,32 @@ pub fn join(
   State(..state, context: new_context, values: new_values)
 }
 
-/// Remove a specific presence by pid, topic, and key
+/// Remove a specific presence by pid, topic, and key.
+///
+/// Only entries owned by this replica are removable — leaving a foreign
+/// replica's entry would not be causally observed (this node's context
+/// doesn't cover the foreign tag), so it would silently reappear on the
+/// next merge. Foreign entries are filtered out at the source instead.
 pub fn leave(state: State, pid: String, topic: String, key: String) -> State {
   let new_values =
-    dict.filter(state.values, fn(_, entry) {
-      !{ entry.pid == pid && entry.topic == topic && entry.key == key }
+    dict.filter(state.values, fn(tag, entry) {
+      tag.replica != state.replica
+      || entry.pid != pid
+      || entry.topic != topic
+      || entry.key != key
     })
   State(..state, values: new_values)
 }
 
-/// Remove all presences for a pid
+/// Remove all presences for a pid owned by this replica.
+///
+/// As with `leave`, only locally-owned entries are eligible — see that
+/// function's docs for the rationale.
 pub fn leave_by_pid(state: State, pid: String) -> State {
-  let new_values = dict.filter(state.values, fn(_, entry) { entry.pid != pid })
+  let new_values =
+    dict.filter(state.values, fn(tag, entry) {
+      tag.replica != state.replica || entry.pid != pid
+    })
   State(..state, values: new_values)
 }
 
@@ -184,16 +207,16 @@ pub fn get_by_key(
 
 /// Merge remote state into local state.
 /// Returns the new merged state and a diff of what changed.
+///
+/// Note: `replicas` (per-node liveness view) is **not** merged — see the
+/// `State.replicas` field docs.
 pub fn merge(local: State, remote: State) -> #(State, Diff) {
   // 1. Find new entries from remote (tags we haven't seen)
   let joins =
     dict.to_list(remote.values)
     |> list.filter(fn(kv) {
       let #(tag, _) = kv
-      case tag_is_in(local.context, local.clouds, tag) {
-        True -> False
-        False -> True
-      }
+      !tag_is_in(local.context, local.clouds, tag)
     })
 
   // 2. Find entries we should remove (in remote's causal context but not in
@@ -204,12 +227,7 @@ pub fn merge(local: State, remote: State) -> #(State, Diff) {
       let #(tag, _) = kv
       tag.replica != local.replica
       && tag_is_in(remote.context, remote.clouds, tag)
-      && {
-        case dict.has_key(remote.values, tag) {
-          True -> False
-          False -> True
-        }
-      }
+      && !dict.has_key(remote.values, tag)
     })
 
   // 3. Apply changes
@@ -263,12 +281,7 @@ fn merge_contexts(
   a: Dict(Replica, Clock),
   b: Dict(Replica, Clock),
 ) -> Dict(Replica, Clock) {
-  dict.combine(a, b, fn(ca, cb) {
-    case ca > cb {
-      True -> ca
-      False -> cb
-    }
-  })
+  dict.combine(a, b, int.max)
 }
 
 /// Merge cloud sets
@@ -338,20 +351,15 @@ fn entries_to_topic_diff(
 
 /// Extract state for sending to a remote replica.
 ///
-/// Returns the full local state. The remote's merge handles deduplication
-/// of entries it already has. Absence of an entry combined with coverage in
-/// context = observed removal.
+/// Currently returns the full local state. Remote's `merge` handles
+/// deduplication of entries it already has, and absence of an entry
+/// combined with coverage in `context` represents an observed removal.
 ///
-/// Note: Phoenix's extract filters to "known replicas" and requires
-/// `replica_up()` before sync. Our design allows direct merge without
-/// `replica_up`, so we send the full state. Delta optimization (sending
-/// only new entries) requires proper delta tracking and will be added in a
-/// future iteration.
-pub fn extract(
-  state: State,
-  _remote_replica: Replica,
-  _remote_context: Dict(Replica, Clock),
-) -> State {
+/// A future delta-extraction variant will use the remote's known
+/// `context` to filter to only the tags the remote hasn't seen — that
+/// will be exposed as a separate function rather than retrofitted onto
+/// this one.
+pub fn extract(state: State) -> State {
   state
 }
 
@@ -365,33 +373,60 @@ pub fn clocks(state: State) -> Dict(Replica, Clock) {
 // ── Replica lifecycle ────────────────────────────────────────────────
 
 /// Mark a replica as down. Returns entries that are now invisible (leaves).
+///
+/// Idempotent: if the replica is already `Down`, the state is unchanged
+/// and the returned diff is empty.
 pub fn replica_down(state: State, replica: Replica) -> #(State, Diff) {
-  let new_replicas = dict.insert(state.replicas, replica, Down)
-  let new_state = State(..state, replicas: new_replicas)
+  case dict.get(state.replicas, replica) {
+    Ok(Down) -> #(state, Diff(joins: dict.new(), leaves: dict.new()))
+    _ -> {
+      let new_replicas = dict.insert(state.replicas, replica, Down)
+      let new_state = State(..state, replicas: new_replicas)
 
-  // Compute what just "left" — all entries from this replica
-  let hidden =
-    dict.to_list(state.values)
-    |> list.filter(fn(kv) { { kv.0 }.replica == replica })
-    |> list.map(fn(kv) { kv.1 })
+      // Compute what just "left" — all entries from this replica
+      let hidden =
+        dict.to_list(state.values)
+        |> list.filter(fn(kv) { { kv.0 }.replica == replica })
+        |> list.map(fn(kv) { kv.1 })
 
-  let diff = Diff(joins: dict.new(), leaves: entries_to_topic_diff(hidden))
-  #(new_state, diff)
+      let diff = Diff(joins: dict.new(), leaves: entries_to_topic_diff(hidden))
+      #(new_state, diff)
+    }
+  }
 }
 
 /// Mark a replica as up. Returns entries that are now visible again (joins).
+///
+/// Idempotent: if the replica is already `Up` (or unknown — unknown
+/// replicas are assumed up), the state is unchanged and the returned
+/// diff is empty.
 pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
-  let new_replicas = dict.insert(state.replicas, replica, Up)
-  let new_state = State(..state, replicas: new_replicas)
+  case dict.get(state.replicas, replica) {
+    Ok(Down) -> {
+      let new_replicas = dict.insert(state.replicas, replica, Up)
+      let new_state = State(..state, replicas: new_replicas)
 
-  // Compute what just "joined" — all entries from this replica
-  let restored =
-    dict.to_list(state.values)
-    |> list.filter(fn(kv) { { kv.0 }.replica == replica })
-    |> list.map(fn(kv) { kv.1 })
+      // Compute what just "joined" — all entries from this replica
+      let restored =
+        dict.to_list(state.values)
+        |> list.filter(fn(kv) { { kv.0 }.replica == replica })
+        |> list.map(fn(kv) { kv.1 })
 
-  let diff = Diff(joins: entries_to_topic_diff(restored), leaves: dict.new())
-  #(new_state, diff)
+      let diff =
+        Diff(joins: entries_to_topic_diff(restored), leaves: dict.new())
+      #(new_state, diff)
+    }
+    Ok(Up) -> #(state, Diff(joins: dict.new(), leaves: dict.new()))
+    Error(_) -> {
+      // First time we hear of this replica — record it as Up but emit no
+      // diff (it was already treated as up by `is_replica_up`).
+      let new_replicas = dict.insert(state.replicas, replica, Up)
+      #(
+        State(..state, replicas: new_replicas),
+        Diff(joins: dict.new(), leaves: dict.new()),
+      )
+    }
+  }
 }
 
 /// Permanently remove all entries and context for a downed replica
@@ -418,20 +453,10 @@ fn next_clock(state: State, replica: Replica) -> Clock {
     Error(_) -> 0
   }
   let cloud_max = case dict.get(state.clouds, replica) {
-    Ok(cloud) ->
-      set.fold(cloud, 0, fn(acc, c) {
-        case c > acc {
-          True -> c
-          False -> acc
-        }
-      })
+    Ok(cloud) -> set.fold(cloud, 0, int.max)
     Error(_) -> 0
   }
-  let base = case ctx_clock > cloud_max {
-    True -> ctx_clock
-    False -> cloud_max
-  }
-  base + 1
+  int.max(ctx_clock, cloud_max) + 1
 }
 
 fn is_replica_up(state: State, replica: Replica) -> Bool {

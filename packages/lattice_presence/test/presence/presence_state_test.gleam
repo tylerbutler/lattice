@@ -442,10 +442,8 @@ pub fn extract_produces_delta_for_new_replica_test() {
   let a = state.join(a, "p1", "room:lobby", "alice", json.object([]))
   let a = state.join(a, "p2", "room:lobby", "bob", json.object([]))
 
-  let b = state.new("node_b")
-
-  // Extract what B needs from A (everything, since B has empty context)
-  let delta = state.extract(a, b.replica, b.context)
+  // Extract what a fresh replica needs from A (everything)
+  let delta = state.extract(a)
 
   // Delta should contain both entries
   dict.size(delta.values) |> expect.to_equal(2)
@@ -455,11 +453,8 @@ pub fn extract_returns_full_state_test() {
   let a = state.new("node_a")
   let a = state.join(a, "p1", "room:lobby", "alice", json.object([]))
 
-  let b = state.new("node_b")
-  let #(b, _) = state.merge(b, a)
-
   // Extract returns full state — merge handles deduplication
-  let extracted = state.extract(a, b.replica, b.context)
+  let extracted = state.extract(a)
   dict.size(extracted.values) |> expect.to_equal(1)
 }
 
@@ -468,14 +463,11 @@ pub fn extract_includes_all_entries_test() {
   let a = state.join(a, "p1", "room:lobby", "alice", json.object([]))
   let a = state.join(a, "p2", "room:lobby", "bob", json.object([]))
 
-  let b = state.new("node_b")
-  let #(b, _) = state.merge(b, a)
-
   // A adds a third entry
   let a = state.join(a, "p3", "room:lobby", "carol", json.object([]))
 
   // Extract returns all 3 entries (full state)
-  let extracted = state.extract(a, b.replica, b.context)
+  let extracted = state.extract(a)
   dict.size(extracted.values) |> expect.to_equal(3)
 }
 
@@ -488,7 +480,7 @@ pub fn phoenix_extract_merge_workflow_test() {
   let b = state.join(b, "pid_bob", "lobby", "bob", json.object([]))
 
   // Merge using extract (like Phoenix does)
-  let delta_b = state.extract(b, a.replica, a.context)
+  let delta_b = state.extract(b)
   let #(a, diff) = state.merge(a, delta_b)
   state.online_list(a) |> list.length |> expect.to_equal(2)
   case dict.get(diff.joins, "lobby") {
@@ -497,7 +489,7 @@ pub fn phoenix_extract_merge_workflow_test() {
   }
 
   // Second extract-merge is idempotent
-  let delta_b2 = state.extract(b, a.replica, a.context)
+  let delta_b2 = state.extract(b)
   let #(a2, diff2) = state.merge(a, delta_b2)
   dict.size(diff2.joins) |> expect.to_equal(0)
   dict.size(diff2.leaves) |> expect.to_equal(0)
@@ -513,14 +505,14 @@ pub fn phoenix_extract_observes_remove_test() {
   let b = state.join(b, "pid_bob", "lobby", "bob", json.object([]))
 
   // Sync both directions
-  let #(a, _) = state.merge(a, state.extract(b, a.replica, a.context))
-  let #(b, _) = state.merge(b, state.extract(a, b.replica, b.context))
+  let #(a, _) = state.merge(a, state.extract(b))
+  let #(b, _) = state.merge(b, state.extract(a))
 
   // A removes alice
   let a = state.leave(a, "pid_alice", "lobby", "alice")
 
   // B merges A's extract — should observe alice's removal
-  let #(b, diff) = state.merge(b, state.extract(a, b.replica, b.context))
+  let #(b, diff) = state.merge(b, state.extract(a))
   case dict.get(diff.leaves, "lobby") {
     Ok(leaves) -> list.length(leaves) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"

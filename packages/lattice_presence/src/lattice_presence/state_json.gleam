@@ -103,7 +103,10 @@ fn encode_entry(entry: Entry) -> json.Json {
     #("topic", json.string(entry.topic)),
     #("key", json.string(entry.key)),
     #("pid", json.string(entry.pid)),
-    #("meta", json.string(json.to_string(entry.meta))),
+    // `meta` is embedded as a raw JSON value (not a stringified blob) so
+    // payloads are smaller and self-describing on the wire. Decoding uses
+    // `json_value_decoder` to reconstruct the `json.Json` opaque value.
+    #("meta", entry.meta),
   ])
 }
 
@@ -111,16 +114,8 @@ fn entry_decoder() -> decode.Decoder(Entry) {
   use topic <- decode.field("topic", decode.string)
   use key <- decode.field("key", decode.string)
   use pid <- decode.field("pid", decode.string)
-  use meta_str <- decode.field("meta", decode.string)
-  case json.parse(meta_str, json_value_decoder()) {
-    Ok(meta) ->
-      decode.success(Entry(topic: topic, key: key, pid: pid, meta: meta))
-    Error(_) ->
-      decode.failure(
-        Entry(topic: topic, key: key, pid: pid, meta: json.null()),
-        "valid JSON in meta field",
-      )
-  }
+  use meta <- decode.field("meta", json_value_decoder())
+  decode.success(Entry(topic: topic, key: key, pid: pid, meta: meta))
 }
 
 fn encode_values(values: dict.Dict(Tag, Entry)) -> json.Json {

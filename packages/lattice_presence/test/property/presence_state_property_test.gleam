@@ -460,7 +460,7 @@ pub fn prop_extract_merge_equivalence_test() {
   let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
 
   let #(direct, _) = state.merge(a, b)
-  let extracted = state.extract(b, a.replica, state.clocks(a))
+  let extracted = state.extract(b)
   let #(via_extract, _) = state.merge(a, extracted)
 
   crdt_generators.online_ids(direct)
