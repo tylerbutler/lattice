@@ -1,7 +1,7 @@
 project: lattice_presence
-kind: Added
+kind: Breaking
 body: |-
-    Initial release: pure distributed presence CRDT.
+    Initial release: pure distributed presence CRDT
 
     Provides `lattice_presence/presence_state` with topic/key/pid/meta tracking,
     opaque CRDT state, add-wins observed-remove semantics, replica up/down
