@@ -10,7 +10,7 @@ import startest/expect
 pub fn new_creates_empty_state_test() {
   let s = state.new("node1")
   state.online_list(s) |> expect.to_equal([])
-  s.replica |> expect.to_equal("node1")
+  state.replica(s) |> expect.to_equal("node1")
 }
 
 // ── join ─────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ pub fn merge_adds_remote_entries_test() {
   let b = state.join(b, "pid2", "room:lobby", "bob", json.object([]))
 
   // Merge B into A
-  let #(merged, _diff) = state.merge(a, b)
+  let merged = state.merge(a, b)
 
   // A should now see both alice and bob
   state.get_by_topic(merged, "room:lobby") |> list.length |> expect.to_equal(2)
@@ -106,8 +106,8 @@ pub fn merge_is_idempotent_test() {
   let b = state.join(b, "pid2", "room:lobby", "bob", json.object([]))
 
   // Merge twice should not duplicate
-  let #(merged, _) = state.merge(a, b)
-  let #(merged2, _) = state.merge(merged, b)
+  let merged = state.merge(a, b)
+  let merged2 = state.merge(merged, b)
 
   state.get_by_topic(merged2, "room:lobby") |> list.length |> expect.to_equal(2)
 }
@@ -119,13 +119,13 @@ pub fn merge_observes_remote_removals_test() {
 
   // B merges A's state to learn about alice
   let b = state.new("node_b")
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
 
   // A removes alice locally
   let a = state.leave(a, "pid1", "room:lobby", "alice")
 
   // B merges A again — should observe the removal
-  let #(merged, _) = state.merge(b, a)
+  let merged = state.merge(b, a)
   state.get_by_topic(merged, "room:lobby") |> expect.to_equal([])
 }
 
@@ -144,7 +144,7 @@ pub fn merge_add_wins_over_concurrent_remove_test() {
     )
 
   let b = state.new("node_b")
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
 
   // Concurrently: A removes alice, B re-adds alice
   let a = state.leave(a, "pid1", "room:lobby", "alice")
@@ -160,7 +160,7 @@ pub fn merge_add_wins_over_concurrent_remove_test() {
     )
 
   // When A merges B, alice should be present (add wins)
-  let #(merged, _) = state.merge(a, b)
+  let merged = state.merge(a, b)
   state.get_by_topic(merged, "room:lobby") |> list.length |> expect.to_equal(1)
 }
 
@@ -169,7 +169,7 @@ pub fn merge_returns_diff_with_joins_test() {
   let b = state.new("node_b")
   let b = state.join(b, "pid1", "room:lobby", "bob", json.object([]))
 
-  let #(_merged, diff) = state.merge(a, b)
+  let #(_merged, diff) = state.merge_with_diff(a, b)
 
   // Diff should show bob as a join
   case dict.get(diff.joins, "room:lobby") {
@@ -184,13 +184,13 @@ pub fn merge_returns_diff_with_leaves_test() {
   let b = state.new("node_b")
   let b = state.join(b, "pid1", "room:lobby", "bob", json.object([]))
 
-  let #(a, _) = state.merge(a, b)
+  let a = state.merge(a, b)
 
   // B removes bob
   let b = state.leave(b, "pid1", "room:lobby", "bob")
 
   // Merge again — diff should show bob as a leave
-  let #(_merged, diff) = state.merge(a, b)
+  let #(_merged, diff) = state.merge_with_diff(a, b)
   case dict.get(diff.leaves, "room:lobby") {
     Ok(leaves) -> list.length(leaves) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
@@ -209,8 +209,8 @@ pub fn merge_three_nodes_test() {
   let c = state.join(c, "p3", "room:lobby", "carol", json.object([]))
 
   // Merge all into A via two hops
-  let #(a, _) = state.merge(a, b)
-  let #(a, _) = state.merge(a, c)
+  let a = state.merge(a, b)
+  let a = state.merge(a, c)
 
   state.get_by_topic(a, "room:lobby") |> list.length |> expect.to_equal(3)
 }
@@ -229,7 +229,7 @@ pub fn phoenix_full_merge_lifecycle_test() {
   let b = state.join(b, "pid_bob", "lobby", "bob", json.object([]))
 
   // Merge B into A — bob appears as join
-  let #(a, diff) = state.merge(a, b)
+  let #(a, diff) = state.merge_with_diff(a, b)
   state.online_list(a) |> list.length |> expect.to_equal(2)
   case dict.get(diff.joins, "lobby") {
     Ok(joins) -> list.length(joins) |> expect.to_equal(1)
@@ -237,24 +237,24 @@ pub fn phoenix_full_merge_lifecycle_test() {
   }
 
   // Merge B into A again — idempotent, no new events
-  let #(a2, diff2) = state.merge(a, b)
+  let #(a2, diff2) = state.merge_with_diff(a, b)
   dict.size(diff2.joins) |> expect.to_equal(0)
   dict.size(diff2.leaves) |> expect.to_equal(0)
   state.online_list(a2) |> list.length |> expect.to_equal(2)
 
   // Merge A into B — alice appears as join
-  let #(b, diff3) = state.merge(b, a)
+  let #(b, diff3) = state.merge_with_diff(b, a)
   case dict.get(diff3.joins, "lobby") {
     Ok(joins) -> list.length(joins) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
   }
   // Re-merge is idempotent
-  let #(_b2, diff4) = state.merge(b, a)
+  let #(_b2, diff4) = state.merge_with_diff(b, a)
   dict.size(diff4.joins) |> expect.to_equal(0)
 
   // A removes alice, B observes via merge
   let a = state.leave(a, "pid_alice", "lobby", "alice")
-  let #(b, diff5) = state.merge(b, a)
+  let #(b, diff5) = state.merge_with_diff(b, a)
   case dict.get(diff5.leaves, "lobby") {
     Ok(leaves) -> list.length(leaves) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
@@ -266,7 +266,7 @@ pub fn phoenix_full_merge_lifecycle_test() {
   state.online_list(b) |> list.length |> expect.to_equal(2)
 
   // A merges B — gets carol
-  let #(a, diff6) = state.merge(a, b)
+  let #(a, diff6) = state.merge_with_diff(a, b)
   case dict.get(diff6.joins, "lobby") {
     Ok(joins) -> list.length(joins) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
@@ -295,7 +295,7 @@ pub fn phoenix_update_via_leave_join_test() {
     )
 
   // Sync A with B
-  let #(a, _) = state.merge(a, b)
+  let a = state.merge(a, b)
 
   // B updates carol by leaving then rejoining with new meta
   let b = state.leave(b, "pid_carol", "lobby", "carol")
@@ -311,7 +311,7 @@ pub fn phoenix_update_via_leave_join_test() {
     )
 
   // Merge into A — should see a leave and a join for carol
-  let #(_a, diff) = state.merge(a, b)
+  let #(_a, diff) = state.merge_with_diff(a, b)
   case dict.get(diff.joins, "lobby") {
     Ok(joins) -> list.length(joins) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
@@ -332,7 +332,7 @@ pub fn phoenix_netsplit_with_mutations_test() {
   let b = state.join(b, "pid_bob", "lobby", "bob", json.object([]))
 
   // Sync
-  let #(a, _) = state.merge(a, b)
+  let a = state.merge(a, b)
   state.online_list(a) |> list.length |> expect.to_equal(2)
 
   // A does some mutations
@@ -351,7 +351,7 @@ pub fn phoenix_netsplit_with_mutations_test() {
   state.online_list(a) |> list.length |> expect.to_equal(2)
 
   // Merge while down is no-op for visibility
-  let #(a, noop_diff) = state.merge(a, b)
+  let #(a, noop_diff) = state.merge_with_diff(a, b)
   dict.size(noop_diff.joins) |> expect.to_equal(0)
   state.online_list(a) |> list.length |> expect.to_equal(2)
 
@@ -374,7 +374,7 @@ pub fn phoenix_joins_via_intermediate_node_test() {
   let a = state.join(a, "pid_alice", "lobby", "alice", json.object([]))
 
   // C learns about alice from A
-  let #(c, _) = state.merge(c, a)
+  let c = state.merge(c, a)
   state.get_by_topic(c, "lobby") |> list.length |> expect.to_equal(1)
 
   // Netsplit between A and C
@@ -385,11 +385,11 @@ pub fn phoenix_joins_via_intermediate_node_test() {
   let a = state.join(a, "pid_bob", "lobby", "bob", json.object([]))
 
   // B merges A's full state — gets both alice and bob
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
   state.get_by_topic(b, "lobby") |> list.length |> expect.to_equal(2)
 
   // C merges B — should get bob (which C hasn't seen yet)
-  let #(_c, diff) = state.merge(c, b)
+  let #(_c, diff) = state.merge_with_diff(c, b)
   case dict.get(diff.joins, "lobby") {
     Ok(joins) -> list.length(joins) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
@@ -406,15 +406,15 @@ pub fn phoenix_removes_via_intermediate_node_test() {
   let a = state.join(a, "pid_alice", "lobby", "alice", json.object([]))
 
   // All nodes learn about alice
-  let #(b, _) = state.merge(b, a)
-  let #(c, _) = state.merge(c, a)
+  let b = state.merge(b, a)
+  let c = state.merge(c, a)
 
   // B adds bob
   let b = state.join(b, "pid_bob", "lobby", "bob", json.object([]))
 
   // A and C learn about bob
-  let #(a, _) = state.merge(a, b)
-  let #(c, _) = state.merge(c, b)
+  let a = state.merge(a, b)
+  let c = state.merge(c, b)
   state.get_by_topic(c, "lobby") |> list.length |> expect.to_equal(2)
 
   // Netsplit between A and C (B can talk to both)
@@ -425,10 +425,10 @@ pub fn phoenix_removes_via_intermediate_node_test() {
   let a = state.leave(a, "pid_alice", "lobby", "alice")
 
   // B observes remove via A
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
 
   // C observes remove via B (not directly from A due to netsplit)
-  let #(_c, diff) = state.merge(c, b)
+  let #(_c, diff) = state.merge_with_diff(c, b)
   case dict.get(diff.leaves, "lobby") {
     Ok(leaves) -> list.length(leaves) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
@@ -443,10 +443,10 @@ pub fn extract_produces_delta_for_new_replica_test() {
   let a = state.join(a, "p2", "room:lobby", "bob", json.object([]))
 
   // Extract what a fresh replica needs from A (everything)
-  let delta = state.extract(a)
+  let delta = state.extract_full_state(a)
 
   // Delta should contain both entries
-  dict.size(delta.values) |> expect.to_equal(2)
+  dict.size(state.internal_values(delta)) |> expect.to_equal(2)
 }
 
 pub fn extract_returns_full_state_test() {
@@ -454,8 +454,8 @@ pub fn extract_returns_full_state_test() {
   let a = state.join(a, "p1", "room:lobby", "alice", json.object([]))
 
   // Extract returns full state — merge handles deduplication
-  let extracted = state.extract(a)
-  dict.size(extracted.values) |> expect.to_equal(1)
+  let extracted = state.extract_full_state(a)
+  dict.size(state.internal_values(extracted)) |> expect.to_equal(1)
 }
 
 pub fn extract_includes_all_entries_test() {
@@ -467,8 +467,8 @@ pub fn extract_includes_all_entries_test() {
   let a = state.join(a, "p3", "room:lobby", "carol", json.object([]))
 
   // Extract returns all 3 entries (full state)
-  let extracted = state.extract(a)
-  dict.size(extracted.values) |> expect.to_equal(3)
+  let extracted = state.extract_full_state(a)
+  dict.size(state.internal_values(extracted)) |> expect.to_equal(3)
 }
 
 /// Phoenix test: extract-based merge workflow (mirrors Phoenix's merge(a, extract(b, ...)))
@@ -480,8 +480,8 @@ pub fn phoenix_extract_merge_workflow_test() {
   let b = state.join(b, "pid_bob", "lobby", "bob", json.object([]))
 
   // Merge using extract (like Phoenix does)
-  let delta_b = state.extract(b)
-  let #(a, diff) = state.merge(a, delta_b)
+  let delta_b = state.extract_full_state(b)
+  let #(a, diff) = state.merge_with_diff(a, delta_b)
   state.online_list(a) |> list.length |> expect.to_equal(2)
   case dict.get(diff.joins, "lobby") {
     Ok(joins) -> list.length(joins) |> expect.to_equal(1)
@@ -489,8 +489,8 @@ pub fn phoenix_extract_merge_workflow_test() {
   }
 
   // Second extract-merge is idempotent
-  let delta_b2 = state.extract(b)
-  let #(a2, diff2) = state.merge(a, delta_b2)
+  let delta_b2 = state.extract_full_state(b)
+  let #(a2, diff2) = state.merge_with_diff(a, delta_b2)
   dict.size(diff2.joins) |> expect.to_equal(0)
   dict.size(diff2.leaves) |> expect.to_equal(0)
   state.online_list(a2) |> list.length |> expect.to_equal(2)
@@ -505,14 +505,14 @@ pub fn phoenix_extract_observes_remove_test() {
   let b = state.join(b, "pid_bob", "lobby", "bob", json.object([]))
 
   // Sync both directions
-  let #(a, _) = state.merge(a, state.extract(b))
-  let #(b, _) = state.merge(b, state.extract(a))
+  let a = state.merge(a, state.extract_full_state(b))
+  let b = state.merge(b, state.extract_full_state(a))
 
   // A removes alice
   let a = state.leave(a, "pid_alice", "lobby", "alice")
 
   // B merges A's extract — should observe alice's removal
-  let #(b, diff) = state.merge(b, state.extract(a))
+  let #(b, diff) = state.merge_with_diff(b, state.extract_full_state(a))
   case dict.get(diff.leaves, "lobby") {
     Ok(leaves) -> list.length(leaves) |> expect.to_equal(1)
     Error(_) -> panic as "expected failure"
@@ -536,8 +536,8 @@ pub fn phoenix_get_by_topic_with_replica_status_test() {
   state.get_by_topic(s1, "topic") |> list.length |> expect.to_equal(2)
 
   // Merge all into s1
-  let #(s1, _) = state.merge(s1, s2)
-  let #(s1, _) = state.merge(s1, s3)
+  let s1 = state.merge(s1, s2)
+  let s1 = state.merge(s1, s3)
 
   // All 4 entries visible
   state.get_by_topic(s1, "topic") |> list.length |> expect.to_equal(4)
@@ -608,14 +608,14 @@ pub fn phoenix_remove_down_replicas_test() {
   let s2 = state.join(s2, "pid_bob", "lobby", "bob", json.object([]))
 
   // Sync
-  let #(s2, _) = state.merge(s2, s1)
+  let s2 = state.merge(s2, s1)
   state.online_list(s2) |> list.length |> expect.to_equal(2)
 
   // Mark node1 as down
   let #(s2, _) = state.replica_down(s2, "node1")
 
   // Permanently remove node1
-  let s2 = state.remove_down_replicas(s2, "node1")
+  let s2 = state.remove_down_replica(s2, "node1")
 
   // Even after replica_up, alice is gone permanently
   let #(s2, _) = state.replica_up(s2, "node1")
@@ -629,7 +629,7 @@ pub fn clocks_returns_vector_clock_test() {
   let a = state.join(a, "p1", "room:1", "k1", json.object([]))
   let a = state.join(a, "p2", "room:1", "k2", json.object([]))
 
-  let clocks = state.clocks(a)
+  let clocks = state.compacted_clocks(a)
   case dict.get(clocks, "node_a") {
     Ok(2) -> Nil
     _ -> panic as "expected failure"
@@ -643,7 +643,7 @@ pub fn compact_reduces_clouds_test() {
   let a = state.join(a, "p2", "room:1", "k2", json.object([]))
 
   let compacted = state.compact(a)
-  case dict.get(compacted.clouds, "node_a") {
+  case dict.get(state.internal_clouds(compacted), "node_a") {
     Ok(cloud) -> set.size(cloud) |> expect.to_equal(0)
     Error(_) -> Nil
   }
@@ -656,7 +656,7 @@ pub fn merge_with_empty_state_test() {
   let empty = state.new("node_b")
 
   // Merging empty into non-empty should be a no-op
-  let #(merged, diff) = state.merge(a, empty)
+  let #(merged, diff) = state.merge_with_diff(a, empty)
   state.get_by_topic(merged, "room:1") |> list.length |> expect.to_equal(1)
   dict.size(diff.joins) |> expect.to_equal(0)
   dict.size(diff.leaves) |> expect.to_equal(0)
@@ -704,10 +704,10 @@ pub fn joins_propagate_through_intermediate_node_test() {
   let a = state.join(a, "p1", "room:lobby", "alice", json.object([]))
 
   let b = state.new("node_b")
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
 
   let c = state.new("node_c")
-  let #(c, _) = state.merge(c, b)
+  let c = state.merge(c, b)
 
   // C should see alice
   state.get_by_topic(c, "room:lobby") |> list.length |> expect.to_equal(1)
@@ -719,17 +719,17 @@ pub fn removes_propagate_through_intermediate_node_test() {
   let a = state.join(a, "p1", "room:lobby", "alice", json.object([]))
 
   let b = state.new("node_b")
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
 
   let c = state.new("node_c")
-  let #(c, _) = state.merge(c, b)
+  let c = state.merge(c, b)
 
   // A removes alice
   let a = state.leave(a, "p1", "room:lobby", "alice")
 
   // Propagate: A -> B -> C
-  let #(b, _) = state.merge(b, a)
-  let #(c, _) = state.merge(c, b)
+  let b = state.merge(b, a)
+  let c = state.merge(c, b)
 
   state.get_by_topic(c, "room:lobby") |> expect.to_equal([])
 }
@@ -742,9 +742,9 @@ pub fn phoenix_clocks_advance_through_merge_test() {
   let a = state.join(a, "p1", "lobby", "alice", json.object([]))
   let b = state.join(b, "p2", "lobby", "bob", json.object([]))
 
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
 
-  let clocks = state.clocks(b)
+  let clocks = state.compacted_clocks(b)
   case dict.get(clocks, "node_a") {
     Ok(1) -> Nil
     _ -> panic as "expected failure"
@@ -759,8 +759,8 @@ pub fn phoenix_clocks_advance_through_merge_test() {
   // leave doesn't advance clock, but re-join does:
   let a = state.join(a, "p1", "lobby", "alice", json.object([]))
 
-  let #(b, _) = state.merge(b, a)
-  case dict.get(state.clocks(b), "node_a") {
+  let b = state.merge(b, a)
+  case dict.get(state.compacted_clocks(b), "node_a") {
     Ok(2) -> Nil
     _ -> panic as "expected failure"
   }
@@ -774,10 +774,10 @@ pub fn phoenix_clouds_empty_after_merge_test() {
   let a = state.join(a, "p1", "lobby", "alice", json.object([]))
   let b = state.join(b, "p2", "lobby", "bob", json.object([]))
 
-  let #(b, _) = state.merge(b, a)
+  let b = state.merge(b, a)
 
   // All clouds should be compacted away
-  dict.to_list(b.clouds)
+  dict.to_list(state.internal_clouds(b))
   |> list.all(fn(kv) {
     let #(_, cloud) = kv
     set.is_empty(cloud)
@@ -802,7 +802,7 @@ pub fn next_clock_accounts_for_cloud_values_test() {
   // b.context["node_b"] == 3
 
   // Merge B into A -- A now knows about node_b clocks 1..3
-  let #(_a, _) = state.merge(a, b)
+  let _a = state.merge(a, b)
 
   // Now construct a scenario with interleaved clocks that leave clouds.
   // Create a second state for node_a with only clock 1 (simulating partial info)
@@ -839,17 +839,16 @@ pub fn next_clock_accounts_for_cloud_values_test() {
   // Node Y is also "node_x" but only has clock 1 and clock 3 (gap at 2)
   // We simulate this by constructing a State with a cloud entry
   let y =
-    state.State(
-      replica: "node_x",
-      context: dict.from_list([#("node_x", 1)]),
-      clouds: dict.from_list([#("node_x", set.from_list([3]))]),
-      values: dict.new(),
-      replicas: dict.from_list([#("node_x", state.Up)]),
+    state.from_replicated_parts(
+      "node_x",
+      dict.from_list([#("node_x", 1)]),
+      dict.from_list([#("node_x", set.from_list([3]))]),
+      dict.new(),
     )
 
   // Merge y into a fresh node_x state that has context == 0
   let fresh = state.new("node_x")
-  let #(merged, _) = state.merge(fresh, y)
+  let merged = state.merge(fresh, y)
 
   // After merge, merged should have context["node_x"] >= 1 and cloud may have {3}
   // The next join should produce a clock > 3 (i.e., at least 4)
@@ -857,7 +856,7 @@ pub fn next_clock_accounts_for_cloud_values_test() {
     state.join(merged, "pnew", "lobby", "new_entry", json.object([]))
 
   // Verify the new entry got a clock > 3
-  let new_clocks = state.clocks(after_join)
+  let new_clocks = state.compacted_clocks(after_join)
   case dict.get(new_clocks, "node_x") {
     Ok(clock) -> {
       // Clock must be at least 4 to avoid collision with cloud value 3

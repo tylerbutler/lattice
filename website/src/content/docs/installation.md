@@ -20,6 +20,12 @@ import lattice_registers/lww_register
 import lattice_maps/or_map
 ```
 
+Install `lattice_presence` separately when you need distributed presence:
+
+```sh
+gleam add lattice_presence
+```
+
 ## Individual packages
 
 If you only need one category of CRDT, depend on that package directly:
@@ -38,6 +44,8 @@ See [Packages](/packages/) for the full list and dependency diagram.
 
 - **`lattice_crdt`** — getting started, prototyping, or using CRDTs from
   multiple categories.
+- **`lattice_presence`** — topic/key/pid presence tracking with metadata and
+  replica visibility.
 - **Individual packages** — production deployments where you want to minimize
   dependency count or binary size.
 

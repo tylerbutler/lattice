@@ -74,3 +74,40 @@ pub fn main() {
 Internally, `ORMap` encodes its key-set tracker and nested CRDT values as JSON
 strings inside the outer envelope so they can reuse the existing per-type
 decoders.
+
+## ORMap delta serialization
+
+`ORMapDelta` has dedicated JSON helpers because it is not itself an `ORMap`:
+
+```gleam
+import gleam/json
+import lattice_maps/or_map
+
+let encoded =
+  delta
+  |> or_map.delta_to_json
+  |> json.to_string
+
+let decoded = or_map.delta_from_json(encoded)
+```
+
+Use these helpers for map-level delta messages. Leaf CRDT deltas use the normal
+`to_json` and `from_json` functions for their type because leaf deltas are values
+of the same type as the full state.
+
+## Presence serialization
+
+`lattice_presence/state_json` serializes distributed presence state for
+cross-node replication:
+
+```gleam
+import lattice_presence/state_json
+
+let payload = state_json.to_json_string(state)
+let decoded = state_json.from_json(payload)
+```
+
+Presence JSON contains only replicated CRDT data: replica name, causal context,
+clouds, and presence entries. Local replica visibility state from
+`replica_up`/`replica_down` is intentionally not encoded. Decoding validates
+clock values and limits nested metadata depth before returning `Ok(state)`.

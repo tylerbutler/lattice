@@ -87,18 +87,46 @@ pub fn new(replica_id: ReplicaId) -> ORSet(a) {
 /// Creates a fresh unique tag for this add operation using the replica's
 /// monotonically-increasing counter. The element may already be present;
 /// in that case a new tag is added alongside existing ones.
+///
+/// See `add_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
+  let #(updated, _) = add_with_delta(orset, element)
+  updated
+}
+
+/// Add an element and return both the new state and a delta.
+///
+/// The returned delta is an `ORSet` whose `entries` contains only the newly
+/// inserted element with its single fresh tag, with empty tombstones and
+/// pruned vector. Merging the delta into a remote via `merge` adds the new
+/// tag to the remote's entry for `element` (creating it if necessary),
+/// producing the same observable result as merging the full new state.
+///
+/// The delta carries this replica's `replica_id` and the post-mutation
+/// `counter`, so successive deltas remain causally distinguishable.
+pub fn add_with_delta(orset: ORSet(a), element: a) -> #(ORSet(a), ORSet(a)) {
   let new_counter = orset.counter + 1
   let tag = Tag(replica_id: orset.replica_id, counter: new_counter)
   let existing_tags = result.unwrap(dict.get(orset.entries, element), set.new())
   let new_tags = set.insert(existing_tags, tag)
-  ORSet(
-    replica_id: orset.replica_id,
-    counter: new_counter,
-    entries: dict.insert(orset.entries, element, new_tags),
-    tombstones: orset.tombstones,
-    pruned: orset.pruned,
-  )
+  let updated =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: new_counter,
+      entries: dict.insert(orset.entries, element, new_tags),
+      tombstones: orset.tombstones,
+      pruned: orset.pruned,
+    )
+  let delta =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: new_counter,
+      entries: dict.from_list([#(element, set.from_list([tag]))]),
+      tombstones: set.new(),
+      pruned: version_vector.new(),
+    )
+  #(updated, delta)
 }
 
 /// Remove an element from the set.
@@ -106,15 +134,40 @@ pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
 /// Removes all currently observed tags for the element (observed-remove
 /// semantics). Any concurrent add on another replica that created a new tag
 /// not yet observed here will survive this remove after merging.
+///
+/// See `remove_with_delta` for the delta-state variant.
 pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
+  let #(updated, _) = remove_with_delta(orset, element)
+  updated
+}
+
+/// Remove an element and return both the new state and a delta.
+///
+/// The returned delta is an `ORSet` whose `tombstones` contains exactly the
+/// tags that were live for `element` at the time of the remove, with empty
+/// entries and pruned vector. Merging the delta into a remote via `merge`
+/// retracts those tags from the remote's entry for `element`. Tags that the
+/// remote has but the delta source had not yet observed (concurrent adds)
+/// survive — preserving the add-wins property of OR-Set.
+pub fn remove_with_delta(orset: ORSet(a), element: a) -> #(ORSet(a), ORSet(a)) {
   let removed_tags = result.unwrap(dict.get(orset.entries, element), set.new())
-  ORSet(
-    replica_id: orset.replica_id,
-    counter: orset.counter,
-    entries: dict.delete(orset.entries, element),
-    tombstones: set.union(orset.tombstones, removed_tags),
-    pruned: orset.pruned,
-  )
+  let updated =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: orset.counter,
+      entries: dict.delete(orset.entries, element),
+      tombstones: set.union(orset.tombstones, removed_tags),
+      pruned: orset.pruned,
+    )
+  let delta =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: orset.counter,
+      entries: dict.new(),
+      tombstones: removed_tags,
+      pruned: version_vector.new(),
+    )
+  #(updated, delta)
 }
 
 /// Remove each element in `elements` using observed-remove semantics.

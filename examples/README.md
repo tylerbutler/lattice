@@ -17,6 +17,7 @@ gleam run -m two_p_set_example
 gleam run -m or_set_example
 gleam run -m lww_map_example
 gleam run -m or_map_example
+gleam run -m or_map_delta_websocket_example
 gleam run -m version_vector_example
 
 # Run on JavaScript target
@@ -53,6 +54,7 @@ gleam run -m g_counter_example --target javascript
 |---------|-------------|
 | `lww_map_example` | Last-writer-wins map — timestamp-based key-value store |
 | `or_map_example` | Observed-remove map — keys tracked via ORSet, values are nested CRDTs |
+| `or_map_delta_websocket_example` | Two simulated websocket peers exchanging `ORMapDelta` values instead of full state, demonstrating delta-state replication |
 
 ### Clocks
 

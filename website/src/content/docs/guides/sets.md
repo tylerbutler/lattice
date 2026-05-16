@@ -119,3 +119,17 @@ pub fn main() {
   removed elements can never come back.
 - **`ORSet`** — when you need full add/remove/re-add flexibility. Requires a
   replica ID and maintains causal metadata.
+
+## Delta-state mutators
+
+Sets expose `*_with_delta` variants for incremental replication:
+
+- `g_set.add_with_delta`
+- `two_p_set.add_with_delta`
+- `two_p_set.remove_with_delta`
+- `or_set.add_with_delta`
+- `or_set.remove_with_delta`
+
+Each returns both the new set state and a compact set delta. OR-Set deltas carry
+the changed causal tags or tombstones needed for remote replicas to converge.
+See [Delta-State Replication](/advanced/delta-state/) for the shared convention.

@@ -154,6 +154,61 @@ cd packages/lattice_counters && gleam test -- --filter "test_name"
 
 Tests use the `startest` framework with `startest/expect`. Property-based tests use `qcheck`.
 
+## Delta-State CRDTs
+
+Every leaf CRDT in this library exposes both a state-based and a delta-state mutator API.
+
+### Convention
+
+For every state-mutating operation `op` of type `T -> args -> T`, there is a companion `op_with_delta` of type `T -> args -> #(T, T)`. The first element of the returned tuple is the new state (identical to what `op` returns); the second element is a **delta** — itself a value of type `T` containing only the change.
+
+```gleam
+// State-based (existing): full state in, full state out
+pub fn increment(counter: GCounter, n: Int) -> GCounter
+
+// Delta-state: same call returns the new state plus a small delta
+pub fn increment_with_delta(counter: GCounter, n: Int) -> #(GCounter, GCounter)
+```
+
+The state-based mutators are unchanged: they delegate to the delta-aware version and discard the delta. No call sites need to change.
+
+### Merge contract
+
+A delta is a value of the same type as the state, so it is merged into a remote replica using the **existing `merge` function** — there is no separate "apply delta" code path:
+
+```gleam
+let #(local_new, delta) = g_counter.increment_with_delta(local, 5)
+let remote_new = g_counter.merge(remote, delta)
+// remote_new is equivalent to merge(remote, local_new)
+```
+
+Delta merge is **idempotent, commutative, and associative**, just like full-state merge. This is what makes deltas safe over unreliable transports (websockets with reconnects, at-least-once delivery, out-of-order arrival).
+
+### Why this matters
+
+State-based replication ships the full CRDT on every sync, which is wasteful — a small change to a large ORMap broadcasts the entire map. Delta-state CRDTs (Almeida, Shoker, Baquero — *Delta State Replicated Data Types*) ship only the change, while preserving the same convergence guarantees.
+
+### Composite types
+
+`ORMap` composes the delta APIs of its key-set (`ORSet`) and value CRDTs to produce an `ORMapDelta` that carries only touched keys. `apply_delta(map, delta)` performs the merge:
+
+```gleam
+let assert Ok(#(local_new, delta)) = or_map.update_with_delta(local, "score", inc)
+let assert Ok(remote_new) = or_map.apply_delta(remote, delta)
+```
+
+### Operationalizing over websockets
+
+The delta API is the foundation for websocket replication. Each local mutation produces a delta to broadcast on the socket; receivers `apply_delta` (or `merge`) the delta into their state. Because delta merge is idempotent and commutative, at-least-once delivery is sufficient — there is no need for exactly-once causal broadcast as op-based CRDTs require.
+
+A complete websocket layer additionally needs:
+
+- A **per-peer outbox** of unmerged deltas (so `merge_deltas` can batch them into a single message before sending)
+- An **ack protocol** (so acknowledged deltas can be garbage-collected)
+- **Reconnect catch-up** via the join of all unacked deltas for the peer
+
+These transport concerns are intentionally **not** part of the CRDT library. They sit on top of the per-CRDT delta primitives documented here and may be added as a separate package in the future.
+
 ## Commit Messages
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/):

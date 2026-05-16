@@ -134,6 +134,40 @@ pub fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
   }
 }
 
+/// Return an empty/identity delta for the given spec.
+///
+/// An empty delta is the join-semilattice bottom: merging it into any state
+/// returns that state unchanged. `ORMap` uses this when accumulating deltas
+/// across multiple mutations and as the per-key default when no value-CRDT
+/// change is needed.
+///
+/// For most types this is identical to `default_crdt`. The exception is
+/// `LwwRegisterSpec`, where the bottom is the same `(value="", timestamp=0)`
+/// register; the `merge` semantics ensure it is dominated by any subsequent
+/// real write at any positive timestamp.
+pub fn default_delta(spec: CrdtSpec, replica_id: ReplicaId) -> Crdt {
+  default_crdt(spec, replica_id)
+}
+
+/// Return `True` when a wrapped CRDT carries no observable change relative
+/// to the bottom (default) state for the given spec and replica.
+///
+/// Used by `ORMap` to decide whether a value-CRDT delta is worth packaging
+/// into the surrounding map delta. An empty delta merged into a remote is a
+/// no-op, so emitting it would just waste bandwidth.
+///
+/// Implementation: structural equality against `default_delta(spec, rid)`.
+/// A delta from a no-op mutation may still appear "non-empty" (e.g. a
+/// `GCounter` carrying `{self_id: 0}` is structurally distinct from the
+/// fresh empty counter); such cases produce a small but harmless delta.
+pub fn is_empty_delta(
+  value: Crdt,
+  spec: CrdtSpec,
+  replica_id: ReplicaId,
+) -> Bool {
+  value == default_delta(spec, replica_id)
+}
+
 /// Dispatch merge to the type-specific merge function for matching variants.
 ///
 /// If `a` and `b` hold the same variant, their inner values are merged using

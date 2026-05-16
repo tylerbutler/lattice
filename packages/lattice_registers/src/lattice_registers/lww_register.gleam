@@ -50,15 +50,40 @@ pub fn new(val: a, timestamp: Int, replica_id: ReplicaId) -> LWWRegister(a) {
 /// timestamp with the new ones. Otherwise returns the register unchanged.
 /// This ensures only strictly newer writes are accepted.
 /// The `replica_id` is preserved from the original register.
+///
+/// See `set_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn set(register: LWWRegister(a), val: a, timestamp: Int) -> LWWRegister(a) {
+  let #(updated, _) = set_with_delta(register, val, timestamp)
+  updated
+}
+
+/// Set a value and return both the new state and a delta.
+///
+/// The returned delta is an `LWWRegister` carrying the write that was
+/// actually accepted locally. When `timestamp` strictly exceeds the current
+/// timestamp the delta carries the new (value, timestamp, replica_id);
+/// otherwise the local set is a no-op and the delta carries the unchanged
+/// register so that no rejected write can win on a remote replica.
+///
+/// Merging the delta into a remote via `merge` produces the same result as
+/// merging the new local state, preserving convergence.
+pub fn set_with_delta(
+  register: LWWRegister(a),
+  val: a,
+  timestamp: Int,
+) -> #(LWWRegister(a), LWWRegister(a)) {
   case timestamp > register.timestamp {
-    True ->
-      LWWRegister(
-        value: val,
-        timestamp: timestamp,
-        replica_id: register.replica_id,
-      )
-    False -> register
+    True -> {
+      let updated =
+        LWWRegister(
+          value: val,
+          timestamp: timestamp,
+          replica_id: register.replica_id,
+        )
+      #(updated, updated)
+    }
+    False -> #(register, register)
   }
 }
 

@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-04-11
+
+#### Breaking
+
+##### Split into multi-package monorepo
+
+The original single `lattice` package is now published as independently versioned packages. Depend on `lattice_crdt` for the full catalog, or install focused packages such as `lattice_core`, `lattice_counters`, `lattice_sets`, `lattice_registers`, and `lattice_maps`.
+
+Import paths now use package-specific module names:
+
+```gleam
+// Before
+import lattice/g_counter
+import lattice/or_set
+
+// After
+import lattice_counters/g_counter
+import lattice_sets/or_set
+```
+
+##### Add opaque ReplicaId values
+
+APIs that identify a replica now take `replica_id.ReplicaId` instead of raw strings. Create IDs with `replica_id.new("node-a")`. This affects counters, OR-Set, MV-Register, LWW-Register, OR-Map, and version-vector operations that refer to a replica.
+
+```gleam
+import lattice_core/replica_id
+import lattice_counters/g_counter
+
+let counter =
+  g_counter.new(replica_id.new("node-a"))
+  |> g_counter.increment(5)
+```
+
+`lww_register.new` now takes a third `ReplicaId` argument, which provides deterministic tie-breaking when timestamps are equal.
+
 ## v1.0.0 - 2026-03-06
 
 Initial release of lattice — a [CRDT](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type) library for Gleam targeting both Erlang and JavaScript runtimes. Every type converges automatically when replicas merge, with no coordination required. See the [documentation](https://lattice.tylerbutler.com) for guides and API reference.
@@ -16,7 +51,12 @@ Initial release of lattice — a [CRDT](https://en.wikipedia.org/wiki/Conflict-f
 Grow-only counters (`g_counter`) for monotonically increasing values, and positive-negative counters (`pn_counter`) that support both increment and decrement. Use `g_counter` when values only go up (e.g. event counts); use `pn_counter` when you need subtraction (e.g. inventory levels).
 
 ```gleam
-let counter = g_counter.new("node-a") |> g_counter.increment(5)
+import lattice_core/replica_id
+import lattice_counters/g_counter
+
+let counter =
+  g_counter.new(replica_id.new("node-a"))
+  |> g_counter.increment(5)
 g_counter.value(counter)  // -> 5
 
 // Merge two replicas — values combine automatically
@@ -28,8 +68,12 @@ let merged = g_counter.merge(counter_a, counter_b)
 Last-writer-wins registers (`lww_register`) resolve conflicts by timestamp — the most recent write wins. Multi-value registers (`mv_register`) preserve all concurrent writes, letting your application decide how to resolve them.
 
 ```gleam
+import lattice_core/replica_id
+import lattice_registers/lww_register
+import lattice_registers/mv_register
+
 // LWW: latest timestamp wins
-let reg = lww_register.new("initial", 1, "node-a")
+let reg = lww_register.new("initial", 1, replica_id.new("node-a"))
 let reg = lww_register.set(reg, "updated", 2)
 
 // MV: concurrent writes are all preserved
@@ -46,8 +90,16 @@ Three set types with different trade-offs:
 - **`or_set`** — Observed-remove. Elements can be freely added and removed. Concurrent add and remove of the same element resolves in favor of the add (add-wins semantics).
 
 ```gleam
-let a = or_set.new("node-a") |> or_set.add("item")
-let b = or_set.new("node-b") |> or_set.add("item") |> or_set.remove("item")
+import lattice_core/replica_id
+import lattice_sets/or_set
+
+let a =
+  or_set.new(replica_id.new("node-a"))
+  |> or_set.add("item")
+let b =
+  or_set.new(replica_id.new("node-b"))
+  |> or_set.add("item")
+  |> or_set.remove("item")
 let merged = or_set.merge(a, b)
 or_set.contains(merged, "item")  // -> True (add wins)
 ```
@@ -60,6 +112,8 @@ Key-value maps with automatic conflict resolution:
 - **`or_map`** — Observed-remove semantics with nested CRDT values. Each key holds a full CRDT (counter, register, set, etc.) that merges independently.
 
 ```gleam
+import lattice_maps/lww_map
+
 let map = lww_map.new() |> lww_map.set("name", "Alice", 1)
 lww_map.get(map, "name")  // -> Ok("Alice")
 ```
@@ -76,5 +130,3 @@ All types include `to_json` and `from_json` functions for persisting state and t
 let json_str = g_counter.to_json(counter) |> json.to_string
 let assert Ok(restored) = g_counter.from_json(json_str)
 ```
-
-

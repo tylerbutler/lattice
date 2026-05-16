@@ -57,15 +57,16 @@ gleam add lattice_core       # VersionVector, DotContext
 ## Quickstart
 
 ```gleam
+import lattice_core/replica_id
 import lattice_counters/g_counter
 
 pub fn main() {
   let counter_a =
-    g_counter.new("node-a")
+    g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(1)
 
   let counter_b =
-    g_counter.new("node-b")
+    g_counter.new(replica_id.new("node-b"))
     |> g_counter.increment(3)
 
   let merged = g_counter.merge(counter_a, counter_b)
@@ -98,7 +99,10 @@ import lattice_sets/or_set
 ### API changes
 
 - **All types are opaque.** You can no longer pattern-match on CRDT type constructors. Use the public API functions (`value`, `get`, `keys`, etc.) instead.
-- **`lww_register.new`** now takes a third argument `replica_id: String` for commutative merge on equal timestamps.
+- **Replica IDs are opaque.** Functions that identify a replica now take `replica_id.ReplicaId`; create one with `replica_id.new("node-a")`.
+- **`lww_register.new`** now takes a third argument `replica_id: ReplicaId` for commutative merge on equal timestamps.
+- **Two-phase set imports** use `lattice_sets/two_p_set`.
+- **ORMap composition** uses `lattice_maps/crdt.CrdtSpec` variants such as `crdt.GCounterSpec` rather than a callback record.
 - **JSON format:** v2 adds `replica_id` to LWWRegister JSON. `from_json` accepts both v1 and v2 formats.
 
 See the [full import mapping](#packages) above.
@@ -107,6 +111,7 @@ See the [full import mapping](#packages) above.
 
 - Property-based tested merge semantics (commutativity, associativity, idempotency)
 - Erlang and JavaScript target support
+- Delta-state mutators for efficient incremental replication
 - JSON serialization for all types with backward-compatible deserialization
 - All types are opaque for safe API evolution
 - Independent versioning — update only the packages you need
