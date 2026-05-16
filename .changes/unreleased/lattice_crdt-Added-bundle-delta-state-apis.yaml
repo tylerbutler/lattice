@@ -1,7 +1,0 @@
-project: lattice_crdt
-kind: Added
-body: |-
-  Bundle delta-state replication APIs from constituent packages
-
-  Pulls in `lattice_counters`, `lattice_sets`, `lattice_registers`, and `lattice_maps` versions that add `*_with_delta` mutators on every leaf CRDT plus the `ORMapDelta` type, `or_map.{update,remove,apply,merge}_*delta`, and the `crdt.{default,is_empty}_delta` dispatch helpers. Consumers depending on the umbrella package gain the full delta-state API for efficient incremental sync over unreliable transports such as websockets, with no source changes required for existing call sites.
-time: 2026-05-09T16:15:36.000000000+00:00

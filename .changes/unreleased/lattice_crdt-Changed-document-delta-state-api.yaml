@@ -1,7 +1,0 @@
-project: lattice_crdt
-kind: Changed
-body: |-
-  Document delta-state replication in the umbrella module
-
-  Module documentation now describes the `*_with_delta` convention shared by every leaf CRDT, the `ORMapDelta` type for composite maps, and the role of delta-state CRDTs as the foundation for websocket-based replication. References Almeida, Shoker, Baquero — *Delta State Replicated Data Types*.
-time: 2026-05-09T16:13:04.752065852+00:00
