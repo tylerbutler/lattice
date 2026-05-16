@@ -1,0 +1,7 @@
+project: lattice_sets
+kind: Added
+body: |-
+  Add ORSet ergonomic helpers for adapter code
+
+  Adds `or_set.Diff`, `or_set.diff`, `or_set.merge_with_diff`, `or_set.remove_all`, and `or_set.remove_where` for consumers that need observable value changes or bulk removals without inspecting internal tags.
+time: 2026-05-16T15:18:06.000000000Z
