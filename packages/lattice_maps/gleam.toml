@@ -1,5 +1,5 @@
 name = "lattice_maps"
-version = "1.0.0"
+version = "1.1.0"
 description = "Last-writer-wins and observed-remove maps for Gleam — conflict-free replicated map types with generic value support"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }

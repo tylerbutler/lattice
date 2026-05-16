@@ -1,7 +1,0 @@
-project: lattice_registers
-kind: Fixed
-body: |-
-  Prevent divergence when an LWW-Register set is rejected locally
-
-  When `lww_register.set` is called with a timestamp not strictly greater than the current one, the local state is correctly left unchanged. The companion `set_with_delta` now also returns the unchanged register as the delta in that case, ensuring a rejected write cannot win on a remote replica with an even smaller timestamp and cause divergence between local and remote.
-time: 2026-05-09T16:13:04.752065852+00:00

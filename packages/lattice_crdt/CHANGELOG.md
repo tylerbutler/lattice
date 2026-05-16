@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.1.0 - 2026-05-16
+
+
+### Added
+
+#### Bundle delta-state replication APIs from constituent packages
+
+Pulls in `lattice_counters`, `lattice_sets`, `lattice_registers`, and `lattice_maps` versions that add `*_with_delta` mutators on every leaf CRDT plus the `ORMapDelta` type, `or_map.{update,remove,apply,merge}_*delta`, and the `crdt.{default,is_empty}_delta` dispatch helpers. Consumers depending on the umbrella package gain the full delta-state API for efficient incremental sync over unreliable transports such as websockets, with no source changes required for existing call sites.
+
+
+### Changed
+
+#### Document delta-state replication in the umbrella module
+
+Module documentation now describes the `*_with_delta` convention shared by every leaf CRDT, the `ORMapDelta` type for composite maps, and the role of delta-state CRDTs as the foundation for websocket-based replication. References Almeida, Shoker, Baquero — *Delta State Replicated Data Types*.
+
+
 ## v2.0.0 - 2026-04-11
 
 

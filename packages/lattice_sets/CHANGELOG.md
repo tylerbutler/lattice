@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.0 - 2026-05-16
+
+
+### Added
+
+#### Add delta-state mutator APIs to GSet, TwoPSet, and ORSet
+
+New `g_set.add_with_delta`, `two_p_set.{add,remove}_with_delta`, and `or_set.{add,remove}_with_delta` return both the new state and a small delta of the same type. The OR-Set delta carries only the changed dot/tombstones plus the causal context required for any remote (including ones that have never observed the element) to converge. Deltas merge into remotes via the existing `merge` function. Existing mutators are unchanged and now delegate to the delta versions internally.
+
+#### Add ORSet ergonomic helpers for adapter code
+
+Adds `or_set.Diff`, `or_set.diff`, `or_set.merge_with_diff`, `or_set.remove_all`, and `or_set.remove_where` for consumers that need observable value changes or bulk removals without inspecting internal tags.
+
+
 ## v1.0.0 - 2026-04-11
 
 
