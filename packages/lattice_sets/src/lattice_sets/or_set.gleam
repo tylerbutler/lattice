@@ -59,6 +59,15 @@ pub opaque type ORSet(a) {
   )
 }
 
+/// Observable value changes between two OR-Sets.
+///
+/// Diff values are based on `value`, not internal tags. Re-adding an element
+/// that was already observable does not appear in `added`; removing one tag
+/// while another live tag remains does not appear in `removed`.
+pub type Diff(a) {
+  Diff(added: set.Set(a), removed: set.Set(a))
+}
+
 /// Create a new empty OR-Set for the given replica.
 ///
 /// Each replica should have a unique `replica_id` to ensure that tags
@@ -108,6 +117,26 @@ pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
   )
 }
 
+/// Remove each element in `elements` using observed-remove semantics.
+///
+/// Missing elements are ignored, matching `remove`.
+pub fn remove_all(orset: ORSet(a), elements: List(a)) -> ORSet(a) {
+  list.fold(elements, orset, fn(acc, element) { remove(acc, element) })
+}
+
+/// Remove every currently observable element matching `predicate`.
+///
+/// The predicate is evaluated against `value(orset)`, then each matching value
+/// is removed with normal observed-remove semantics.
+pub fn remove_where(orset: ORSet(a), predicate: fn(a) -> Bool) -> ORSet(a) {
+  let elements =
+    value(orset)
+    |> set.to_list
+    |> list.filter(predicate)
+
+  remove_all(orset, elements)
+}
+
 /// Check if the set contains the given element.
 ///
 /// Returns `True` if the element has at least one live tag (i.e., it has
@@ -128,6 +157,20 @@ pub fn value(orset: ORSet(a)) -> set.Set(a) {
   // (via merge/remove logic).
   dict.keys(orset.entries)
   |> set.from_list
+}
+
+/// Compare the observable values of two OR-Sets.
+///
+/// `added` contains values present in `after` but not `before`.
+/// `removed` contains values present in `before` but not `after`.
+pub fn diff(before: ORSet(a), after: ORSet(a)) -> Diff(a) {
+  let before_values = value(before)
+  let after_values = value(after)
+
+  Diff(
+    added: set.difference(after_values, before_values),
+    removed: set.difference(before_values, after_values),
+  )
 }
 
 /// Merge two OR-Sets.
@@ -177,6 +220,19 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     tombstones: merged_tombstones,
     pruned: merged_pruned,
   )
+}
+
+/// Merge two OR-Sets and report observable value changes from `local`.
+///
+/// The returned OR-Set is exactly the same as `merge(local, remote)`. The
+/// diff compares `value(local)` with `value(merged)`, so it reports only
+/// externally visible additions and removals.
+pub fn merge_with_diff(
+  local: ORSet(a),
+  remote: ORSet(a),
+) -> #(ORSet(a), Diff(a)) {
+  let merged = merge(local, remote)
+  #(merged, diff(local, merged))
 }
 
 fn not_dominated(tag: Tag, pruned: VersionVector) -> Bool {
