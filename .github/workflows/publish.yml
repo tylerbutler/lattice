@@ -20,18 +20,20 @@ jobs:
 
       - name: Read workspace
         id: ws
-        uses: tylerbutler/actions/read-gleam-workspace@5a20063dd6879bfdd0f94db5c8a03a65a90af1cb # ratchet:tylerbutler/actions/read-gleam-workspace@main
+        uses: tylerbutler/actions/read-gleam-workspace@f3a3a7d38466a1407c7965872f20e9e8157c11f1 # ratchet:tylerbutler/actions/read-gleam-workspace@main
+        with:
+          tag: ${{ github.ref_name }}
 
       - name: Setup environment
         uses: ./.github/actions/setup
 
-      # Publish packages in dependency order (from workspace.toml).
+      # Publish only the package named by the pushed tag.
       # replace-path-deps rewrites path dependencies to Hex version ranges
       # derived from each package's gleam.toml before publishing.
       - name: Publish to Hex.pm
-        uses: tylerbutler/actions/gleam-publish@5a20063dd6879bfdd0f94db5c8a03a65a90af1cb # ratchet:tylerbutler/actions/gleam-publish@main
+        uses: tylerbutler/actions/gleam-publish@f3a3a7d38466a1407c7965872f20e9e8157c11f1 # ratchet:tylerbutler/actions/gleam-publish@main
         with:
-          packages: ${{ steps.ws.outputs.packages }}
+          packages: ${{ steps.ws.outputs.tag-package-path }}
           replace-path-deps: |
             lattice_core:packages/lattice_core/gleam.toml
             lattice_counters:packages/lattice_counters/gleam.toml
