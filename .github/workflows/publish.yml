@@ -20,7 +20,7 @@ jobs:
 
       - name: Read workspace
         id: ws
-        uses: tylerbutler/actions/read-gleam-workspace@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/read-gleam-workspace@main
+        uses: tylerbutler/actions/read-gleam-workspace@5a20063dd6879bfdd0f94db5c8a03a65a90af1cb # ratchet:tylerbutler/actions/read-gleam-workspace@main
 
       - name: Setup environment
         uses: ./.github/actions/setup
@@ -29,7 +29,7 @@ jobs:
       # replace-path-deps rewrites path dependencies to Hex version ranges
       # derived from each package's gleam.toml before publishing.
       - name: Publish to Hex.pm
-        uses: tylerbutler/actions/gleam-publish@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/gleam-publish@main
+        uses: tylerbutler/actions/gleam-publish@5a20063dd6879bfdd0f94db5c8a03a65a90af1cb # ratchet:tylerbutler/actions/gleam-publish@main
         with:
           packages: ${{ steps.ws.outputs.packages }}
           replace-path-deps: |
