@@ -24,7 +24,7 @@
 		"@astrojs/check": "^0.9.8",
 		"@astrojs/starlight": "^0.38.3",
 		"@fontsource/metropolis": "^5.2.5",
-		"astro": "^6.1.4",
+		"astro": "^6.1.10",
 		"astro-mermaid": "^2.0.1",
 		"astro-tinylytics": "^0.1.0",
 		"mermaid": "^11.14.0",
