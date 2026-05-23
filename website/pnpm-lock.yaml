@@ -26,6 +26,9 @@ importers:
       astro-mermaid:
         specifier: ^2.0.1
         version: 2.0.1(astro@6.1.4(@types/node@24.12.2)(rollup@4.59.0)(typescript@6.0.2)(yaml@2.8.3))(mermaid@11.14.0)
+      astro-tinylytics:
+        specifier: ^0.1.0
+        version: 0.1.0(astro@6.1.4(@types/node@24.12.2)(rollup@4.59.0)(typescript@6.0.2)(yaml@2.8.3))
       mermaid:
         specifier: ^11.14.0
         version: 11.14.0
@@ -1008,6 +1011,12 @@ packages:
     peerDependenciesMeta:
       '@mermaid-js/layout-elk':
         optional: true
+
+  astro-tinylytics@0.1.0:
+    resolution: {integrity: sha512-TK/Ang0suanYCukxt0kzigam2BJBjWQsksD1YgRCb1931/pjMgHXej5YIJSD3LgcKfzIlDR0bnJobZ2NDY9tKA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      astro: '>=4.0.0'
 
   astro@6.1.4:
     resolution: {integrity: sha512-SRy1bONuCHkGWhI5JiWCQKVDVbeaXOikjAVZs/Nz+lvUvubtdLoZfnacmuZHQ9RL2IOkU54M8/qZYm9ypJDKrg==}
@@ -3625,6 +3634,10 @@ snapshots:
       mdast-util-to-string: 4.0.0
       mermaid: 11.14.0
       unist-util-visit: 5.1.0
+
+  astro-tinylytics@0.1.0(astro@6.1.4(@types/node@24.12.2)(rollup@4.59.0)(typescript@6.0.2)(yaml@2.8.3)):
+    dependencies:
+      astro: 6.1.4(@types/node@24.12.2)(rollup@4.59.0)(typescript@6.0.2)(yaml@2.8.3)
 
   astro@6.1.4(@types/node@24.12.2)(rollup@4.59.0)(typescript@6.0.2)(yaml@2.8.3):
     dependencies:
