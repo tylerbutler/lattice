@@ -129,11 +129,11 @@ pub fn new(replica: Replica) -> State {
 
 /// Add a tracked presence. Increments the local clock.
 pub fn join(
-  state: State,
-  pid: String,
-  topic: String,
-  key: String,
-  meta: json.Json,
+  state state: State,
+  pid pid: String,
+  topic topic: String,
+  key key: String,
+  meta meta: json.Json,
 ) -> State {
   let clock = next_clock(state, state.replica)
   let tag = Tag(replica: state.replica, clock: clock)
@@ -149,7 +149,12 @@ pub fn join(
 /// replica's entry would not be causally observed (this node's context
 /// doesn't cover the foreign tag), so it would silently reappear on the
 /// next merge. Foreign entries are filtered out at the source instead.
-pub fn leave(state: State, pid: String, topic: String, key: String) -> State {
+pub fn leave(
+  state state: State,
+  pid pid: String,
+  topic topic: String,
+  key key: String,
+) -> State {
   let new_values =
     dict.filter(state.values, fn(tag, entry) {
       tag.replica != state.replica
@@ -201,9 +206,9 @@ pub fn get_by_topic(
 
 /// Get presences for a specific key within a topic
 pub fn get_by_key(
-  state: State,
-  topic: String,
-  key: String,
+  state state: State,
+  topic topic: String,
+  key key: String,
 ) -> List(#(String, json.Json)) {
   visible_entries(state, fn(entry) { entry.topic == topic && entry.key == key })
   |> list.map(fn(entry) { #(entry.pid, entry.meta) })
@@ -496,10 +501,10 @@ pub fn replicated_parts(
 
 @internal
 pub fn from_replicated_parts(
-  replica: Replica,
-  context: Dict(Replica, Clock),
-  clouds: Dict(Replica, Set(Clock)),
-  values: Dict(Tag, Entry),
+  replica replica: Replica,
+  context context: Dict(Replica, Clock),
+  clouds clouds: Dict(Replica, Set(Clock)),
+  values values: Dict(Tag, Entry),
 ) -> State {
   State(
     replica: replica,

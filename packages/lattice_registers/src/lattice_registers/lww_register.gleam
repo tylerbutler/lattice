@@ -41,7 +41,11 @@ pub opaque type LWWRegister(a) {
 /// milliseconds or a Lamport clock) so that later writes have higher values.
 /// `replica_id` identifies the writing node and is used as a deterministic
 /// tie-breaker when two registers have equal timestamps during merge.
-pub fn new(val: a, timestamp: Int, replica_id: ReplicaId) -> LWWRegister(a) {
+pub fn new(
+  val val: a,
+  timestamp timestamp: Int,
+  replica_id replica_id: ReplicaId,
+) -> LWWRegister(a) {
   LWWRegister(value: val, timestamp: timestamp, replica_id: replica_id)
 }
 
@@ -54,8 +58,12 @@ pub fn new(val: a, timestamp: Int, replica_id: ReplicaId) -> LWWRegister(a) {
 ///
 /// See `set_with_delta` for the delta-state variant that also returns a
 /// small payload suitable for incremental sync (e.g. over websockets).
-pub fn set(register: LWWRegister(a), val: a, timestamp: Int) -> LWWRegister(a) {
-  let #(updated, _) = set_with_delta(register, val, timestamp)
+pub fn set(
+  register register: LWWRegister(a),
+  val val: a,
+  timestamp timestamp: Int,
+) -> LWWRegister(a) {
+  let #(updated, _) = set_with_delta(register:, val:, timestamp:)
   updated
 }
 
@@ -70,9 +78,9 @@ pub fn set(register: LWWRegister(a), val: a, timestamp: Int) -> LWWRegister(a) {
 /// Merging the delta into a remote via `merge` produces the same result as
 /// merging the new local state, preserving convergence.
 pub fn set_with_delta(
-  register: LWWRegister(a),
-  val: a,
-  timestamp: Int,
+  register register: LWWRegister(a),
+  val val: a,
+  timestamp timestamp: Int,
 ) -> #(LWWRegister(a), LWWRegister(a)) {
   use <- bool.guard(timestamp <= register.timestamp, #(register, register))
   let updated =

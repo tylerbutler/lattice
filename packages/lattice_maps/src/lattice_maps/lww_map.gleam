@@ -69,7 +69,12 @@ pub fn pruned_timestamp(map: LWWMap) -> Int {
 ///
 /// If the key already has an entry with an equal or higher timestamp, the
 /// existing entry is kept (LWW semantics: strictly greater timestamp wins).
-pub fn set(map: LWWMap, key: String, value: String, timestamp: Int) -> LWWMap {
+pub fn set(
+  map map: LWWMap,
+  key key: String,
+  value value: String,
+  timestamp timestamp: Int,
+) -> LWWMap {
   let should_update = case dict.get(map.entries, key) {
     Error(Nil) -> True
     Ok(#(_, existing_ts)) -> timestamp > existing_ts
@@ -103,7 +108,11 @@ pub fn get(map: LWWMap, key: String) -> Result(String, Nil) {
 /// Note: This operation creates a tombstone. Use `tombstone_count` to monitor
 /// growth and `prune` with a stable timestamp to remove tombstones once all
 /// replicas have observed them.
-pub fn remove(map: LWWMap, key: String, timestamp: Int) -> LWWMap {
+pub fn remove(
+  map map: LWWMap,
+  key key: String,
+  timestamp timestamp: Int,
+) -> LWWMap {
   let should_remove = case dict.get(map.entries, key) {
     Error(Nil) -> True
     Ok(#(_, existing_ts)) -> timestamp > existing_ts
