@@ -285,7 +285,7 @@ fn tag_is_in(
     _ -> {
       case dict.get(clouds, tag.replica) {
         Ok(cloud) -> set.contains(cloud, tag.clock)
-        Error(_) -> False
+        Error(Nil) -> False
       }
     }
   }
@@ -320,7 +320,7 @@ pub fn compact(state: State) -> State {
         let #(ctx, clouds) = acc
         let base = case dict.get(ctx, replica) {
           Ok(c) -> c
-          Error(_) -> 0
+          Error(Nil) -> 0
         }
         let #(new_base, remaining) = compact_cloud(base, cloud)
         let new_ctx = case new_base > base {
@@ -353,7 +353,7 @@ fn entries_to_topic_diff(
   list.fold(entries, dict.new(), fn(acc, entry) {
     let existing = case dict.get(acc, entry.topic) {
       Ok(l) -> l
-      Error(_) -> []
+      Error(Nil) -> []
     }
     dict.insert(acc, entry.topic, [
       #(entry.key, entry.pid, entry.meta),
@@ -455,7 +455,7 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
       #(new_state, diff)
     }
     Ok(Up) -> #(state, Diff(joins: dict.new(), leaves: dict.new()))
-    Error(_) -> {
+    Error(Nil) -> {
       // First contact: record as Up but emit no diff (it was already
       // treated as up by `is_replica_up`).
       let new_replicas = dict.insert(state.replicas, replica, Up)
@@ -520,11 +520,11 @@ fn next_clock(state: State, replica: Replica) -> Clock {
   // merge — tracking the max incrementally would optimize a non-hot path.
   let ctx_clock = case dict.get(state.context, replica) {
     Ok(c) -> c
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   let cloud_max = case dict.get(state.clouds, replica) {
     Ok(cloud) -> set.fold(cloud, 0, int.max)
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   int.max(ctx_clock, cloud_max) + 1
 }
@@ -534,6 +534,6 @@ fn is_replica_up(state: State, replica: Replica) -> Bool {
     Ok(Up) -> True
     Ok(Down) -> False
     // Unknown replicas assumed up (first contact)
-    Error(_) -> True
+    Error(Nil) -> True
   }
 }

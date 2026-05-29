@@ -89,6 +89,17 @@ check:
         ( cd packages/$pkg && gleam check )
     done
 
+# Lint all packages and examples with glinter (config in each gleam.toml)
+lint:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for pkg in {{ packages }}; do
+        echo "==> $pkg: lint"
+        ( cd packages/$pkg && gleam run -m glinter )
+    done
+    echo "==> examples: lint"
+    ( cd examples && gleam run -m glinter )
+
 # === DOCUMENTATION ===
 
 # Build documentation for all packages
@@ -135,6 +146,10 @@ clean:
 test-pkg pkg:
     cd packages/{{ pkg }} && gleam test
 
+# Lint a single package: just lint-pkg lattice_core
+lint-pkg pkg:
+    cd packages/{{ pkg }} && gleam run -m glinter
+
 # Build a single package: just build-pkg lattice_core
 build-pkg pkg:
     cd packages/{{ pkg }} && gleam build
@@ -172,8 +187,8 @@ examples: examples-run examples-run-js
 
 # === CI ===
 
-# Run all CI checks (format, check, test, build strict)
-ci: format-check check test build-strict
+# Run all CI checks (format, check, lint, test, build strict)
+ci: format-check check lint test build-strict
 
 # Alias for PR checks
 alias pr := ci

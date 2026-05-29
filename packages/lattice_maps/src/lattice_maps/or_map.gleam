@@ -191,11 +191,17 @@ pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
             Ok(ca), Ok(cb) ->
               case crdt.merge(ca, cb) {
                 Ok(merged) -> merged
+                // Intentional fallback: a type mismatch between concurrently
+                // created values resolves to a fresh default of the map's spec.
+                // nolint: thrown_away_error
                 Error(_) -> crdt.default_crdt(a.crdt_spec, a.replica_id)
               }
-            Ok(ca), Error(_) -> ca
-            Error(_), Ok(cb) -> cb
-            Error(_), Error(_) ->
+            Ok(ca), Error(Nil) -> ca
+            Error(Nil), Ok(cb) -> cb
+            Error(Nil), Error(Nil) ->
+              // all_value_keys is the union of both maps' keys, so a key
+              // absent from both cannot occur.
+              // nolint: avoid_panic
               panic as "unreachable: key must exist in at least one map"
           }
           dict.insert(acc, key, merged_crdt)
@@ -218,9 +224,9 @@ pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
               {
                 Ok(ba), Ok(bb) ->
                   dict.insert(acc, key, version_vector.merge(ba, bb))
-                Ok(ba), Error(_) -> dict.insert(acc, key, ba)
-                Error(_), Ok(bb) -> dict.insert(acc, key, bb)
-                Error(_), Error(_) -> acc
+                Ok(ba), Error(Nil) -> dict.insert(acc, key, ba)
+                Error(Nil), Ok(bb) -> dict.insert(acc, key, bb)
+                Error(Nil), Error(Nil) -> acc
               }
           }
         })
@@ -265,7 +271,7 @@ pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
                 True -> #(vals, dict.delete(bounds, key))
                 False -> #(dict.insert(vals, key, val), bounds)
               }
-            Error(_) -> #(dict.insert(vals, key, val), bounds)
+            Error(Nil) -> #(dict.insert(vals, key, val), bounds)
           }
       }
     })
@@ -683,6 +689,9 @@ fn apply_delta_unchecked(
     dict.combine(map.values, delta.value_deltas, fn(local, incoming) {
       case crdt.merge(local, incoming) {
         Ok(merged) -> merged
+        // Intentional fallback: a type mismatch resolves to a fresh default
+        // of the map's spec.
+        // nolint: thrown_away_error
         Error(_) -> crdt.default_crdt(map.crdt_spec, map.replica_id)
       }
     })
@@ -735,6 +744,9 @@ pub fn merge_deltas(
         dict.combine(a.value_deltas, b.value_deltas, fn(va, vb) {
           case crdt.merge(va, vb) {
             Ok(m) -> m
+            // Intentional fallback: a type mismatch resolves to a fresh
+            // default delta of the map's spec.
+            // nolint: thrown_away_error
             Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
           }
         })

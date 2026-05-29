@@ -56,6 +56,9 @@ pub fn new(replica_id: ReplicaId) -> GCounter {
 /// See `increment_with_delta` for the delta-state variant that also returns
 /// a small payload suitable for incremental sync (e.g. over websockets).
 pub fn increment(counter: GCounter, delta: Int) -> GCounter {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_increment`.
+  // nolint: assert_ok_pattern
   let assert Ok(updated) = try_increment(counter, delta)
   updated
 }
@@ -88,6 +91,9 @@ pub fn increment_with_delta(
   counter: GCounter,
   delta: Int,
 ) -> #(GCounter, GCounter) {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_increment_with_delta`.
+  // nolint: assert_ok_pattern
   let assert Ok(result) = try_increment_with_delta(counter, delta)
   result
 }

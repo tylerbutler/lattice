@@ -45,6 +45,8 @@ just test-pkg <name>   # Test a single package
 just format            # Format code
 just format-check      # Check formatting
 just check             # Type check all packages
+just lint              # Lint all packages + examples (glinter)
+just lint-pkg <name>   # Lint a single package
 just docs              # Build documentation
 just ci                # Run all CI checks (format, check, test, build)
 just pr                # Alias for ci (use before PR)

@@ -71,7 +71,7 @@ pub fn pruned_timestamp(map: LWWMap) -> Int {
 /// existing entry is kept (LWW semantics: strictly greater timestamp wins).
 pub fn set(map: LWWMap, key: String, value: String, timestamp: Int) -> LWWMap {
   let should_update = case dict.get(map.entries, key) {
-    Error(_) -> True
+    Error(Nil) -> True
     Ok(#(_, existing_ts)) -> timestamp > existing_ts
   }
   case should_update {
@@ -105,7 +105,7 @@ pub fn get(map: LWWMap, key: String) -> Result(String, Nil) {
 /// replicas have observed them.
 pub fn remove(map: LWWMap, key: String, timestamp: Int) -> LWWMap {
   let should_remove = case dict.get(map.entries, key) {
-    Error(_) -> True
+    Error(Nil) -> True
     Ok(#(_, existing_ts)) -> timestamp > existing_ts
   }
   case should_remove {
@@ -217,9 +217,12 @@ pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
     list.fold(all_keys, dict.new(), fn(acc, key) {
       let entry = case dict.get(a.entries, key), dict.get(b.entries, key) {
         Ok(ea), Ok(eb) -> Ok(choose_winner(ea, eb))
-        Ok(ea), Error(_) -> keep_if_not_zombie(ea, b.pruned_timestamp)
-        Error(_), Ok(eb) -> keep_if_not_zombie(eb, a.pruned_timestamp)
-        Error(_), Error(_) ->
+        Ok(ea), Error(Nil) -> keep_if_not_zombie(ea, b.pruned_timestamp)
+        Error(Nil), Ok(eb) -> keep_if_not_zombie(eb, a.pruned_timestamp)
+        Error(Nil), Error(Nil) ->
+          // all_keys is the union of both dicts' keys, so a key absent from
+          // both cannot occur.
+          // nolint: avoid_panic
           panic as "unreachable: key in all_keys but not in either dict"
       }
       case entry {

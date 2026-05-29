@@ -11,3 +11,30 @@ gleam_json = ">= 3.1.0 and < 4.0.0"
 
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
+glinter = ">= 2.19.0 and < 3.0.0"
+
+[tools.glinter]
+include = ["src/", "test/"]
+# warnings_as_errors makes every *enabled* rule fail CI. Rules we don't want
+# to enforce are turned off below; tests get a lenient profile in [ignore].
+warnings_as_errors = true
+
+[tools.glinter.rules]
+# Library public API is consumed externally, so "never used in this package"
+# is expected — not an issue.
+unused_exports = "off"
+# Stylistic rules the codebase intentionally does not follow.
+label_possible = "off"
+missing_labels = "off"
+short_variable_name = "off"
+missing_type_annotation = "off"
+unnecessary_variable = "off"
+prefer_guard_clause = "off"
+deep_nesting = "off"
+trailing_underscore = "off"
+unqualified_import = "off"
+
+[tools.glinter.ignore]
+# Tests use `let assert Ok(...)`, discard errors, and panic in unreachable
+# match arms by convention; these substantive rules apply to src/ only.
+"test/**/*.gleam" = ["assert_ok_pattern", "thrown_away_error", "discarded_result", "avoid_panic"]

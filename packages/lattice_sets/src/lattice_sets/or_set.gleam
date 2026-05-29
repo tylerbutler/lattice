@@ -197,7 +197,7 @@ pub fn remove_where(orset: ORSet(a), predicate: fn(a) -> Bool) -> ORSet(a) {
 /// survived a remove after merging).
 pub fn contains(orset: ORSet(a), element: a) -> Bool {
   case dict.get(orset.entries, element) {
-    Error(_) -> False
+    Error(Nil) -> False
     Ok(tags) -> !set.is_empty(tags)
   }
 }
