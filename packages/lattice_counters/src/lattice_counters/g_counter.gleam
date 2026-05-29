@@ -19,6 +19,7 @@
 //// g_counter.value(merged)  // -> 8
 //// ```
 
+import gleam/bool
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
@@ -107,18 +108,13 @@ pub fn try_increment_with_delta(
   counter: GCounter,
   delta: Int,
 ) -> Result(#(GCounter, GCounter), IncrementError) {
-  case delta < 0 {
-    True -> Error(NegativeDelta(delta))
-    False -> {
-      let GCounter(dict, self_id) = counter
-      let current = result.unwrap(dict.get(dict, self_id), 0)
-      let new_count = current + delta
-      let updated = GCounter(dict.insert(dict, self_id, new_count), self_id)
-      let delta_state =
-        GCounter(dict.from_list([#(self_id, new_count)]), self_id)
-      Ok(#(updated, delta_state))
-    }
-  }
+  use <- bool.guard(delta < 0, Error(NegativeDelta(delta)))
+  let GCounter(dict, self_id) = counter
+  let current = result.unwrap(dict.get(dict, self_id), 0)
+  let new_count = current + delta
+  let updated = GCounter(dict.insert(dict, self_id, new_count), self_id)
+  let delta_state = GCounter(dict.from_list([#(self_id, new_count)]), self_id)
+  Ok(#(updated, delta_state))
 }
 
 /// Get the current value of the counter.

@@ -17,6 +17,7 @@
 //// lww_register.value(merged)  // -> "world"
 //// ```
 
+import gleam/bool
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -73,18 +74,14 @@ pub fn set_with_delta(
   val: a,
   timestamp: Int,
 ) -> #(LWWRegister(a), LWWRegister(a)) {
-  case timestamp > register.timestamp {
-    True -> {
-      let updated =
-        LWWRegister(
-          value: val,
-          timestamp: timestamp,
-          replica_id: register.replica_id,
-        )
-      #(updated, updated)
-    }
-    False -> #(register, register)
-  }
+  use <- bool.guard(timestamp <= register.timestamp, #(register, register))
+  let updated =
+    LWWRegister(
+      value: val,
+      timestamp: timestamp,
+      replica_id: register.replica_id,
+    )
+  #(updated, updated)
 }
 
 /// Return the current value of the register.
@@ -101,20 +98,13 @@ pub fn value(register: LWWRegister(a)) -> a {
 /// `replica_id` is lexicographically greater wins, providing a fully
 /// commutative, associative, and idempotent merge.
 pub fn merge(a: LWWRegister(a), b: LWWRegister(a)) -> LWWRegister(a) {
-  case a.timestamp > b.timestamp {
-    True -> a
-    False ->
-      case a.timestamp < b.timestamp {
-        True -> b
-        False -> {
-          // Equal timestamps: use replica_id as deterministic tie-breaker
-          case replica_id.compare(a.replica_id, b.replica_id) {
-            order.Gt -> a
-            order.Lt -> b
-            order.Eq -> a
-          }
-        }
-      }
+  use <- bool.guard(a.timestamp > b.timestamp, a)
+  use <- bool.guard(a.timestamp < b.timestamp, b)
+  // Equal timestamps: use replica_id as deterministic tie-breaker
+  case replica_id.compare(a.replica_id, b.replica_id) {
+    order.Gt -> a
+    order.Lt -> b
+    order.Eq -> a
   }
 }
 

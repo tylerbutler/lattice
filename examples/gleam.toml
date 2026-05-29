@@ -21,16 +21,11 @@ warnings_as_errors = true
 
 [tools.glinter.rules]
 # Demonstration code favours brevity: round-trip examples handle decode
-# failures by printing a message, and `let assert` keeps sample code short.
+# failures by printing a message, `let assert` keeps sample code short,
+# `main` entrypoints skip return annotations, and short loop names are fine.
 thrown_away_error = "off"
 assert_ok_pattern = "off"
+missing_type_annotation = "off"
+short_variable_name = "off"
 # Stylistic rules the codebase intentionally does not follow.
 label_possible = "off"
-missing_labels = "off"
-short_variable_name = "off"
-missing_type_annotation = "off"
-unnecessary_variable = "off"
-prefer_guard_clause = "off"
-deep_nesting = "off"
-trailing_underscore = "off"
-unqualified_import = "off"

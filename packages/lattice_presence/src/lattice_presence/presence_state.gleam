@@ -23,6 +23,7 @@
 //// // -> [#("pid-1", "alice", _), #("pid-2", "bob", _)]
 //// ```
 
+import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/int
 import gleam/json
@@ -340,10 +341,8 @@ pub fn compact(state: State) -> State {
 
 /// Compact a single cloud: advance base clock through contiguous values
 fn compact_cloud(base: Clock, cloud: Set(Clock)) -> #(Clock, Set(Clock)) {
-  case set.contains(cloud, base + 1) {
-    True -> compact_cloud(base + 1, set.delete(cloud, base + 1))
-    False -> #(base, cloud)
-  }
+  use <- bool.guard(!set.contains(cloud, base + 1), #(base, cloud))
+  compact_cloud(base + 1, set.delete(cloud, base + 1))
 }
 
 /// Group entries by topic for diff reporting
