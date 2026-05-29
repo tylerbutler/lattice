@@ -139,9 +139,9 @@ pub fn is_empty(vv: VersionVector) -> Bool {
 /// If the replica has no entry, `value` is used. This avoids round-tripping
 /// through `to_dict`/`from_dict` when building a version vector incrementally.
 pub fn set_max(
-  vv: VersionVector,
-  replica_id: ReplicaId,
-  value: Int,
+  vv vv: VersionVector,
+  replica_id replica_id: ReplicaId,
+  value value: Int,
 ) -> VersionVector {
   let VersionVector(d) = vv
   let current = result.unwrap(dict.get(d, replica_id), 0)

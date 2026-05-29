@@ -22,6 +22,21 @@ jobs:
       cache: true
       check: true
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup environment
+        uses: tylerbutler/actions/setup-gleam@v1
+
+      - name: Download dependencies
+        run: just deps
+
+      - name: Lint (glinter)
+        run: just lint
+
   build:
     name: Build
     uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main

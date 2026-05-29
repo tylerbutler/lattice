@@ -20,11 +20,13 @@
 ////   })
 //// ```
 
+import gleam/bool
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/result
 import gleam/set
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
@@ -115,14 +117,8 @@ pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
 /// Returns `Error(Nil)` if the key has never been added, or has been removed
 /// and not re-added.
 pub fn get(map: ORMap, key: String) -> Result(Crdt, Nil) {
-  case or_set.contains(map.key_set, key) {
-    True ->
-      case dict.get(map.values, key) {
-        Ok(val) -> Ok(val)
-        Error(_) -> Error(Nil)
-      }
-    False -> Error(Nil)
-  }
+  use <- bool.guard(!or_set.contains(map.key_set, key), Error(Nil))
+  dict.get(map.values, key)
 }
 
 /// Remove a key from the OR-Map.
@@ -171,69 +167,70 @@ pub fn values(map: ORMap) -> List(Crdt) {
 /// Returns `Error(TypeMismatch(...))` if the two maps have different
 /// `crdt_spec` values (e.g., one holds counters and the other holds sets).
 pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
-  case a.crdt_spec == b.crdt_spec {
-    False ->
-      Error(crdt.TypeMismatch(
-        expected: spec_to_string(a.crdt_spec),
-        found: spec_to_string(b.crdt_spec),
-      ))
-    True -> {
-      let merged_key_set = or_set.merge(a.key_set, b.key_set)
-      let active_keys = or_set.value(merged_key_set)
-      let all_value_keys =
-        set.to_list(set.union(
-          set.from_list(dict.keys(a.values)),
-          set.from_list(dict.keys(b.values)),
-        ))
-      let merged_values =
-        list.fold(all_value_keys, dict.new(), fn(acc, key) {
-          let merged_crdt = case valid_value(a, key), valid_value(b, key) {
-            Ok(ca), Ok(cb) ->
-              case crdt.merge(ca, cb) {
-                Ok(merged) -> merged
-                Error(_) -> crdt.default_crdt(a.crdt_spec, a.replica_id)
-              }
-            Ok(ca), Error(_) -> ca
-            Error(_), Ok(cb) -> cb
-            Error(_), Error(_) ->
-              panic as "unreachable: key must exist in at least one map"
+  use <- bool.guard(
+    a.crdt_spec != b.crdt_spec,
+    Error(crdt.TypeMismatch(
+      expected: spec_to_string(a.crdt_spec),
+      found: spec_to_string(b.crdt_spec),
+    )),
+  )
+  let merged_key_set = or_set.merge(a.key_set, b.key_set)
+  let active_keys = or_set.value(merged_key_set)
+  let all_value_keys =
+    set.to_list(set.union(
+      set.from_list(dict.keys(a.values)),
+      set.from_list(dict.keys(b.values)),
+    ))
+  let merged_values =
+    list.fold(all_value_keys, dict.new(), fn(acc, key) {
+      let merged_crdt = case valid_value(a, key), valid_value(b, key) {
+        Ok(ca), Ok(cb) ->
+          case crdt.merge(ca, cb) {
+            Ok(merged) -> merged
+            // Intentional fallback: a type mismatch between concurrently
+            // created values resolves to a fresh default of the map's spec.
+            // nolint: thrown_away_error
+            Error(_) -> crdt.default_crdt(a.crdt_spec, a.replica_id)
           }
-          dict.insert(acc, key, merged_crdt)
-        })
+        Ok(ca), Error(Nil) -> ca
+        Error(Nil), Ok(cb) -> cb
+        Error(Nil), Error(Nil) ->
+          // all_value_keys is the union of both maps' keys, so a key
+          // absent from both cannot occur.
+          // nolint: avoid_panic
+          panic as "unreachable: key must exist in at least one map"
+      }
+      dict.insert(acc, key, merged_crdt)
+    })
 
-      // Merge remove_bounds: keep bounds for removed keys, clear for active keys
-      let all_bound_keys =
-        set.to_list(set.union(
-          set.from_list(dict.keys(a.remove_bounds)),
-          set.from_list(dict.keys(b.remove_bounds)),
-        ))
-      let merged_bounds =
-        list.fold(all_bound_keys, dict.new(), fn(acc, key) {
-          case set.contains(active_keys, key) {
-            True -> acc
-            False ->
-              case
-                dict.get(a.remove_bounds, key),
-                dict.get(b.remove_bounds, key)
-              {
-                Ok(ba), Ok(bb) ->
-                  dict.insert(acc, key, version_vector.merge(ba, bb))
-                Ok(ba), Error(_) -> dict.insert(acc, key, ba)
-                Error(_), Ok(bb) -> dict.insert(acc, key, bb)
-                Error(_), Error(_) -> acc
-              }
+  // Merge remove_bounds: keep bounds for removed keys, clear for active keys
+  let all_bound_keys =
+    set.to_list(set.union(
+      set.from_list(dict.keys(a.remove_bounds)),
+      set.from_list(dict.keys(b.remove_bounds)),
+    ))
+  let merged_bounds =
+    list.fold(all_bound_keys, dict.new(), fn(acc, key) {
+      case set.contains(active_keys, key) {
+        True -> acc
+        False ->
+          case dict.get(a.remove_bounds, key), dict.get(b.remove_bounds, key) {
+            Ok(ba), Ok(bb) ->
+              dict.insert(acc, key, version_vector.merge(ba, bb))
+            Ok(ba), Error(Nil) -> dict.insert(acc, key, ba)
+            Error(Nil), Ok(bb) -> dict.insert(acc, key, bb)
+            Error(Nil), Error(Nil) -> acc
           }
-        })
+      }
+    })
 
-      Ok(ORMap(
-        replica_id: a.replica_id,
-        crdt_spec: a.crdt_spec,
-        key_set: merged_key_set,
-        values: merged_values,
-        remove_bounds: merged_bounds,
-      ))
-    }
-  }
+  Ok(ORMap(
+    replica_id: a.replica_id,
+    crdt_spec: a.crdt_spec,
+    key_set: merged_key_set,
+    values: merged_values,
+    remove_bounds: merged_bounds,
+  ))
 }
 
 /// Prune tombstones for keys and compact removed values whose removal is
@@ -265,7 +262,7 @@ pub fn prune(map: ORMap, stable_vv: VersionVector) -> ORMap {
                 True -> #(vals, dict.delete(bounds, key))
                 False -> #(dict.insert(vals, key, val), bounds)
               }
-            Error(_) -> #(dict.insert(vals, key, val), bounds)
+            Error(Nil) -> #(dict.insert(vals, key, val), bounds)
           }
       }
     })
@@ -420,56 +417,43 @@ fn decode_or_map_state(
   values_list: List(#(String, String)),
   remove_bounds: dict.Dict(String, VersionVector),
 ) -> Result(ORMap, json.DecodeError) {
-  case string_to_spec(crdt_spec_str) {
-    Error(_) ->
-      Error(
-        json.UnableToDecode([
-          decode.DecodeError(
-            expected: "known CrdtSpec",
-            found: crdt_spec_str,
-            path: ["state", "crdt_spec"],
-          ),
-        ]),
+  use crdt_spec <- result.try(result.replace_error(
+    string_to_spec(crdt_spec_str),
+    json.UnableToDecode([
+      decode.DecodeError(
+        expected: "known CrdtSpec",
+        found: crdt_spec_str,
+        path: ["state", "crdt_spec"],
+      ),
+    ]),
+  ))
+  use key_set <- result.try(or_set.from_json(key_set_str))
+  use pairs <- result.try(
+    list.try_map(values_list, fn(pair) {
+      let #(key, crdt_str) = pair
+      use c <- result.try(crdt.from_json(crdt_str))
+      use <- bool.guard(
+        !matches_spec(c, crdt_spec),
+        Error(
+          json.UnableToDecode([
+            decode.DecodeError(
+              expected: spec_to_string(crdt_spec),
+              found: crdt_name(c),
+              path: ["state", "values"],
+            ),
+          ]),
+        ),
       )
-    Ok(crdt_spec) ->
-      case or_set.from_json(key_set_str) {
-        Error(e) -> Error(e)
-        Ok(key_set) -> {
-          let values_result =
-            list.try_map(values_list, fn(pair) {
-              let #(key, crdt_str) = pair
-              case crdt.from_json(crdt_str) {
-                Ok(c) ->
-                  case matches_spec(c, crdt_spec) {
-                    True -> Ok(#(key, c))
-                    False ->
-                      Error(
-                        json.UnableToDecode([
-                          decode.DecodeError(
-                            expected: spec_to_string(crdt_spec),
-                            found: crdt_name(c),
-                            path: ["state", "values"],
-                          ),
-                        ]),
-                      )
-                  }
-                Error(e) -> Error(e)
-              }
-            })
-          case values_result {
-            Error(e) -> Error(e)
-            Ok(pairs) ->
-              Ok(ORMap(
-                replica_id: replica_id.new(replica_id_str),
-                crdt_spec: crdt_spec,
-                key_set: key_set,
-                values: dict.from_list(pairs),
-                remove_bounds: remove_bounds,
-              ))
-          }
-        }
-      }
-  }
+      Ok(#(key, c))
+    }),
+  )
+  Ok(ORMap(
+    replica_id: replica_id.new(replica_id_str),
+    crdt_spec: crdt_spec,
+    key_set: key_set,
+    values: dict.from_list(pairs),
+    remove_bounds: remove_bounds,
+  ))
 }
 
 fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
@@ -664,14 +648,14 @@ pub fn apply_delta(
   map: ORMap,
   delta: ORMapDelta,
 ) -> Result(ORMap, crdt.MergeError) {
-  case map.crdt_spec == delta.crdt_spec {
-    False ->
-      Error(crdt.TypeMismatch(
-        expected: spec_to_string(map.crdt_spec),
-        found: spec_to_string(delta.crdt_spec),
-      ))
-    True -> apply_delta_unchecked(map, delta)
-  }
+  use <- bool.guard(
+    map.crdt_spec != delta.crdt_spec,
+    Error(crdt.TypeMismatch(
+      expected: spec_to_string(map.crdt_spec),
+      found: spec_to_string(delta.crdt_spec),
+    )),
+  )
+  apply_delta_unchecked(map, delta)
 }
 
 fn apply_delta_unchecked(
@@ -683,6 +667,9 @@ fn apply_delta_unchecked(
     dict.combine(map.values, delta.value_deltas, fn(local, incoming) {
       case crdt.merge(local, incoming) {
         Ok(merged) -> merged
+        // Intentional fallback: a type mismatch resolves to a fresh default
+        // of the map's spec.
+        // nolint: thrown_away_error
         Error(_) -> crdt.default_crdt(map.crdt_spec, map.replica_id)
       }
     })
@@ -723,36 +710,37 @@ pub fn merge_deltas(
   a: ORMapDelta,
   b: ORMapDelta,
 ) -> Result(ORMapDelta, crdt.MergeError) {
-  case a.crdt_spec == b.crdt_spec {
-    False ->
-      Error(crdt.TypeMismatch(
-        expected: spec_to_string(a.crdt_spec),
-        found: spec_to_string(b.crdt_spec),
-      ))
-    True -> {
-      let merged_key_set = or_set.merge(a.key_set_delta, b.key_set_delta)
-      let merged_values =
-        dict.combine(a.value_deltas, b.value_deltas, fn(va, vb) {
-          case crdt.merge(va, vb) {
-            Ok(m) -> m
-            Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
-          }
-        })
-      let merged_bounds =
-        dict.combine(
-          a.remove_bounds_delta,
-          b.remove_bounds_delta,
-          version_vector.merge,
-        )
-      Ok(ORMapDelta(
-        replica_id: a.replica_id,
-        crdt_spec: a.crdt_spec,
-        key_set_delta: merged_key_set,
-        value_deltas: merged_values,
-        remove_bounds_delta: merged_bounds,
-      ))
-    }
-  }
+  use <- bool.guard(
+    a.crdt_spec != b.crdt_spec,
+    Error(crdt.TypeMismatch(
+      expected: spec_to_string(a.crdt_spec),
+      found: spec_to_string(b.crdt_spec),
+    )),
+  )
+  let merged_key_set = or_set.merge(a.key_set_delta, b.key_set_delta)
+  let merged_values =
+    dict.combine(a.value_deltas, b.value_deltas, fn(va, vb) {
+      case crdt.merge(va, vb) {
+        Ok(m) -> m
+        // Intentional fallback: a type mismatch resolves to a fresh
+        // default delta of the map's spec.
+        // nolint: thrown_away_error
+        Error(_) -> crdt.default_delta(a.crdt_spec, a.replica_id)
+      }
+    })
+  let merged_bounds =
+    dict.combine(
+      a.remove_bounds_delta,
+      b.remove_bounds_delta,
+      version_vector.merge,
+    )
+  Ok(ORMapDelta(
+    replica_id: a.replica_id,
+    crdt_spec: a.crdt_spec,
+    key_set_delta: merged_key_set,
+    value_deltas: merged_values,
+    remove_bounds_delta: merged_bounds,
+  ))
 }
 
 /// Encode an `ORMapDelta` as a self-describing JSON value.
@@ -880,54 +868,41 @@ fn decode_or_map_delta_state(
   values_list: List(#(String, String)),
   bounds: dict.Dict(String, VersionVector),
 ) -> Result(ORMapDelta, json.DecodeError) {
-  case string_to_spec(crdt_spec_str) {
-    Error(_) ->
-      Error(
-        json.UnableToDecode([
-          decode.DecodeError(
-            expected: "known CrdtSpec",
-            found: crdt_spec_str,
-            path: ["state", "crdt_spec"],
-          ),
-        ]),
+  use crdt_spec <- result.try(result.replace_error(
+    string_to_spec(crdt_spec_str),
+    json.UnableToDecode([
+      decode.DecodeError(
+        expected: "known CrdtSpec",
+        found: crdt_spec_str,
+        path: ["state", "crdt_spec"],
+      ),
+    ]),
+  ))
+  use key_set_delta <- result.try(or_set.from_json(key_set_str))
+  use pairs <- result.try(
+    list.try_map(values_list, fn(pair) {
+      let #(key, crdt_str) = pair
+      use c <- result.try(crdt.from_json(crdt_str))
+      use <- bool.guard(
+        !matches_spec(c, crdt_spec),
+        Error(
+          json.UnableToDecode([
+            decode.DecodeError(
+              expected: spec_to_string(crdt_spec),
+              found: crdt_name(c),
+              path: ["state", "value_deltas"],
+            ),
+          ]),
+        ),
       )
-    Ok(crdt_spec) ->
-      case or_set.from_json(key_set_str) {
-        Error(e) -> Error(e)
-        Ok(key_set_delta) -> {
-          let values_result =
-            list.try_map(values_list, fn(pair) {
-              let #(key, crdt_str) = pair
-              case crdt.from_json(crdt_str) {
-                Ok(c) ->
-                  case matches_spec(c, crdt_spec) {
-                    True -> Ok(#(key, c))
-                    False ->
-                      Error(
-                        json.UnableToDecode([
-                          decode.DecodeError(
-                            expected: spec_to_string(crdt_spec),
-                            found: crdt_name(c),
-                            path: ["state", "value_deltas"],
-                          ),
-                        ]),
-                      )
-                  }
-                Error(e) -> Error(e)
-              }
-            })
-          case values_result {
-            Error(e) -> Error(e)
-            Ok(pairs) ->
-              Ok(ORMapDelta(
-                replica_id: replica_id.new(replica_id_str),
-                crdt_spec: crdt_spec,
-                key_set_delta: key_set_delta,
-                value_deltas: dict.from_list(pairs),
-                remove_bounds_delta: bounds,
-              ))
-          }
-        }
-      }
-  }
+      Ok(#(key, c))
+    }),
+  )
+  Ok(ORMapDelta(
+    replica_id: replica_id.new(replica_id_str),
+    crdt_spec: crdt_spec,
+    key_set_delta: key_set_delta,
+    value_deltas: dict.from_list(pairs),
+    remove_bounds_delta: bounds,
+  ))
 }

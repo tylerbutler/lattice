@@ -23,6 +23,7 @@
 //// // -> [#("pid-1", "alice", _), #("pid-2", "bob", _)]
 //// ```
 
+import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/int
 import gleam/json
@@ -128,11 +129,11 @@ pub fn new(replica: Replica) -> State {
 
 /// Add a tracked presence. Increments the local clock.
 pub fn join(
-  state: State,
-  pid: String,
-  topic: String,
-  key: String,
-  meta: json.Json,
+  state state: State,
+  pid pid: String,
+  topic topic: String,
+  key key: String,
+  meta meta: json.Json,
 ) -> State {
   let clock = next_clock(state, state.replica)
   let tag = Tag(replica: state.replica, clock: clock)
@@ -148,7 +149,12 @@ pub fn join(
 /// replica's entry would not be causally observed (this node's context
 /// doesn't cover the foreign tag), so it would silently reappear on the
 /// next merge. Foreign entries are filtered out at the source instead.
-pub fn leave(state: State, pid: String, topic: String, key: String) -> State {
+pub fn leave(
+  state state: State,
+  pid pid: String,
+  topic topic: String,
+  key key: String,
+) -> State {
   let new_values =
     dict.filter(state.values, fn(tag, entry) {
       tag.replica != state.replica
@@ -200,9 +206,9 @@ pub fn get_by_topic(
 
 /// Get presences for a specific key within a topic
 pub fn get_by_key(
-  state: State,
-  topic: String,
-  key: String,
+  state state: State,
+  topic topic: String,
+  key key: String,
 ) -> List(#(String, json.Json)) {
   visible_entries(state, fn(entry) { entry.topic == topic && entry.key == key })
   |> list.map(fn(entry) { #(entry.pid, entry.meta) })
@@ -285,7 +291,7 @@ fn tag_is_in(
     _ -> {
       case dict.get(clouds, tag.replica) {
         Ok(cloud) -> set.contains(cloud, tag.clock)
-        Error(_) -> False
+        Error(Nil) -> False
       }
     }
   }
@@ -320,7 +326,7 @@ pub fn compact(state: State) -> State {
         let #(ctx, clouds) = acc
         let base = case dict.get(ctx, replica) {
           Ok(c) -> c
-          Error(_) -> 0
+          Error(Nil) -> 0
         }
         let #(new_base, remaining) = compact_cloud(base, cloud)
         let new_ctx = case new_base > base {
@@ -340,10 +346,8 @@ pub fn compact(state: State) -> State {
 
 /// Compact a single cloud: advance base clock through contiguous values
 fn compact_cloud(base: Clock, cloud: Set(Clock)) -> #(Clock, Set(Clock)) {
-  case set.contains(cloud, base + 1) {
-    True -> compact_cloud(base + 1, set.delete(cloud, base + 1))
-    False -> #(base, cloud)
-  }
+  use <- bool.guard(!set.contains(cloud, base + 1), #(base, cloud))
+  compact_cloud(base + 1, set.delete(cloud, base + 1))
 }
 
 /// Group entries by topic for diff reporting
@@ -353,7 +357,7 @@ fn entries_to_topic_diff(
   list.fold(entries, dict.new(), fn(acc, entry) {
     let existing = case dict.get(acc, entry.topic) {
       Ok(l) -> l
-      Error(_) -> []
+      Error(Nil) -> []
     }
     dict.insert(acc, entry.topic, [
       #(entry.key, entry.pid, entry.meta),
@@ -455,7 +459,7 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
       #(new_state, diff)
     }
     Ok(Up) -> #(state, Diff(joins: dict.new(), leaves: dict.new()))
-    Error(_) -> {
+    Error(Nil) -> {
       // First contact: record as Up but emit no diff (it was already
       // treated as up by `is_replica_up`).
       let new_replicas = dict.insert(state.replicas, replica, Up)
@@ -497,10 +501,10 @@ pub fn replicated_parts(
 
 @internal
 pub fn from_replicated_parts(
-  replica: Replica,
-  context: Dict(Replica, Clock),
-  clouds: Dict(Replica, Set(Clock)),
-  values: Dict(Tag, Entry),
+  replica replica: Replica,
+  context context: Dict(Replica, Clock),
+  clouds clouds: Dict(Replica, Set(Clock)),
+  values values: Dict(Tag, Entry),
 ) -> State {
   State(
     replica: replica,
@@ -520,11 +524,11 @@ fn next_clock(state: State, replica: Replica) -> Clock {
   // merge — tracking the max incrementally would optimize a non-hot path.
   let ctx_clock = case dict.get(state.context, replica) {
     Ok(c) -> c
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   let cloud_max = case dict.get(state.clouds, replica) {
     Ok(cloud) -> set.fold(cloud, 0, int.max)
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   int.max(ctx_clock, cloud_max) + 1
 }
@@ -534,6 +538,6 @@ fn is_replica_up(state: State, replica: Replica) -> Bool {
     Ok(Up) -> True
     Ok(Down) -> False
     // Unknown replicas assumed up (first contact)
-    Error(_) -> True
+    Error(Nil) -> True
   }
 }

@@ -161,9 +161,9 @@ pub fn default_delta(spec: CrdtSpec, replica_id: ReplicaId) -> Crdt {
 /// `GCounter` carrying `{self_id: 0}` is structurally distinct from the
 /// fresh empty counter); such cases produce a small but harmless delta.
 pub fn is_empty_delta(
-  value: Crdt,
-  spec: CrdtSpec,
-  replica_id: ReplicaId,
+  value value: Crdt,
+  spec spec: CrdtSpec,
+  replica_id replica_id: ReplicaId,
 ) -> Bool {
   value == default_delta(spec, replica_id)
 }

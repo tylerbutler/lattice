@@ -11,3 +11,21 @@ lattice_sets = { path = "../packages/lattice_sets" }
 lattice_maps = { path = "../packages/lattice_maps" }
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"
+
+[dev-dependencies]
+glinter = ">= 2.19.0 and < 3.0.0"
+
+[tools.glinter]
+include = ["src/"]
+warnings_as_errors = true
+
+[tools.glinter.rules]
+# Demonstration code favours brevity: round-trip examples handle decode
+# failures by printing a message, `let assert` keeps sample code short,
+# `main` entrypoints skip return annotations, and short loop names are fine.
+thrown_away_error = "off"
+assert_ok_pattern = "off"
+missing_type_annotation = "off"
+short_variable_name = "off"
+# Stylistic rules the codebase intentionally does not follow.
+label_possible = "off"

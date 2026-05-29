@@ -218,6 +218,9 @@ fn json_value_list(
     [item, ..rest] ->
       case decode.run(item, json_value_decoder_at(depth)) {
         Ok(val) -> json_value_list(rest, [val, ..acc], depth)
+        // Decode boundary: per-element decode errors are replaced with a
+        // single domain-specific decoder failure.
+        // nolint: thrown_away_error
         Error(_) -> decode.failure(json.null(), "valid JSON value in array")
       }
   }
@@ -233,6 +236,9 @@ fn json_value_dict(
     [#(key, value), ..rest] ->
       case decode.run(value, json_value_decoder_at(depth)) {
         Ok(val) -> json_value_dict(rest, [#(key, val), ..acc], depth)
+        // Decode boundary: per-field decode errors are replaced with a
+        // single domain-specific decoder failure.
+        // nolint: thrown_away_error
         Error(_) -> decode.failure(json.null(), "valid JSON value in object")
       }
   }

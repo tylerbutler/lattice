@@ -55,6 +55,9 @@ pub fn new(replica_id: ReplicaId) -> PNCounter {
 /// See `increment_with_delta` for the delta-state variant that also returns
 /// a small payload suitable for incremental sync (e.g. over websockets).
 pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_increment`.
+  // nolint: assert_ok_pattern
   let assert Ok(updated) = try_increment(counter, delta)
   updated
 }
@@ -84,6 +87,9 @@ pub fn increment_with_delta(
   counter: PNCounter,
   delta: Int,
 ) -> #(PNCounter, PNCounter) {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_increment_with_delta`.
+  // nolint: assert_ok_pattern
   let assert Ok(result) = try_increment_with_delta(counter, delta)
   result
 }
@@ -118,6 +124,9 @@ pub fn try_increment_with_delta(
 ///
 /// See `decrement_with_delta` for the delta-state variant.
 pub fn decrement(counter: PNCounter, delta: Int) -> PNCounter {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_decrement`.
+  // nolint: assert_ok_pattern
   let assert Ok(updated) = try_decrement(counter, delta)
   updated
 }
@@ -147,6 +156,9 @@ pub fn decrement_with_delta(
   counter: PNCounter,
   delta: Int,
 ) -> #(PNCounter, PNCounter) {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_decrement_with_delta`.
+  // nolint: assert_ok_pattern
   let assert Ok(result) = try_decrement_with_delta(counter, delta)
   result
 }
