@@ -116,8 +116,15 @@ before you depend on public API shape.
 		gap: clamp(1.25rem, 3vw, 2rem);
 	}
 
+	.convergence-artifact,
+	.state-shapes {
+		--motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+		--motion-ease-fast: cubic-bezier(0.25, 1, 0.5, 1);
+	}
+
 	.convergence-artifact__intro {
 		max-width: 68ch;
+		animation: notebook-enter 640ms var(--motion-ease) both;
 	}
 
 	.convergence-artifact__label {
@@ -165,6 +172,8 @@ before you depend on public API shape.
 			radial-gradient(circle at top right, color-mix(in oklab, var(--sl-color-accent), transparent 72%), transparent 34rem),
 			var(--artifact-surface);
 		color: var(--artifact-ink);
+		contain: paint;
+		animation: proof-panel-enter 720ms var(--motion-ease) 80ms both;
 	}
 
 	.proof-panel::before {
@@ -176,6 +185,22 @@ before you depend on public API shape.
 			linear-gradient(90deg, color-mix(in oklab, var(--sl-color-gray-5), transparent 62%) 1px, transparent 1px);
 		background-size: 1.35rem 1.35rem;
 		mask-image: linear-gradient(135deg, black, transparent 74%);
+		pointer-events: none;
+	}
+
+	.proof-panel::after {
+		content: "";
+		position: absolute;
+		inset: -20% -35%;
+		background: linear-gradient(
+			105deg,
+			transparent 35%,
+			color-mix(in oklab, var(--sl-color-accent-high), transparent 70%) 48%,
+			color-mix(in oklab, var(--sl-color-white), transparent 78%) 50%,
+			transparent 64%
+		);
+		transform: translateX(-55%) skewX(-10deg);
+		animation: proof-sweep 900ms var(--motion-ease) 280ms both;
 		pointer-events: none;
 	}
 
@@ -194,6 +219,11 @@ before you depend on public API shape.
 		border: 1px solid color-mix(in oklab, var(--artifact-border), transparent 18%);
 		border-radius: 0.75rem;
 		background: color-mix(in oklab, var(--artifact-surface-raised), transparent 12%);
+		animation: proof-row-settle 560ms var(--motion-ease) both;
+	}
+
+	.proof-panel__row:nth-child(3) {
+		animation-delay: 160ms;
 	}
 
 	.proof-panel__row--header {
@@ -203,6 +233,7 @@ before you depend on public API shape.
 		color: var(--artifact-muted);
 		font-size: 0.86rem;
 		font-weight: 700;
+		animation: none;
 	}
 
 	.proof-panel strong {
@@ -225,6 +256,7 @@ before you depend on public API shape.
 		border: 1px solid color-mix(in oklab, var(--sl-color-accent), transparent 25%);
 		border-radius: 0.85rem;
 		background: color-mix(in oklab, var(--sl-color-accent-low), var(--sl-color-black) 10%);
+		animation: result-resolve 620ms var(--motion-ease) 340ms both;
 	}
 
 	.proof-panel__result span {
@@ -236,6 +268,12 @@ before you depend on public API shape.
 		color: var(--sl-color-accent-high);
 		font-size: clamp(2.25rem, 7vw, 4rem);
 		line-height: 0.85;
+		transition: transform 180ms var(--motion-ease-fast), text-shadow 180ms var(--motion-ease-fast);
+	}
+
+	.proof-panel:hover .proof-panel__result strong {
+		transform: scale(1.035);
+		text-shadow: 0 0 1.25rem color-mix(in oklab, var(--sl-color-accent), transparent 52%);
 	}
 
 	.decision-paths {
@@ -253,16 +291,39 @@ before you depend on public API shape.
 		background: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 11%);
 		color: var(--sl-color-gray-1);
 		text-decoration: none;
+		animation: path-enter 520ms var(--motion-ease) both;
 		transition:
 			background-color 160ms ease-out,
 			border-color 160ms ease-out,
+			box-shadow 160ms ease-out,
 			transform 160ms ease-out;
+	}
+
+	.decision-paths a:nth-child(1) {
+		animation-delay: 220ms;
+	}
+
+	.decision-paths a:nth-child(2) {
+		animation-delay: 270ms;
+	}
+
+	.decision-paths a:nth-child(3) {
+		animation-delay: 320ms;
+	}
+
+	.decision-paths a:nth-child(4) {
+		animation-delay: 370ms;
 	}
 
 	.decision-paths a:hover {
 		border-color: color-mix(in oklab, var(--sl-color-accent), transparent 18%);
 		background: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 26%);
+		box-shadow: 0 0 0 1px color-mix(in oklab, var(--sl-color-accent), transparent 65%);
 		transform: translateY(-2px);
+	}
+
+	.decision-paths a:active {
+		transform: translateY(0) scale(0.99);
 	}
 
 	.decision-paths a:focus-visible {
@@ -302,6 +363,7 @@ before you depend on public API shape.
 
 	.state-shapes__header {
 		max-width: 58ch;
+		animation: notebook-enter 560ms var(--motion-ease) 420ms both;
 	}
 
 	.state-shapes h2 {
@@ -334,7 +396,27 @@ before you depend on public API shape.
 		border-bottom: 1px solid color-mix(in oklab, var(--sl-color-gray-5), transparent 38%);
 		color: var(--sl-color-gray-1);
 		text-decoration: none;
-		transition: color 160ms ease-out, background-color 160ms ease-out;
+		animation: shape-row-enter 460ms var(--motion-ease) both;
+		transition:
+			color 160ms ease-out,
+			background-color 160ms ease-out,
+			transform 160ms ease-out;
+	}
+
+	.state-shapes__list a:nth-child(1) {
+		animation-delay: 500ms;
+	}
+
+	.state-shapes__list a:nth-child(2) {
+		animation-delay: 545ms;
+	}
+
+	.state-shapes__list a:nth-child(3) {
+		animation-delay: 590ms;
+	}
+
+	.state-shapes__list a:nth-child(4) {
+		animation-delay: 635ms;
 	}
 
 	.state-shapes__list a:last-child {
@@ -344,6 +426,11 @@ before you depend on public API shape.
 	.state-shapes__list a:hover {
 		background: color-mix(in oklab, var(--sl-color-accent-low), transparent 72%);
 		color: var(--sl-color-white);
+		transform: translateX(0.35rem);
+	}
+
+	.state-shapes__list a:active {
+		transform: translateX(0.18rem) scale(0.995);
 	}
 
 	.state-shapes__list a:focus-visible {
@@ -370,6 +457,92 @@ before you depend on public API shape.
 
 	.state-shapes__list a:hover em {
 		color: var(--sl-color-gray-1);
+	}
+
+	@keyframes notebook-enter {
+		from {
+			opacity: 0.86;
+			filter: blur(0.18rem);
+			transform: translateY(0.55rem);
+		}
+		to {
+			opacity: 1;
+			filter: blur(0);
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes proof-panel-enter {
+		from {
+			opacity: 0.9;
+			filter: saturate(0.86);
+			transform: translateY(0.65rem);
+		}
+		to {
+			opacity: 1;
+			filter: saturate(1);
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes proof-sweep {
+		from {
+			opacity: 0;
+			transform: translateX(-55%) skewX(-10deg);
+		}
+		28% {
+			opacity: 0.72;
+		}
+		to {
+			opacity: 0;
+			transform: translateX(55%) skewX(-10deg);
+		}
+	}
+
+	@keyframes proof-row-settle {
+		from {
+			opacity: 0.82;
+			transform: translateX(-0.45rem);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
+	@keyframes result-resolve {
+		from {
+			opacity: 0.86;
+			box-shadow: 0 0 0 0 color-mix(in oklab, var(--sl-color-accent), transparent 45%);
+			transform: translateY(0.4rem) scale(0.985);
+		}
+		to {
+			opacity: 1;
+			box-shadow: 0 0 0 0.35rem transparent;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	@keyframes path-enter {
+		from {
+			opacity: 0.86;
+			transform: translateY(0.45rem);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes shape-row-enter {
+		from {
+			opacity: 0.84;
+			transform: translateX(-0.4rem);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
 	}
 
 	@media (max-width: 56rem) {
@@ -399,11 +572,31 @@ before you depend on public API shape.
 	}
 
 	@media (prefers-reduced-motion: reduce) {
+		.convergence-artifact__intro,
+		.proof-panel,
+		.proof-panel__row,
+		.proof-panel__result,
+		.decision-paths a,
+		.state-shapes__header,
+		.state-shapes__list a {
+			animation: none;
+		}
+
+		.proof-panel::after {
+			display: none;
+		}
+
 		.decision-paths a {
 			transition: border-color 160ms ease-out, background-color 160ms ease-out;
 		}
 
 		.decision-paths a:hover {
+			transform: none;
+		}
+
+		.proof-panel:hover .proof-panel__result strong,
+		.state-shapes__list a:hover,
+		.state-shapes__list a:active {
 			transform: none;
 		}
 	}
