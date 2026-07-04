@@ -523,24 +523,8 @@ fn visible_length(items: List(Item(a))) -> Int {
 }
 
 fn visible_item_id_at(items: List(Item(a)), index: Int) -> Option(ItemId) {
-  visible_item_id_at_loop(items, index, 0)
-}
-
-fn visible_item_id_at_loop(
-  items: List(Item(a)),
-  target: Int,
-  current: Int,
-) -> Option(ItemId) {
-  case items {
-    [] -> None
-    [Item(_, _, _, _, True, _), ..rest] ->
-      visible_item_id_at_loop(rest, target, current)
-    [Item(id, _, _, _, False, _), ..rest] ->
-      case current == target {
-        True -> Some(id)
-        False -> visible_item_id_at_loop(rest, target, current + 1)
-      }
-  }
+  visible_item_at(items, index)
+  |> option.map(fn(item) { item.id })
 }
 
 fn visible_item_at(items: List(Item(a)), index: Int) -> Option(Item(a)) {
@@ -741,10 +725,7 @@ fn order_items(items: List(Item(a))) -> List(Item(a)) {
 }
 
 fn has_move(item: Item(a)) -> Bool {
-  case item.move {
-    Some(_) -> True
-    None -> False
-  }
+  option.is_some(item.move)
 }
 
 fn compare_item_moves(a: Item(a), b: Item(a)) -> order.Order {

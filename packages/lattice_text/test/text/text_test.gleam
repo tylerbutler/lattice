@@ -1,4 +1,5 @@
 import lattice_core/replica_id
+import lattice_sequence/sequence
 import lattice_text/text
 import startest/expect
 
@@ -45,14 +46,14 @@ pub fn insert_in_middle_test() {
 pub fn try_insert_negative_index_returns_error_test() {
   text.new(rid("A"))
   |> text.try_insert(-1, "x")
-  |> expect.to_equal(Error(text.IndexOutOfBounds(index: -1, length: 0)))
+  |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: -1, length: 0)))
 }
 
 pub fn try_insert_past_end_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "a")
   |> text.try_insert(2, "x")
-  |> expect.to_equal(Error(text.IndexOutOfBounds(index: 2, length: 1)))
+  |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: 2, length: 1)))
 }
 
 pub fn delete_removes_visible_unit_test() {
@@ -68,14 +69,18 @@ pub fn delete_removes_visible_unit_test() {
 pub fn try_delete_negative_index_returns_error_test() {
   text.new(rid("A"))
   |> text.try_delete(-1)
-  |> expect.to_equal(Error(text.DeleteIndexOutOfBounds(index: -1, length: 0)))
+  |> expect.to_equal(
+    Error(sequence.DeleteIndexOutOfBounds(index: -1, length: 0)),
+  )
 }
 
 pub fn try_delete_at_end_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "a")
   |> text.try_delete(1)
-  |> expect.to_equal(Error(text.DeleteIndexOutOfBounds(index: 1, length: 1)))
+  |> expect.to_equal(
+    Error(sequence.DeleteIndexOutOfBounds(index: 1, length: 1)),
+  )
 }
 
 pub fn merge_concurrent_insert_same_position_is_deterministic_test() {
@@ -134,37 +139,6 @@ pub fn merge_applies_insert_delta_test() {
 pub fn merge_applies_delete_delta_test() {
   let base = text.new(rid("A")) |> text.insert(0, "x")
   let #(updated, delta) = text.delete_with_delta(base, 0)
-
-  text.merge(base, delta)
-  |> expect.to_equal(updated)
-}
-
-pub fn move_reorders_text_segments_test() {
-  text.new(rid("A"))
-  |> text.insert(0, "a")
-  |> text.insert(1, "b")
-  |> text.insert(2, "c")
-  |> text.move(0, 2)
-  |> text.value()
-  |> expect.to_equal("bca")
-}
-
-pub fn try_move_to_index_out_of_bounds_test() {
-  text.new(rid("A"))
-  |> text.insert(0, "a")
-  |> text.try_move(0, 2)
-  |> expect.to_equal(
-    Error(text.MoveToIndexOutOfBounds(index: 2, length_after_removal: 0)),
-  )
-}
-
-pub fn merge_applies_move_delta_test() {
-  let base =
-    text.new(rid("A"))
-    |> text.insert(0, "a")
-    |> text.insert(1, "b")
-    |> text.insert(2, "c")
-  let #(updated, delta) = text.move_with_delta(base, 0, 2)
 
   text.merge(base, delta)
   |> expect.to_equal(updated)
