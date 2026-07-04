@@ -1,8 +1,8 @@
 name: Publish
 
 # Broad tag pattern so new packages added to workspace.toml are automatically
-# publishable without editing this workflow. Safe because gleam-publish skips
-# versions already on Hex and only publishes packages listed in workspace.toml.
+# publishable without editing this workflow. The workspace reader maps the tag
+# to a known package path before validation or publish runs.
 on:
   push:
     tags:
@@ -10,7 +10,35 @@ on:
 
 jobs:
   test:
-    uses: ./.github/workflows/ci.yml
+    runs-on: ubuntu-latest
+    outputs:
+      package-path: ${{ steps.ws.outputs.tag-package-path }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+
+      - name: Read workspace
+        id: ws
+        uses: tylerbutler/actions/read-gleam-workspace@f3a3a7d38466a1407c7965872f20e9e8157c11f1 # ratchet:tylerbutler/actions/read-gleam-workspace@main
+        with:
+          tag: ${{ github.ref_name }}
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+        with:
+          node: "true"
+
+      - name: Validate tagged package
+        env:
+          PACKAGE: ${{ steps.ws.outputs.tag-package-path }}
+        run: |
+          cd "$PACKAGE"
+          gleam deps download
+          gleam format --check src test
+          gleam check
+          gleam build --warnings-as-errors
+          gleam test
+          gleam test --target javascript
+          gleam docs build
 
   publish:
     needs: test
@@ -18,20 +46,16 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
 
-      - name: Read workspace
-        id: ws
-        uses: tylerbutler/actions/read-gleam-workspace@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/read-gleam-workspace@main
-
       - name: Setup environment
         uses: ./.github/actions/setup
 
-      # Publish packages in dependency order (from workspace.toml).
+      # Publish only the package named by the pushed tag.
       # replace-path-deps rewrites path dependencies to Hex version ranges
       # derived from each package's gleam.toml before publishing.
       - name: Publish to Hex.pm
-        uses: tylerbutler/actions/gleam-publish@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/gleam-publish@main
+        uses: tylerbutler/actions/gleam-publish@f3a3a7d38466a1407c7965872f20e9e8157c11f1 # ratchet:tylerbutler/actions/gleam-publish@main
         with:
-          packages: ${{ steps.ws.outputs.packages }}
+          packages: ${{ needs.test.outputs.package-path }}
           replace-path-deps: |
             lattice_core:packages/lattice_core/gleam.toml
             lattice_counters:packages/lattice_counters/gleam.toml

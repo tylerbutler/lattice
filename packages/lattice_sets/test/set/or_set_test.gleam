@@ -1,4 +1,5 @@
 import gleam/set
+import gleam/string
 import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_sets/or_set
@@ -35,6 +36,33 @@ pub fn add_then_value_contains_element_test() {
   |> expect.to_equal(set.from_list(["hello"]))
 }
 
+pub fn diff_reports_added_and_removed_values_test() {
+  let before =
+    or_set.new(rid("A"))
+    |> or_set.add("stays")
+    |> or_set.add("removed")
+
+  let after =
+    before
+    |> or_set.remove("removed")
+    |> or_set.add("added")
+
+  let or_set.Diff(added, removed) = or_set.diff(before, after)
+
+  added |> expect.to_equal(set.from_list(["added"]))
+  removed |> expect.to_equal(set.from_list(["removed"]))
+}
+
+pub fn diff_empty_when_observable_values_unchanged_test() {
+  let before = or_set.new(rid("A")) |> or_set.add("same")
+  let after = before |> or_set.add("same")
+
+  let or_set.Diff(added, removed) = or_set.diff(before, after)
+
+  added |> expect.to_equal(set.new())
+  removed |> expect.to_equal(set.new())
+}
+
 pub fn add_then_remove_then_contains_false_test() {
   or_set.new(rid("A"))
   |> or_set.add("x")
@@ -52,6 +80,45 @@ pub fn re_add_after_remove_contains_true_test() {
   |> or_set.add("x")
   |> or_set.contains("x")
   |> expect.to_be_true
+}
+
+pub fn remove_all_removes_each_observed_element_test() {
+  let orset =
+    or_set.new(rid("A"))
+    |> or_set.add("a")
+    |> or_set.add("b")
+    |> or_set.add("c")
+
+  orset
+  |> or_set.remove_all(["a", "c", "missing"])
+  |> or_set.value
+  |> expect.to_equal(set.from_list(["b"]))
+}
+
+pub fn remove_where_removes_matching_observed_values_test() {
+  let orset =
+    or_set.new(rid("A"))
+    |> or_set.add("keep")
+    |> or_set.add("remove-1")
+    |> or_set.add("remove-2")
+
+  orset
+  |> or_set.remove_where(fn(value) { string.starts_with(value, "remove") })
+  |> or_set.value
+  |> expect.to_equal(set.from_list(["keep"]))
+}
+
+pub fn remove_where_preserves_add_wins_semantics_test() {
+  let replica_a = or_set.new(rid("A")) |> or_set.add("x")
+  let replica_b =
+    or_set.new(rid("B"))
+    |> or_set.merge(replica_a)
+    |> or_set.remove_where(fn(value) { value == "x" })
+  let replica_a = replica_a |> or_set.add("x")
+
+  or_set.merge(replica_a, replica_b)
+  |> or_set.contains("x")
+  |> expect.to_be_true()
 }
 
 pub fn add_multiple_elements_test() {
@@ -135,6 +202,48 @@ pub fn merge_union_tags_test() {
   or_set.merge(set_a, set_b)
   |> or_set.value
   |> expect.to_equal(set.from_list(["a", "b", "c"]))
+}
+
+pub fn merge_with_diff_matches_merge_result_test() {
+  let local = or_set.new(rid("A")) |> or_set.add("local")
+  let remote = or_set.new(rid("B")) |> or_set.add("remote")
+
+  let #(merged, _) = or_set.merge_with_diff(local, remote)
+
+  or_set.value(merged)
+  |> expect.to_equal(or_set.value(or_set.merge(local, remote)))
+}
+
+pub fn merge_with_diff_reports_added_values_test() {
+  let local = or_set.new(rid("A")) |> or_set.add("local")
+  let remote = or_set.new(rid("B")) |> or_set.add("remote")
+
+  let #(_, or_set.Diff(added, removed)) = or_set.merge_with_diff(local, remote)
+
+  added |> expect.to_equal(set.from_list(["remote"]))
+  removed |> expect.to_equal(set.new())
+}
+
+pub fn merge_with_diff_reports_removed_values_test() {
+  let local = or_set.new(rid("A")) |> or_set.add("shared")
+  let remote = local |> or_set.remove("shared")
+
+  let #(_, or_set.Diff(added, removed)) = or_set.merge_with_diff(local, remote)
+
+  added |> expect.to_equal(set.new())
+  removed |> expect.to_equal(set.from_list(["shared"]))
+}
+
+pub fn repeated_merge_with_diff_returns_empty_diff_test() {
+  let local = or_set.new(rid("A")) |> or_set.add("local")
+  let remote = or_set.new(rid("B")) |> or_set.add("remote")
+  let #(merged_once, _) = or_set.merge_with_diff(local, remote)
+
+  let #(_, or_set.Diff(added, removed)) =
+    or_set.merge_with_diff(merged_once, remote)
+
+  added |> expect.to_equal(set.new())
+  removed |> expect.to_equal(set.new())
 }
 
 pub fn merge_propagates_counter_test() {

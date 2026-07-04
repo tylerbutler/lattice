@@ -1,5 +1,5 @@
 name = "lattice_maps"
-version = "1.0.0"
+version = "1.1.0"
 description = "Last-writer-wins and observed-remove maps for Gleam — conflict-free replicated map types with generic value support"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
@@ -16,3 +16,22 @@ lattice_sets = { path = "../lattice_sets" }
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
 qcheck = ">= 1.0.0 and < 2.0.0"
+glinter = ">= 2.19.0 and < 3.0.0"
+
+[tools.glinter]
+include = ["src/", "test/"]
+# warnings_as_errors makes every *enabled* rule fail CI, so the few rules we
+# don't enforce are turned off below; tests get a lenient profile in [ignore].
+warnings_as_errors = true
+
+[tools.glinter.rules]
+# Library public API is consumed externally, so "never used in this package"
+# is expected — not an issue.
+unused_exports = "off"
+# The codebase intentionally does not use argument labels.
+label_possible = "off"
+[tools.glinter.ignore]
+# Tests use `let assert Ok(...)`, discard errors, panic in unreachable match
+# arms, and skip return-type annotations by convention; these rules apply to
+# src/ only.
+"test/**/*.gleam" = ["assert_ok_pattern", "thrown_away_error", "discarded_result", "avoid_panic", "missing_type_annotation", "short_variable_name"]

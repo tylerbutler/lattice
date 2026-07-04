@@ -59,6 +59,15 @@ pub opaque type ORSet(a) {
   )
 }
 
+/// Observable value changes between two OR-Sets.
+///
+/// Diff values are based on `value`, not internal tags. Re-adding an element
+/// that was already observable does not appear in `added`; removing one tag
+/// while another live tag remains does not appear in `removed`.
+pub type Diff(a) {
+  Diff(added: set.Set(a), removed: set.Set(a))
+}
+
 /// Create a new empty OR-Set for the given replica.
 ///
 /// Each replica should have a unique `replica_id` to ensure that tags
@@ -78,18 +87,46 @@ pub fn new(replica_id: ReplicaId) -> ORSet(a) {
 /// Creates a fresh unique tag for this add operation using the replica's
 /// monotonically-increasing counter. The element may already be present;
 /// in that case a new tag is added alongside existing ones.
+///
+/// See `add_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
+  let #(updated, _) = add_with_delta(orset, element)
+  updated
+}
+
+/// Add an element and return both the new state and a delta.
+///
+/// The returned delta is an `ORSet` whose `entries` contains only the newly
+/// inserted element with its single fresh tag, with empty tombstones and
+/// pruned vector. Merging the delta into a remote via `merge` adds the new
+/// tag to the remote's entry for `element` (creating it if necessary),
+/// producing the same observable result as merging the full new state.
+///
+/// The delta carries this replica's `replica_id` and the post-mutation
+/// `counter`, so successive deltas remain causally distinguishable.
+pub fn add_with_delta(orset: ORSet(a), element: a) -> #(ORSet(a), ORSet(a)) {
   let new_counter = orset.counter + 1
   let tag = Tag(replica_id: orset.replica_id, counter: new_counter)
   let existing_tags = result.unwrap(dict.get(orset.entries, element), set.new())
   let new_tags = set.insert(existing_tags, tag)
-  ORSet(
-    replica_id: orset.replica_id,
-    counter: new_counter,
-    entries: dict.insert(orset.entries, element, new_tags),
-    tombstones: orset.tombstones,
-    pruned: orset.pruned,
-  )
+  let updated =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: new_counter,
+      entries: dict.insert(orset.entries, element, new_tags),
+      tombstones: orset.tombstones,
+      pruned: orset.pruned,
+    )
+  let delta =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: new_counter,
+      entries: dict.from_list([#(element, set.from_list([tag]))]),
+      tombstones: set.new(),
+      pruned: version_vector.new(),
+    )
+  #(updated, delta)
 }
 
 /// Remove an element from the set.
@@ -97,15 +134,60 @@ pub fn add(orset: ORSet(a), element: a) -> ORSet(a) {
 /// Removes all currently observed tags for the element (observed-remove
 /// semantics). Any concurrent add on another replica that created a new tag
 /// not yet observed here will survive this remove after merging.
+///
+/// See `remove_with_delta` for the delta-state variant.
 pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
+  let #(updated, _) = remove_with_delta(orset, element)
+  updated
+}
+
+/// Remove an element and return both the new state and a delta.
+///
+/// The returned delta is an `ORSet` whose `tombstones` contains exactly the
+/// tags that were live for `element` at the time of the remove, with empty
+/// entries and pruned vector. Merging the delta into a remote via `merge`
+/// retracts those tags from the remote's entry for `element`. Tags that the
+/// remote has but the delta source had not yet observed (concurrent adds)
+/// survive — preserving the add-wins property of OR-Set.
+pub fn remove_with_delta(orset: ORSet(a), element: a) -> #(ORSet(a), ORSet(a)) {
   let removed_tags = result.unwrap(dict.get(orset.entries, element), set.new())
-  ORSet(
-    replica_id: orset.replica_id,
-    counter: orset.counter,
-    entries: dict.delete(orset.entries, element),
-    tombstones: set.union(orset.tombstones, removed_tags),
-    pruned: orset.pruned,
-  )
+  let updated =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: orset.counter,
+      entries: dict.delete(orset.entries, element),
+      tombstones: set.union(orset.tombstones, removed_tags),
+      pruned: orset.pruned,
+    )
+  let delta =
+    ORSet(
+      replica_id: orset.replica_id,
+      counter: orset.counter,
+      entries: dict.new(),
+      tombstones: removed_tags,
+      pruned: version_vector.new(),
+    )
+  #(updated, delta)
+}
+
+/// Remove each element in `elements` using observed-remove semantics.
+///
+/// Missing elements are ignored, matching `remove`.
+pub fn remove_all(orset: ORSet(a), elements: List(a)) -> ORSet(a) {
+  list.fold(elements, orset, fn(acc, element) { remove(acc, element) })
+}
+
+/// Remove every currently observable element matching `predicate`.
+///
+/// The predicate is evaluated against `value(orset)`, then each matching value
+/// is removed with normal observed-remove semantics.
+pub fn remove_where(orset: ORSet(a), predicate: fn(a) -> Bool) -> ORSet(a) {
+  let elements =
+    value(orset)
+    |> set.to_list
+    |> list.filter(predicate)
+
+  remove_all(orset, elements)
 }
 
 /// Check if the set contains the given element.
@@ -115,7 +197,7 @@ pub fn remove(orset: ORSet(a), element: a) -> ORSet(a) {
 /// survived a remove after merging).
 pub fn contains(orset: ORSet(a), element: a) -> Bool {
   case dict.get(orset.entries, element) {
-    Error(_) -> False
+    Error(Nil) -> False
     Ok(tags) -> !set.is_empty(tags)
   }
 }
@@ -128,6 +210,20 @@ pub fn value(orset: ORSet(a)) -> set.Set(a) {
   // (via merge/remove logic).
   dict.keys(orset.entries)
   |> set.from_list
+}
+
+/// Compare the observable values of two OR-Sets.
+///
+/// `added` contains values present in `after` but not `before`.
+/// `removed` contains values present in `before` but not `after`.
+pub fn diff(before: ORSet(a), after: ORSet(a)) -> Diff(a) {
+  let before_values = value(before)
+  let after_values = value(after)
+
+  Diff(
+    added: set.difference(after_values, before_values),
+    removed: set.difference(before_values, after_values),
+  )
 }
 
 /// Merge two OR-Sets.
@@ -177,6 +273,19 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     tombstones: merged_tombstones,
     pruned: merged_pruned,
   )
+}
+
+/// Merge two OR-Sets and report observable value changes from `local`.
+///
+/// The returned OR-Set is exactly the same as `merge(local, remote)`. The
+/// diff compares `value(local)` with `value(merged)`, so it reports only
+/// externally visible additions and removals.
+pub fn merge_with_diff(
+  local: ORSet(a),
+  remote: ORSet(a),
+) -> #(ORSet(a), Diff(a)) {
+  let merged = merge(local, remote)
+  #(merged, diff(local, merged))
 }
 
 fn not_dominated(tag: Tag, pruned: VersionVector) -> Bool {

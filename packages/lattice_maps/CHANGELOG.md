@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.0 - 2026-05-16
+
+
+### Added
+
+#### Add delta-state API to ORMap
+
+New opaque `ORMapDelta` type plus `or_map.update_with_delta`, `remove_with_delta`, `apply_delta`, `merge_deltas`, `empty_delta`, `delta_to_json`, and `delta_from_json`. Mutations return a small delta carrying only the touched keys, the OR-Set key-set delta, and sparse per-key CRDT values — much smaller than full-state messages for sync over unreliable transports such as websockets. `update_with_delta` validates value types with `Result`, and `apply_delta` validates `crdt_spec` while applying deltas idempotently and commutatively. Also adds `crdt.default_delta` and `crdt.is_empty_delta` helpers in the dispatch module.
+
+
 ## v1.0.0 - 2026-04-11
 
 

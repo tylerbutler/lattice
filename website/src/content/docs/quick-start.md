@@ -9,8 +9,8 @@ Install the umbrella package:
 gleam add lattice_crdt
 ```
 
-This gives you all lattice packages. See [Installation](/installation/) for
-individual package options.
+This gives you the core CRDT packages. See [Installation](/installation/) for
+individual package options, including distributed presence.
 
 ## Merge counters from multiple replicas
 
@@ -41,6 +41,10 @@ pub fn main() {
 go down, use `pn_counter` from `lattice_counters`; both `increment` and
 `decrement` still take non-negative deltas because the underlying state is
 grow-only.
+
+For incremental replication, counters also expose `*_with_delta` mutators that
+return both the new state and a compact delta. See
+[Delta-State Replication](/advanced/delta-state/).
 
 ## Resolve ties deterministically with LWW registers
 
@@ -108,4 +112,5 @@ pub fn main() {
 
 For more detail, see the [Counters guide](/guides/counters/),
 [Registers guide](/guides/registers/), [Sets guide](/guides/sets/),
-and [Maps guide](/guides/maps/).
+and [Maps guide](/guides/maps/). For topic/key presence tracking, see the
+[Presence guide](/guides/presence/).

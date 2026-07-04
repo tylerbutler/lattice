@@ -60,3 +60,18 @@ pub fn main() {
 Both `pn_counter.increment` and `pn_counter.decrement` require non-negative
 deltas. To subtract 3, call `pn_counter.decrement(counter, 3)` rather than
 passing `-3`.
+
+## Delta-state mutators
+
+Counters also expose delta-aware mutators:
+
+- `g_counter.increment_with_delta`
+- `g_counter.try_increment_with_delta`
+- `pn_counter.increment_with_delta`
+- `pn_counter.decrement_with_delta`
+- `pn_counter.try_increment_with_delta`
+- `pn_counter.try_decrement_with_delta`
+
+Each returns both the new counter state and a compact counter delta that remote
+replicas merge with the existing `merge` function. See
+[Delta-State Replication](/advanced/delta-state/) for the shared convention.

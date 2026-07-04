@@ -19,6 +19,7 @@
 //// g_counter.value(merged)  // -> 8
 //// ```
 
+import gleam/bool
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
@@ -52,7 +53,13 @@ pub fn new(replica_id: ReplicaId) -> GCounter {
 /// Adds `delta` to this replica's count. `delta` should be a non-negative
 /// integer; passing a negative value will decrease the local count, which
 /// violates the grow-only invariant and may cause incorrect merge results.
+///
+/// See `increment_with_delta` for the delta-state variant that also returns
+/// a small payload suitable for incremental sync (e.g. over websockets).
 pub fn increment(counter: GCounter, delta: Int) -> GCounter {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_increment`.
+  // nolint: assert_ok_pattern
   let assert Ok(updated) = try_increment(counter, delta)
   updated
 }
@@ -60,18 +67,54 @@ pub fn increment(counter: GCounter, delta: Int) -> GCounter {
 /// Safely increment the counter by `delta`.
 ///
 /// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
+///
+/// See `try_increment_with_delta` for the delta-state variant.
 pub fn try_increment(
   counter: GCounter,
   delta: Int,
 ) -> Result(GCounter, IncrementError) {
-  case delta < 0 {
-    True -> Error(NegativeDelta(delta))
-    False -> {
-      let GCounter(dict, self_id) = counter
-      let current = result.unwrap(dict.get(dict, self_id), 0)
-      Ok(GCounter(dict.insert(dict, self_id, current + delta), self_id))
-    }
+  case try_increment_with_delta(counter, delta) {
+    Ok(#(updated, _)) -> Ok(updated)
+    Error(e) -> Error(e)
   }
+}
+
+/// Increment the counter by `delta` and return both the new state and a delta.
+///
+/// The returned delta is itself a `GCounter` containing only this replica's
+/// new count. Merging the delta into a remote replica via `merge` produces
+/// the same result as merging the full new state — but the delta is a
+/// minimal payload suitable for incremental sync (e.g., over websockets).
+///
+/// See `try_increment_with_delta` for an error-safe variant. `delta` should
+/// be non-negative; a negative value will panic.
+pub fn increment_with_delta(
+  counter: GCounter,
+  delta: Int,
+) -> #(GCounter, GCounter) {
+  // Ergonomic wrapper documented to panic on a negative delta; callers
+  // needing error handling use `try_increment_with_delta`.
+  // nolint: assert_ok_pattern
+  let assert Ok(result) = try_increment_with_delta(counter, delta)
+  result
+}
+
+/// Safely increment the counter by `delta`, returning the new state and a delta.
+///
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative. On success,
+/// returns `Ok(#(new_state, delta))` where `delta` is a `GCounter` containing
+/// only the changed self-replica entry.
+pub fn try_increment_with_delta(
+  counter: GCounter,
+  delta: Int,
+) -> Result(#(GCounter, GCounter), IncrementError) {
+  use <- bool.guard(delta < 0, Error(NegativeDelta(delta)))
+  let GCounter(dict, self_id) = counter
+  let current = result.unwrap(dict.get(dict, self_id), 0)
+  let new_count = current + delta
+  let updated = GCounter(dict.insert(dict, self_id, new_count), self_id)
+  let delta_state = GCounter(dict.from_list([#(self_id, new_count)]), self_id)
+  Ok(#(updated, delta_state))
 }
 
 /// Get the current value of the counter.

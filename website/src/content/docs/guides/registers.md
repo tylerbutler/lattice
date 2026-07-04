@@ -83,3 +83,15 @@ pub fn main() {
 
 If one write causally supersedes another, the older value disappears. Multiple
 values only remain when the writes were concurrent.
+
+## Delta-state mutators
+
+Registers expose `set_with_delta`:
+
+- `lww_register.set_with_delta`
+- `mv_register.set_with_delta`
+
+Each returns both the new register state and a register delta. `MVRegister`
+deltas carry the new value and the writer's vector clock so remote replicas can
+remove values causally superseded by the write. See
+[Delta-State Replication](/advanced/delta-state/) for the shared convention.

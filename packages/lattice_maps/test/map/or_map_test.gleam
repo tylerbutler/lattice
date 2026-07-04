@@ -94,6 +94,33 @@ pub fn update_key_appears_in_values_test() {
   list.length(vals) |> expect.to_equal(1)
 }
 
+pub fn update_with_delta_rejects_wrong_value_type_test() {
+  let m = or_map.new(rid("A"), GCounterSpec)
+  let result =
+    or_map.update_with_delta(m, "score", fn(_) { crdt.CrdtGSet(g_set.new()) })
+
+  let _ = expect.to_be_error(result)
+  Nil
+}
+
+pub fn update_with_delta_delta_converges_without_callback_supplied_delta_test() {
+  let local = or_map.new(rid("A"), GCounterSpec)
+  let remote = or_map.new(rid("B"), GCounterSpec)
+  let assert Ok(#(local, delta)) =
+    or_map.update_with_delta(local, "score", fn(c) {
+      case c {
+        CrdtGCounter(counter) -> CrdtGCounter(g_counter.increment(counter, 5))
+        _ -> c
+      }
+    })
+
+  let assert Ok(via_delta) = or_map.apply_delta(remote, delta)
+  let assert Ok(via_full) = or_map.merge(remote, local)
+
+  or_map.get(via_delta, "score")
+  |> expect.to_equal(or_map.get(via_full, "score"))
+}
+
 // --- get() tests ---
 
 pub fn get_returns_ok_for_active_key_test() {

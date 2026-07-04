@@ -27,6 +27,9 @@ export default defineConfig({
 				src: "./src/assets/lattice-min.webp",
 				alt: "lattice logo",
 			},
+			components: {
+				Head: "./src/components/Head.astro",
+			},
 			customCss: [
 				"@fontsource/metropolis/400.css",
 				"@fontsource/metropolis/600.css",
@@ -89,11 +92,19 @@ export default defineConfig({
 							label: "Maps",
 							slug: "guides/maps",
 						},
+						{
+							label: "Presence",
+							slug: "guides/presence",
+						},
 					],
 				},
 				{
 					label: "Advanced",
 					items: [
+						{
+							label: "Delta-State Replication",
+							slug: "advanced/delta-state",
+						},
 						{
 							label: "Version Vectors",
 							slug: "advanced/version-vectors",

@@ -18,11 +18,12 @@
 ////   |> state.join("pid-1", "room:lobby", "alice", json.object([]))
 //// let b = state.new("node-b")
 ////   |> state.join("pid-2", "room:lobby", "bob", json.object([]))
-//// let #(merged, _diff) = state.merge(a, b)
+//// let merged = state.merge(a, b)
 //// state.get_by_topic(merged, "room:lobby")
 //// // -> [#("pid-1", "alice", _), #("pid-2", "bob", _)]
 //// ```
 
+import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/int
 import gleam/json
@@ -80,7 +81,7 @@ pub type ReplicaStatus {
 /// either lose information or change the on-the-wire shape; reuse is
 /// possible only after extending lattice_core with a compacted variant,
 /// which is intentionally deferred.
-pub type State {
+pub opaque type State {
   State(
     /// This node's replica name
     replica: Replica,
@@ -128,11 +129,11 @@ pub fn new(replica: Replica) -> State {
 
 /// Add a tracked presence. Increments the local clock.
 pub fn join(
-  state: State,
-  pid: String,
-  topic: String,
-  key: String,
-  meta: json.Json,
+  state state: State,
+  pid pid: String,
+  topic topic: String,
+  key key: String,
+  meta meta: json.Json,
 ) -> State {
   let clock = next_clock(state, state.replica)
   let tag = Tag(replica: state.replica, clock: clock)
@@ -148,7 +149,12 @@ pub fn join(
 /// replica's entry would not be causally observed (this node's context
 /// doesn't cover the foreign tag), so it would silently reappear on the
 /// next merge. Foreign entries are filtered out at the source instead.
-pub fn leave(state: State, pid: String, topic: String, key: String) -> State {
+pub fn leave(
+  state state: State,
+  pid pid: String,
+  topic topic: String,
+  key key: String,
+) -> State {
   let new_values =
     dict.filter(state.values, fn(tag, entry) {
       tag.replica != state.replica
@@ -200,9 +206,9 @@ pub fn get_by_topic(
 
 /// Get presences for a specific key within a topic
 pub fn get_by_key(
-  state: State,
-  topic: String,
-  key: String,
+  state state: State,
+  topic topic: String,
+  key key: String,
 ) -> List(#(String, json.Json)) {
   visible_entries(state, fn(entry) { entry.topic == topic && entry.key == key })
   |> list.map(fn(entry) { #(entry.pid, entry.meta) })
@@ -211,11 +217,16 @@ pub fn get_by_key(
 // ── Merge ───────────────────────────────────────────────────────────
 
 /// Merge remote state into local state.
-/// Returns the new merged state and a diff of what changed.
 ///
-/// Note: `replicas` (per-node liveness view) is **not** merged — see the
-/// `State.replicas` field docs.
-pub fn merge(local: State, remote: State) -> #(State, Diff) {
+/// `replicas` (per-node liveness view) is **not** merged because it is
+/// local-only view state, not part of the replicated CRDT payload.
+pub fn merge(local: State, remote: State) -> State {
+  let #(merged, _) = merge_with_diff(local, remote)
+  merged
+}
+
+/// Merge remote state into local state and return a diff of what changed.
+pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
   // The `joins` and `removes` lists are materialized (rather than folded
   // straight into the new values dict) because they are reused below to
   // build the `Diff`. Doing it as a single dict.fold would save one
@@ -280,7 +291,7 @@ fn tag_is_in(
     _ -> {
       case dict.get(clouds, tag.replica) {
         Ok(cloud) -> set.contains(cloud, tag.clock)
-        Error(_) -> False
+        Error(Nil) -> False
       }
     }
   }
@@ -315,7 +326,7 @@ pub fn compact(state: State) -> State {
         let #(ctx, clouds) = acc
         let base = case dict.get(ctx, replica) {
           Ok(c) -> c
-          Error(_) -> 0
+          Error(Nil) -> 0
         }
         let #(new_base, remaining) = compact_cloud(base, cloud)
         let new_ctx = case new_base > base {
@@ -335,10 +346,8 @@ pub fn compact(state: State) -> State {
 
 /// Compact a single cloud: advance base clock through contiguous values
 fn compact_cloud(base: Clock, cloud: Set(Clock)) -> #(Clock, Set(Clock)) {
-  case set.contains(cloud, base + 1) {
-    True -> compact_cloud(base + 1, set.delete(cloud, base + 1))
-    False -> #(base, cloud)
-  }
+  use <- bool.guard(!set.contains(cloud, base + 1), #(base, cloud))
+  compact_cloud(base + 1, set.delete(cloud, base + 1))
 }
 
 /// Group entries by topic for diff reporting
@@ -348,7 +357,7 @@ fn entries_to_topic_diff(
   list.fold(entries, dict.new(), fn(acc, entry) {
     let existing = case dict.get(acc, entry.topic) {
       Ok(l) -> l
-      Error(_) -> []
+      Error(Nil) -> []
     }
     dict.insert(acc, entry.topic, [
       #(entry.key, entry.pid, entry.meta),
@@ -369,15 +378,40 @@ fn entries_to_topic_diff(
 /// `context` to filter to only the tags the remote hasn't seen — that
 /// will be exposed as a separate function rather than retrofitted onto
 /// this one.
-pub fn extract(state: State) -> State {
+pub fn extract_full_state(state: State) -> State {
   state
 }
 
 // ── Introspection ───────────────────────────────────────────────────
 
 /// Get the current vector clock
-pub fn clocks(state: State) -> Dict(Replica, Clock) {
+pub fn replica(state: State) -> Replica {
+  state.replica
+}
+
+/// Get the compacted vector clock.
+pub fn compacted_clocks(state: State) -> Dict(Replica, Clock) {
   state.context
+}
+
+/// Return the number of entries retained by the CRDT state.
+pub fn entry_count(state: State) -> Int {
+  dict.size(state.values)
+}
+
+/// Return the number of uncompacted cloud entries retained by the state.
+pub fn cloud_count(state: State) -> Int {
+  dict.size(state.clouds)
+}
+
+@internal
+pub fn internal_values(state: State) -> Dict(Tag, Entry) {
+  state.values
+}
+
+@internal
+pub fn internal_clouds(state: State) -> Dict(Replica, Set(Clock)) {
+  state.clouds
 }
 
 // ── Replica lifecycle ────────────────────────────────────────────────
@@ -425,7 +459,7 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
       #(new_state, diff)
     }
     Ok(Up) -> #(state, Diff(joins: dict.new(), leaves: dict.new()))
-    Error(_) -> {
+    Error(Nil) -> {
       // First contact: record as Up but emit no diff (it was already
       // treated as up by `is_replica_up`).
       let new_replicas = dict.insert(state.replicas, replica, Up)
@@ -438,7 +472,7 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
 }
 
 /// Permanently remove all entries and context for a downed replica
-pub fn remove_down_replicas(state: State, replica: Replica) -> State {
+pub fn remove_down_replica(state: State, replica: Replica) -> State {
   let new_values =
     dict.filter(state.values, fn(tag, _) { tag.replica != replica })
   let new_context = dict.delete(state.context, replica)
@@ -453,6 +487,34 @@ pub fn remove_down_replicas(state: State, replica: Replica) -> State {
   )
 }
 
+@internal
+pub fn replicated_parts(
+  state: State,
+) -> #(
+  Replica,
+  Dict(Replica, Clock),
+  Dict(Replica, Set(Clock)),
+  Dict(Tag, Entry),
+) {
+  #(state.replica, state.context, state.clouds, state.values)
+}
+
+@internal
+pub fn from_replicated_parts(
+  replica replica: Replica,
+  context context: Dict(Replica, Clock),
+  clouds clouds: Dict(Replica, Set(Clock)),
+  values values: Dict(Tag, Entry),
+) -> State {
+  State(
+    replica: replica,
+    context: context,
+    clouds: clouds,
+    values: values,
+    replicas: dict.from_list([#(replica, Up)]),
+  )
+}
+
 // ── Internal helpers ────────────────────────────────────────────────
 
 fn next_clock(state: State, replica: Replica) -> Clock {
@@ -462,11 +524,11 @@ fn next_clock(state: State, replica: Replica) -> Clock {
   // merge — tracking the max incrementally would optimize a non-hot path.
   let ctx_clock = case dict.get(state.context, replica) {
     Ok(c) -> c
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   let cloud_max = case dict.get(state.clouds, replica) {
     Ok(cloud) -> set.fold(cloud, 0, int.max)
-    Error(_) -> 0
+    Error(Nil) -> 0
   }
   int.max(ctx_clock, cloud_max) + 1
 }
@@ -476,6 +538,6 @@ fn is_replica_up(state: State, replica: Replica) -> Bool {
     Ok(Up) -> True
     Ok(Down) -> False
     // Unknown replicas assumed up (first contact)
-    Error(_) -> True
+    Error(Nil) -> True
   }
 }

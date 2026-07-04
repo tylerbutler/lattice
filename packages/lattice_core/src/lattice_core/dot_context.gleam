@@ -54,9 +54,9 @@ pub fn new() -> DotContext {
 /// Records that the event `(replica_id, counter)` has been observed. If the
 /// dot is already present, the context is returned unchanged.
 pub fn add_dot(
-  context: DotContext,
-  replica_id: ReplicaId,
-  counter: Int,
+  context context: DotContext,
+  replica_id replica_id: ReplicaId,
+  counter counter: Int,
 ) -> DotContext {
   DotContext(dots: set.insert(context.dots, Dot(replica_id:, counter:)))
 }

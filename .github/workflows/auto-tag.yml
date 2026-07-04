@@ -10,10 +10,12 @@ permissions:
 
 jobs:
   auto-tag:
-    uses: tylerbutler/actions/.github/workflows/auto-tag.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/auto-tag.yml@main
+    uses: tylerbutler/actions/.github/workflows/auto-tag.yml@cc915933b1bf1d3515ce3cf97bb6fac58c10c8ca # ratchet:tylerbutler/actions/.github/workflows/auto-tag.yml@main
     with:
       workspace-file: workspace.toml
       create-release: true
+      wait-for-publish: true
+      publish-workflow-name: Publish
     secrets:
       app-id: ${{ secrets.RELEASE_APP_ID }}
       app-private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

@@ -38,7 +38,9 @@ jobs:
           post-batch-command: |
             echo "Refreshing lockfiles after version bumps..."
             for d in packages/lattice_*/; do
-              [ -f "$d/gleam.toml" ] && (cd "$d" && gleam deps download)
+              [ -f "$d/gleam.toml" ] || continue
+              deps=$(grep -E '^lattice_[a-z_]+ = \{ path =' "$d/gleam.toml" | cut -d= -f1 | xargs || true)
+              [ -n "$deps" ] && (cd "$d" && gleam update $deps)
             done
 
       - name: Summary

@@ -68,18 +68,41 @@ pub fn new(replica_id: ReplicaId) -> MVRegister(a) {
 /// clears all prior entries (this write causally supersedes everything in the
 /// current vclock), and inserts the new tag-value pair. After a `set`, calling
 /// `value` returns a single-element list containing `val`.
+///
+/// See `set_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn set(register: MVRegister(a), val: a) -> MVRegister(a) {
+  let #(updated, _) = set_with_delta(register, val)
+  updated
+}
+
+/// Write a new value and return both the new state and a delta.
+///
+/// The returned delta is an `MVRegister` whose `entries` contains only the
+/// new tag→value pair, but whose `vclock` is the **full new vclock** of the
+/// writing replica. The vclock is essential: it encodes the causal context
+/// the local write supersedes, so that on merge into a remote replica every
+/// dominated tag (whether at the writer or any other replica observed by
+/// the writer) is correctly retracted.
+///
+/// Merging the delta into a remote via `merge` produces the same result as
+/// merging the full new state, but is much smaller when the local register
+/// holds many concurrent values being collapsed by this write.
+pub fn set_with_delta(
+  register: MVRegister(a),
+  val: a,
+) -> #(MVRegister(a), MVRegister(a)) {
   let new_vclock =
     version_vector.increment(register.vclock, register.replica_id)
   let new_counter = version_vector.get(new_vclock, register.replica_id)
   let tag = Tag(replica_id: register.replica_id, counter: new_counter)
-
-  // Clear all prior entries — this write supersedes everything we've seen
-  MVRegister(
-    replica_id: register.replica_id,
-    entries: dict.insert(dict.new(), tag, val),
-    vclock: new_vclock,
-  )
+  let new_state =
+    MVRegister(
+      replica_id: register.replica_id,
+      entries: dict.insert(dict.new(), tag, val),
+      vclock: new_vclock,
+    )
+  #(new_state, new_state)
 }
 
 /// Return all concurrent values in the register.

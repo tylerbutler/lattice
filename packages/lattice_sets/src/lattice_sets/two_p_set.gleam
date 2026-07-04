@@ -43,16 +43,55 @@ pub fn new() -> TwoPSet(a) {
 /// If the element has already been tombstoned (removed), this call records the
 /// element in `added` but the element will not be considered active because
 /// the tombstone takes precedence.
+///
+/// See `add_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
 pub fn add(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
-  TwoPSet(added: set.insert(tpset.added, element), removed: tpset.removed)
+  let #(updated, _) = add_with_delta(tpset, element)
+  updated
+}
+
+/// Add an element and return both the new state and a delta.
+///
+/// The returned delta is a `TwoPSet` whose `added` set contains only the
+/// inserted element and whose `removed` set is empty. Merging the delta
+/// into a remote via `merge` (union of both halves) produces the same
+/// result as merging the full new state.
+pub fn add_with_delta(
+  tpset: TwoPSet(a),
+  element: a,
+) -> #(TwoPSet(a), TwoPSet(a)) {
+  let updated =
+    TwoPSet(added: set.insert(tpset.added, element), removed: tpset.removed)
+  let delta = TwoPSet(added: set.from_list([element]), removed: set.new())
+  #(updated, delta)
 }
 
 /// Remove an element from the set by adding it to the tombstone set.
 ///
 /// Once tombstoned, the element is permanently inactive. Removing an element
 /// that was never added is also valid and creates a preemptive tombstone.
+///
+/// See `remove_with_delta` for the delta-state variant.
 pub fn remove(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
-  TwoPSet(added: tpset.added, removed: set.insert(tpset.removed, element))
+  let #(updated, _) = remove_with_delta(tpset, element)
+  updated
+}
+
+/// Remove an element and return both the new state and a delta.
+///
+/// The returned delta is a `TwoPSet` whose `removed` set contains only the
+/// tombstoned element and whose `added` set is empty. Merging the delta into
+/// a remote via `merge` propagates the tombstone, deactivating the element
+/// in the remote replica regardless of its prior state.
+pub fn remove_with_delta(
+  tpset: TwoPSet(a),
+  element: a,
+) -> #(TwoPSet(a), TwoPSet(a)) {
+  let updated =
+    TwoPSet(added: tpset.added, removed: set.insert(tpset.removed, element))
+  let delta = TwoPSet(added: set.new(), removed: set.from_list([element]))
+  #(updated, delta)
 }
 
 /// Check if the set currently contains the given element.

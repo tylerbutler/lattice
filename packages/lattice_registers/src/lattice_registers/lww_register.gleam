@@ -17,6 +17,7 @@
 //// lww_register.value(merged)  // -> "world"
 //// ```
 
+import gleam/bool
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -40,7 +41,11 @@ pub opaque type LWWRegister(a) {
 /// milliseconds or a Lamport clock) so that later writes have higher values.
 /// `replica_id` identifies the writing node and is used as a deterministic
 /// tie-breaker when two registers have equal timestamps during merge.
-pub fn new(val: a, timestamp: Int, replica_id: ReplicaId) -> LWWRegister(a) {
+pub fn new(
+  val val: a,
+  timestamp timestamp: Int,
+  replica_id replica_id: ReplicaId,
+) -> LWWRegister(a) {
   LWWRegister(value: val, timestamp: timestamp, replica_id: replica_id)
 }
 
@@ -50,16 +55,41 @@ pub fn new(val: a, timestamp: Int, replica_id: ReplicaId) -> LWWRegister(a) {
 /// timestamp with the new ones. Otherwise returns the register unchanged.
 /// This ensures only strictly newer writes are accepted.
 /// The `replica_id` is preserved from the original register.
-pub fn set(register: LWWRegister(a), val: a, timestamp: Int) -> LWWRegister(a) {
-  case timestamp > register.timestamp {
-    True ->
-      LWWRegister(
-        value: val,
-        timestamp: timestamp,
-        replica_id: register.replica_id,
-      )
-    False -> register
-  }
+///
+/// See `set_with_delta` for the delta-state variant that also returns a
+/// small payload suitable for incremental sync (e.g. over websockets).
+pub fn set(
+  register register: LWWRegister(a),
+  val val: a,
+  timestamp timestamp: Int,
+) -> LWWRegister(a) {
+  let #(updated, _) = set_with_delta(register:, val:, timestamp:)
+  updated
+}
+
+/// Set a value and return both the new state and a delta.
+///
+/// The returned delta is an `LWWRegister` carrying the write that was
+/// actually accepted locally. When `timestamp` strictly exceeds the current
+/// timestamp the delta carries the new (value, timestamp, replica_id);
+/// otherwise the local set is a no-op and the delta carries the unchanged
+/// register so that no rejected write can win on a remote replica.
+///
+/// Merging the delta into a remote via `merge` produces the same result as
+/// merging the new local state, preserving convergence.
+pub fn set_with_delta(
+  register register: LWWRegister(a),
+  val val: a,
+  timestamp timestamp: Int,
+) -> #(LWWRegister(a), LWWRegister(a)) {
+  use <- bool.guard(timestamp <= register.timestamp, #(register, register))
+  let updated =
+    LWWRegister(
+      value: val,
+      timestamp: timestamp,
+      replica_id: register.replica_id,
+    )
+  #(updated, updated)
 }
 
 /// Return the current value of the register.
@@ -76,20 +106,13 @@ pub fn value(register: LWWRegister(a)) -> a {
 /// `replica_id` is lexicographically greater wins, providing a fully
 /// commutative, associative, and idempotent merge.
 pub fn merge(a: LWWRegister(a), b: LWWRegister(a)) -> LWWRegister(a) {
-  case a.timestamp > b.timestamp {
-    True -> a
-    False ->
-      case a.timestamp < b.timestamp {
-        True -> b
-        False -> {
-          // Equal timestamps: use replica_id as deterministic tie-breaker
-          case replica_id.compare(a.replica_id, b.replica_id) {
-            order.Gt -> a
-            order.Lt -> b
-            order.Eq -> a
-          }
-        }
-      }
+  use <- bool.guard(a.timestamp > b.timestamp, a)
+  use <- bool.guard(a.timestamp < b.timestamp, b)
+  // Equal timestamps: use replica_id as deterministic tie-breaker
+  case replica_id.compare(a.replica_id, b.replica_id) {
+    order.Gt -> a
+    order.Lt -> b
+    order.Eq -> a
   }
 }
 
