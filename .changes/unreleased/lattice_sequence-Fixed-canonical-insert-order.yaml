@@ -1,0 +1,7 @@
+project: lattice_sequence
+kind: Fixed
+body: |-
+  Normalize item order after local inserts
+
+  A local insert positioned after tombstones could produce an item order that differed from the canonical order applied by `merge` and `from_json`, so `merge(base, delta)` was not structurally equal to the directly updated state. Inserts now run the same deterministic reordering as merge, move, and JSON decoding.
+time: 2026-07-04T21:59:52.829099406+00:00

@@ -31,6 +31,17 @@ pub fn text_round_trip_with_tombstone_test() {
   |> expect.to_equal(Ok(doc))
 }
 
+pub fn text_round_trip_after_replace_range_test() {
+  let doc =
+    text.new(rid("A"))
+    |> text.insert(0, "abcd")
+    |> text.replace_range(1, 3, "XY")
+
+  json.to_string(text.to_json(doc))
+  |> text.from_json()
+  |> expect.to_equal(Ok(doc))
+}
+
 pub fn text_to_json_uses_sequence_envelope_test() {
   let doc = text.new(rid("A")) |> text.insert(0, "x")
 
