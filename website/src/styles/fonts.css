@@ -1,3 +1,15 @@
 :root {
-	--sl-font: "Metropolis", sans-serif;
+	--sl-font: "Atkinson Hyperlegible", sans-serif;
+	--sl-font-system: "Atkinson Hyperlegible", sans-serif;
+	--sl-font-headings: "Bricolage Grotesque", "Atkinson Hyperlegible", sans-serif;
+}
+
+:where(h1, h2, h3, h4, h5, h6, .hero > h1, .sl-markdown-content h1, .sl-markdown-content h2) {
+	font-family: var(--sl-font-headings);
+	letter-spacing: -0.02em;
+	text-wrap: balance;
+}
+
+:where(.sl-markdown-content p, .sl-markdown-content li) {
+	text-wrap: pretty;
 }

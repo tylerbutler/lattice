@@ -25,14 +25,16 @@ export default defineConfig({
 			lastUpdated: true,
 			logo: {
 				src: "./src/assets/lattice-min.webp",
-				alt: "lattice logo",
+				alt: "lattice geometric knot mark",
 			},
 			components: {
 				Head: "./src/components/Head.astro",
 			},
 			customCss: [
-				"@fontsource/metropolis/400.css",
-				"@fontsource/metropolis/600.css",
+				"@fontsource/atkinson-hyperlegible/400.css",
+				"@fontsource/atkinson-hyperlegible/700.css",
+				"@fontsource/bricolage-grotesque/600.css",
+				"@fontsource/bricolage-grotesque/700.css",
 				"./src/styles/fonts.css",
 				"./src/styles/custom.css",
 			],

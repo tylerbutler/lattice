@@ -14,45 +14,397 @@ hero:
       variant: secondary
 ---
 
-import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
+
+<section className="convergence-artifact" aria-labelledby="convergence-heading">
+	<div className="convergence-artifact__intro">
+		<p className="convergence-artifact__label">Convergence notebook</p>
+		<h2 id="convergence-heading">Local updates, deterministic merges, one shared value.</h2>
+		<p>{`lattice gives each replica a CRDT state it can update independently. When replicas meet, merge uses the CRDT's lattice rule so every node converges without locks, consensus, or a conflict-resolution callback.`}</p>
+	</div>
+
+	<div className="convergence-artifact__grid">
+		<div className="proof-panel" aria-label="GCounter merge example">
+			<div className="proof-panel__row proof-panel__row--header">
+				<span>Replica</span>
+				<span>Local update</span>
+				<span>Merged value</span>
+			</div>
+			<div className="proof-panel__row">
+				<strong>node-a</strong>
+				<code>+2</code>
+				<code>max(a:2, b:3)</code>
+			</div>
+			<div className="proof-panel__row">
+				<strong>node-b</strong>
+				<code>+3</code>
+				<code>max(a:2, b:3)</code>
+			</div>
+			<div className="proof-panel__result">
+				<span>Every replica reads</span>
+				<strong>5</strong>
+			</div>
+		</div>
+
+		<nav className="decision-paths" aria-label="Choose where to start">
+			<a href="/quick-start/">
+				<span>Start fast</span>
+				<strong>Install `lattice_crdt` and merge a counter in minutes.</strong>
+			</a>
+			<a href="#state-shapes">
+				<span>Choose a state shape</span>
+				<strong>Match counters, registers, sets, maps, text, or presence to your data.</strong>
+			</a>
+			<a href="/packages/">
+				<span>Pick a package</span>
+				<strong>Use the umbrella package, or depend on only the CRDT family you need.</strong>
+			</a>
+			<a href="/advanced/version-vectors/">
+				<span>Check the model</span>
+				<strong>Read the causal clocks that make observed-remove types behave.</strong>
+			</a>
+		</nav>
+	</div>
+</section>
+
+<section className="state-shapes" id="state-shapes" aria-labelledby="state-shapes-heading">
+	<div className="state-shapes__header">
+		<h2 id="state-shapes-heading">Choose the shape of your state.</h2>
+		<p>{`Start from the data you need to replicate, then install the smallest package that carries that merge rule.`}</p>
+	</div>
+
+	<div className="state-shapes__list">
+		<a href="/guides/counters/">
+			<span>Total</span>
+			<strong>Counters</strong>
+			<em>`lattice_counters` for values that only grow, or grow and shrink.</em>
+		</a>
+		<a href="/guides/registers/">
+			<span>Single value</span>
+			<strong>Registers</strong>
+			<em>`lattice_registers` for last-writer-wins or multi-value conflicts.</em>
+		</a>
+		<a href="/guides/sets/">
+			<span>Membership</span>
+			<strong>Sets + presence</strong>
+			<em>`lattice_sets` and `lattice_presence` for collections and live membership.</em>
+		</a>
+		<a href="/guides/maps/">
+			<span>Nested state</span>
+			<strong>Maps + text</strong>
+			<em>`lattice_maps`, `lattice_sequence`, and `lattice_text` for keyed or ordered data.</em>
+		</a>
+	</div>
+</section>
 
 <Aside type="caution" title="Pre-1.0 Software">
-lattice is not yet 1.0. The API is unstable, features may be removed in minor releases, and quality should not be considered production-ready. We welcome usage and feedback in the meantime!
+lattice is ready for evaluation and feedback, with property-based tests covering
+core merge laws. The API is still pre-1.0, so expect possible breaking changes
+before using it for production systems. Start with a prototype, and pin versions
+before you depend on public API shape.
 </Aside>
 
-## Features
-
 <style lang="css">{`
-  // Add a gradient to the heading on the splash page.
-  #_top {
-    background: linear-gradient(90deg, var(--sl-color-gray-2), var(--sl-color-accent));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-`}
-</style>
+	.convergence-artifact {
+		--artifact-ink: var(--sl-color-white);
+		--artifact-muted: var(--sl-color-gray-2);
+		--artifact-border: color-mix(in oklab, var(--sl-color-gray-5), transparent 18%);
+		--artifact-surface: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 22%);
+		--artifact-surface-raised: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 38%);
+		margin-block: clamp(2.5rem, 7vw, 5rem) clamp(2rem, 5vw, 4rem);
+		display: grid;
+		gap: clamp(1.25rem, 3vw, 2rem);
+	}
 
-<CardGrid>
-	<Card title="Counters" icon="rocket">
-		Grow-only and positive-negative counters for distributed counting with automatic convergence across replicas.
-	</Card>
-	<Card title="Registers" icon="document">
-		Last-writer-wins and multi-value registers for storing values with conflict resolution strategies.
-	</Card>
-	<Card title="Sets" icon="approve-check-circle">
-		Grow-only, two-phase, and observed-remove sets for managing collections across distributed nodes.
-	</Card>
-	<Card title="Maps" icon="setting">
-		Last-writer-wins and observed-remove maps for key-value storage with CRDT merge semantics.
-	</Card>
-	<Card title="Presence" icon="people">
-		Distributed presence tracking with add-wins semantics, replica visibility, and diff reporting.
-	</Card>
-	<Card title="Delta-State Sync" icon="transfer">
-		Delta-aware mutators let replicas exchange compact changes instead of full CRDT state.
-	</Card>
-	<Card title="Modular" icon="puzzle">
-		Pick only the packages you need, or use the umbrella package for everything in one dependency.
-	</Card>
-</CardGrid>
+	.convergence-artifact__intro {
+		max-width: 68ch;
+	}
+
+	.convergence-artifact__label {
+		margin: 0 0 0.65rem;
+		color: var(--sl-color-accent-high);
+		font-weight: 700;
+		letter-spacing: 0.01em;
+	}
+
+	.convergence-artifact h2 {
+		margin: 0;
+		max-width: 14ch;
+		font-size: clamp(2rem, 5vw, 4.25rem);
+		line-height: 0.98;
+		letter-spacing: -0.03em;
+		text-wrap: balance;
+	}
+
+	.convergence-artifact__intro > p:last-child {
+		margin: 1rem 0 0;
+		max-width: 62ch;
+		color: var(--sl-color-gray-2);
+		font-size: clamp(1rem, 1.4vw, 1.125rem);
+		line-height: 1.7;
+		text-wrap: pretty;
+	}
+
+	.convergence-artifact__grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1.08fr) minmax(18rem, 0.92fr);
+		gap: clamp(1rem, 3vw, 1.5rem);
+		align-items: stretch;
+	}
+
+	.proof-panel {
+		position: relative;
+		overflow: hidden;
+		display: grid;
+		align-content: start;
+		gap: 0.75rem;
+		padding: clamp(1rem, 3vw, 1.5rem);
+		border: 1px solid var(--artifact-border);
+		border-radius: 1rem;
+		background:
+			radial-gradient(circle at top right, color-mix(in oklab, var(--sl-color-accent), transparent 72%), transparent 34rem),
+			var(--artifact-surface);
+		color: var(--artifact-ink);
+	}
+
+	.proof-panel::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background-image:
+			linear-gradient(color-mix(in oklab, var(--sl-color-gray-5), transparent 62%) 1px, transparent 1px),
+			linear-gradient(90deg, color-mix(in oklab, var(--sl-color-gray-5), transparent 62%) 1px, transparent 1px);
+		background-size: 1.35rem 1.35rem;
+		mask-image: linear-gradient(135deg, black, transparent 74%);
+		pointer-events: none;
+	}
+
+	.proof-panel__row,
+	.proof-panel__result {
+		position: relative;
+		display: grid;
+		grid-template-columns: minmax(5rem, 0.7fr) minmax(4rem, 0.45fr) minmax(10rem, 1.1fr);
+		gap: 0.75rem;
+		align-items: center;
+	}
+
+	.proof-panel__row {
+		min-height: 3.25rem;
+		padding: 0.75rem;
+		border: 1px solid color-mix(in oklab, var(--artifact-border), transparent 18%);
+		border-radius: 0.75rem;
+		background: color-mix(in oklab, var(--artifact-surface-raised), transparent 12%);
+	}
+
+	.proof-panel__row--header {
+		min-height: auto;
+		border-color: transparent;
+		background: transparent;
+		color: var(--artifact-muted);
+		font-size: 0.86rem;
+		font-weight: 700;
+	}
+
+	.proof-panel strong {
+		font-family: var(--sl-font-headings);
+		letter-spacing: -0.01em;
+	}
+
+	.proof-panel code {
+		justify-self: start;
+		border-radius: 0.45rem;
+		background: color-mix(in oklab, var(--sl-color-accent-low), var(--sl-color-black) 20%);
+		color: var(--sl-color-gray-1);
+		font-size: 0.9em;
+	}
+
+	.proof-panel__result {
+		margin-top: 0.25rem;
+		grid-template-columns: minmax(0, 1fr) auto;
+		padding: clamp(1rem, 3vw, 1.25rem);
+		border: 1px solid color-mix(in oklab, var(--sl-color-accent), transparent 25%);
+		border-radius: 0.85rem;
+		background: color-mix(in oklab, var(--sl-color-accent-low), var(--sl-color-black) 10%);
+	}
+
+	.proof-panel__result span {
+		color: var(--sl-color-gray-1);
+		font-weight: 700;
+	}
+
+	.proof-panel__result strong {
+		color: var(--sl-color-accent-high);
+		font-size: clamp(2.25rem, 7vw, 4rem);
+		line-height: 0.85;
+	}
+
+	.decision-paths {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.decision-paths a {
+		display: grid;
+		gap: 0.35rem;
+		min-height: 5rem;
+		padding: 1rem;
+		border: 1px solid var(--artifact-border);
+		border-radius: 0.85rem;
+		background: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 11%);
+		color: var(--sl-color-gray-1);
+		text-decoration: none;
+		transition:
+			background-color 160ms ease-out,
+			border-color 160ms ease-out,
+			transform 160ms ease-out;
+	}
+
+	.decision-paths a:hover {
+		border-color: color-mix(in oklab, var(--sl-color-accent), transparent 18%);
+		background: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 26%);
+		transform: translateY(-2px);
+	}
+
+	.decision-paths a:focus-visible {
+		outline: 3px solid var(--sl-color-accent);
+		outline-offset: 3px;
+	}
+
+	.decision-paths span {
+		color: var(--sl-color-accent-high);
+		font-family: var(--sl-font-headings);
+		font-size: clamp(1.05rem, 2vw, 1.25rem);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+
+	.decision-paths strong {
+		max-width: 42ch;
+		color: var(--artifact-muted);
+		font-size: 0.95rem;
+		font-weight: 400;
+		line-height: 1.55;
+	}
+
+	:root[data-theme='light'] .convergence-artifact {
+		--artifact-ink: var(--sl-color-white);
+		--artifact-muted: var(--sl-color-gray-2);
+		--artifact-border: color-mix(in oklab, var(--sl-color-gray-5), transparent 20%);
+		--artifact-surface: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 52%);
+		--artifact-surface-raised: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 68%);
+	}
+
+	.state-shapes {
+		margin-block: clamp(2rem, 6vw, 4.5rem);
+		display: grid;
+		gap: clamp(1rem, 3vw, 1.5rem);
+	}
+
+	.state-shapes__header {
+		max-width: 58ch;
+	}
+
+	.state-shapes h2 {
+		margin: 0;
+		font-size: clamp(1.7rem, 4vw, 3rem);
+		line-height: 1.05;
+		letter-spacing: -0.03em;
+		text-wrap: balance;
+	}
+
+	.state-shapes__header p {
+		margin: 0.85rem 0 0;
+		max-width: 58ch;
+		color: var(--sl-color-gray-2);
+		line-height: 1.7;
+		text-wrap: pretty;
+	}
+
+	.state-shapes__list {
+		display: grid;
+		border-block: 1px solid color-mix(in oklab, var(--sl-color-gray-5), transparent 18%);
+	}
+
+	.state-shapes__list a {
+		display: grid;
+		grid-template-columns: minmax(7rem, 0.55fr) minmax(8rem, 0.7fr) minmax(0, 1.5fr);
+		gap: 1rem;
+		align-items: baseline;
+		padding: clamp(0.9rem, 2vw, 1.15rem) 0;
+		border-bottom: 1px solid color-mix(in oklab, var(--sl-color-gray-5), transparent 38%);
+		color: var(--sl-color-gray-1);
+		text-decoration: none;
+		transition: color 160ms ease-out, background-color 160ms ease-out;
+	}
+
+	.state-shapes__list a:last-child {
+		border-bottom: 0;
+	}
+
+	.state-shapes__list a:hover {
+		background: color-mix(in oklab, var(--sl-color-accent-low), transparent 72%);
+		color: var(--sl-color-white);
+	}
+
+	.state-shapes__list a:focus-visible {
+		outline: 3px solid var(--sl-color-accent);
+		outline-offset: 4px;
+	}
+
+	.state-shapes__list span {
+		color: var(--sl-color-accent-high);
+		font-weight: 700;
+	}
+
+	.state-shapes__list strong {
+		font-family: var(--sl-font-headings);
+		font-size: clamp(1.05rem, 2vw, 1.35rem);
+		letter-spacing: -0.02em;
+	}
+
+	.state-shapes__list em {
+		color: var(--sl-color-gray-2);
+		font-style: normal;
+		line-height: 1.55;
+	}
+
+	.state-shapes__list a:hover em {
+		color: var(--sl-color-gray-1);
+	}
+
+	@media (max-width: 56rem) {
+		.convergence-artifact__grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 42rem) {
+		.proof-panel__row,
+		.proof-panel__result {
+			grid-template-columns: 1fr;
+		}
+
+		.proof-panel__row--header {
+			display: none;
+		}
+
+		.proof-panel code {
+			white-space: normal;
+		}
+
+		.state-shapes__list a {
+			grid-template-columns: 1fr;
+			gap: 0.3rem;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.decision-paths a {
+			transition: border-color 160ms ease-out, background-color 160ms ease-out;
+		}
+
+		.decision-paths a:hover {
+			transform: none;
+		}
+	}
+`}</style>
