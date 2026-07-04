@@ -242,8 +242,10 @@ Packages must be published in dependency order so that Hex.pm can resolve depend
 
 1. `lattice_core`, `lattice_counters`, `lattice_sets` (no lattice deps)
 2. `lattice_registers` (depends on `lattice_core`)
-3. `lattice_maps` (depends on `lattice_core`, `lattice_counters`, `lattice_registers`, `lattice_sets`)
-4. `lattice_crdt` (depends on all above)
+3. `lattice_sequence` (depends on `lattice_core`)
+4. `lattice_text` (depends on `lattice_core`, `lattice_sequence`)
+5. `lattice_maps` (depends on `lattice_core`, `lattice_counters`, `lattice_registers`, `lattice_sets`)
+6. `lattice_crdt` (depends on all above)
 
 ## Troubleshooting
 

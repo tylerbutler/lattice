@@ -1,18 +1,14 @@
-name = "lattice_crdt"
-version = "2.1.0"
-description = "Conflict-free replicated data types (CRDTs) for Gleam — umbrella package that includes all lattice sub-packages"
+name = "lattice_sequence"
+version = "1.0.0"
+description = "Generic sequence CRDT for Gleam using YATA-style left/right origins"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
 gleam = ">= 1.7.0"
 
 [dependencies]
+gleam_stdlib = ">= 0.48.0 and < 2.0.0"
+gleam_json = ">= 3.1.0 and < 4.0.0"
 lattice_core = { path = "../lattice_core" }
-lattice_counters = { path = "../lattice_counters" }
-lattice_registers = { path = "../lattice_registers" }
-lattice_sets = { path = "../lattice_sets" }
-lattice_maps = { path = "../lattice_maps" }
-lattice_sequence = { path = "../lattice_sequence" }
-lattice_text = { path = "../lattice_text" }
 
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
@@ -31,7 +27,11 @@ warnings_as_errors = true
 unused_exports = "off"
 # The codebase intentionally does not use argument labels.
 label_possible = "off"
+
 [tools.glinter.ignore]
+# The non-try convenience API preserves existing assert-on-invalid-index
+# behavior; callers that need fallible handling should use the try_* variants.
+"src/lattice_sequence/sequence.gleam" = ["assert_ok_pattern"]
 # Tests use `let assert Ok(...)`, discard errors, panic in unreachable match
 # arms, and skip return-type annotations by convention; these rules apply to
 # src/ only.

@@ -1,0 +1,7 @@
+project: lattice_crdt
+kind: Fixed
+body: |-
+  Correct the published package version constant
+
+  Updates the public version constant to match the lattice_crdt package metadata.
+time: 2026-05-10T03:09:07.836053239+00:00
