@@ -29,6 +29,10 @@ export default defineConfig({
 			},
 			components: {
 				Head: "./src/components/Head.astro",
+				MobileTableOfContents:
+					"./src/components/MobileTableOfContents.astro",
+				PageTitle: "./src/components/PageTitle.astro",
+				TableOfContents: "./src/components/TableOfContents.astro",
 			},
 			customCss: [
 				"@fontsource/atkinson-hyperlegible/400.css",

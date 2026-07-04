@@ -135,13 +135,6 @@ body::before {
 	max-width: 72ch;
 }
 
-:where(.sl-markdown-content h1) {
-	max-width: 13ch;
-	font-size: clamp(2.35rem, 9vw, 5rem);
-	line-height: 0.96;
-	letter-spacing: -0.035em;
-}
-
 :where(.sl-markdown-content h2) {
 	margin-top: clamp(2.75rem, 7vw, 4.5rem);
 	padding-top: 0.8rem;
@@ -259,9 +252,6 @@ body::before {
 		border-inline: 0;
 	}
 
-	:where(.sl-markdown-content h1) {
-		max-width: 100%;
-	}
 }
 
 @media (prefers-reduced-motion: reduce) {
