@@ -142,7 +142,7 @@ pub fn try_insert_with_delta(
         Sequence(
           replica_id: replica_id,
           counter: next_counter,
-          items: insert_item(items, origin_right, item),
+          items: insert_item(items, origin_right, item) |> order_items(),
         )
       let delta =
         Sequence(replica_id: replica_id, counter: next_counter, items: [item])

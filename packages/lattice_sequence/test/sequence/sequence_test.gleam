@@ -151,6 +151,22 @@ pub fn merge_applies_delete_delta_test() {
   |> expect.to_equal(updated)
 }
 
+pub fn insert_after_delete_at_same_index_is_canonically_ordered_test() {
+  // Regression: a local insert whose position is preceded by tombstones must
+  // produce the same item order as merge/from_json normalization, so that
+  // merge(base, delta) structurally equals the directly updated state.
+  let base =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.delete(0)
+  let #(updated, delta) = sequence.insert_with_delta(base, 0, "x")
+
+  sequence.merge(base, delta)
+  |> expect.to_equal(updated)
+  sequence.values(updated) |> expect.to_equal(["x", "b"])
+}
+
 pub fn move_reorders_visible_item_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
