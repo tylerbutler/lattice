@@ -142,7 +142,7 @@ pub fn try_insert_with_delta(
         Sequence(
           replica_id: replica_id,
           counter: next_counter,
-          items: insert_item(items, origin_right, item),
+          items: insert_item(items, origin_right, item) |> order_items(),
         )
       let delta =
         Sequence(replica_id: replica_id, counter: next_counter, items: [item])
@@ -190,14 +190,23 @@ pub fn try_delete_with_delta(
   case index < 0 || index >= size {
     True -> Error(DeleteIndexOutOfBounds(index: index, length: size))
     False -> {
-      let assert Some(#(updated_items, deleted_item)) =
-        delete_visible_item_at(items, index, 0)
-      let updated =
-        Sequence(replica_id: replica_id, counter: counter, items: updated_items)
-      let delta =
-        Sequence(replica_id: replica_id, counter: counter, items: [deleted_item])
+      case delete_visible_item_at(items, index, 0) {
+        Some(#(updated_items, deleted_item)) -> {
+          let updated =
+            Sequence(
+              replica_id: replica_id,
+              counter: counter,
+              items: updated_items,
+            )
+          let delta =
+            Sequence(replica_id: replica_id, counter: counter, items: [
+              deleted_item,
+            ])
 
-      Ok(#(updated, delta))
+          Ok(#(updated, delta))
+        }
+        None -> Error(DeleteIndexOutOfBounds(index: index, length: size))
+      }
     }
   }
 }
@@ -247,54 +256,69 @@ pub fn try_move_with_delta(
 ) -> Result(#(Sequence(a), Sequence(a)), MoveError) {
   let Sequence(replica_id, counter, items) = sequence
   let size = visible_length(items)
+  let length_after_removal = size - 1
 
-  case from_index < 0 || from_index >= size {
-    True -> Error(MoveFromIndexOutOfBounds(index: from_index, length: size))
-    False -> {
-      let length_after_removal = size - 1
-      case to_index < 0 || to_index > length_after_removal {
-        True ->
-          Error(MoveToIndexOutOfBounds(
-            index: to_index,
-            length_after_removal: length_after_removal,
-          ))
-        False -> {
-          let assert Some(item) = visible_item_at(items, from_index)
-          let visible_without_item = visible_items_except_id(items, item.id)
-          let origin_left = case to_index {
-            0 -> None
-            _ -> visible_item_id_in_list(visible_without_item, to_index - 1)
-          }
-          let origin_right =
-            visible_item_id_in_list(visible_without_item, to_index)
-          let next_counter = counter + 1
-          let moved_item =
-            Item(
-              id: item.id,
-              origin_left: item.origin_left,
-              origin_right: item.origin_right,
-              value: item.value,
-              deleted: item.deleted,
-              move: Some(Move(
-                op_id: OpId(replica_id: replica_id, counter: next_counter),
-                origin_left: origin_left,
-                origin_right: origin_right,
-              )),
-            )
-          let updated =
-            Sequence(
-              replica_id: replica_id,
-              counter: next_counter,
-              items: replace_item(items, moved_item) |> order_items(),
-            )
-          let delta =
-            Sequence(replica_id: replica_id, counter: next_counter, items: [
-              moved_item,
-            ])
+  case
+    from_index < 0 || from_index >= size,
+    to_index < 0 || to_index > length_after_removal
+  {
+    True, _ -> Error(MoveFromIndexOutOfBounds(index: from_index, length: size))
+    _, True ->
+      Error(MoveToIndexOutOfBounds(
+        index: to_index,
+        length_after_removal: length_after_removal,
+      ))
+    False, False ->
+      move_visible_item(replica_id, counter, items, from_index, to_index)
+  }
+}
 
-          Ok(#(updated, delta))
-        }
+fn move_visible_item(
+  replica_id: ReplicaId,
+  counter: Int,
+  items: List(Item(a)),
+  from_index: Int,
+  to_index: Int,
+) -> Result(#(Sequence(a), Sequence(a)), MoveError) {
+  case visible_item_at(items, from_index) {
+    None ->
+      Error(MoveFromIndexOutOfBounds(
+        index: from_index,
+        length: visible_length(items),
+      ))
+    Some(item) -> {
+      let visible_without_item = visible_items_except_id(items, item.id)
+      let origin_left = case to_index {
+        0 -> None
+        _ -> visible_item_id_in_list(visible_without_item, to_index - 1)
       }
+      let origin_right = visible_item_id_in_list(visible_without_item, to_index)
+      let next_counter = counter + 1
+      let moved_item =
+        Item(
+          id: item.id,
+          origin_left: item.origin_left,
+          origin_right: item.origin_right,
+          value: item.value,
+          deleted: item.deleted,
+          move: Some(Move(
+            op_id: OpId(replica_id: replica_id, counter: next_counter),
+            origin_left: origin_left,
+            origin_right: origin_right,
+          )),
+        )
+      let updated =
+        Sequence(
+          replica_id: replica_id,
+          counter: next_counter,
+          items: replace_item(items, moved_item) |> order_items(),
+        )
+      let delta =
+        Sequence(replica_id: replica_id, counter: next_counter, items: [
+          moved_item,
+        ])
+
+      Ok(#(updated, delta))
     }
   }
 }
@@ -573,40 +597,39 @@ fn delete_visible_item_at(
     [] -> None
     [item, ..rest] -> {
       let Item(id, origin_left, origin_right, value, deleted, move) = item
-      case deleted {
-        True -> {
-          case delete_visible_item_at(rest, target, current) {
-            Some(#(updated_rest, deleted_item)) ->
-              Some(#([item, ..updated_rest], deleted_item))
-            None -> None
-          }
-        }
-        False -> {
-          case current == target {
-            True -> {
-              let deleted_item =
-                Item(
-                  id: id,
-                  origin_left: origin_left,
-                  origin_right: origin_right,
-                  value: value,
-                  deleted: True,
-                  move: move,
-                )
+      case deleted, current == target {
+        True, _ ->
+          delete_visible_item_at(rest, target, current)
+          |> prepend_deleted_result(item)
+        False, True -> {
+          let deleted_item =
+            Item(
+              id: id,
+              origin_left: origin_left,
+              origin_right: origin_right,
+              value: value,
+              deleted: True,
+              move: move,
+            )
 
-              Some(#([deleted_item, ..rest], deleted_item))
-            }
-            False -> {
-              case delete_visible_item_at(rest, target, current + 1) {
-                Some(#(updated_rest, deleted_item)) ->
-                  Some(#([item, ..updated_rest], deleted_item))
-                None -> None
-              }
-            }
-          }
+          Some(#([deleted_item, ..rest], deleted_item))
         }
+        False, False ->
+          delete_visible_item_at(rest, target, current + 1)
+          |> prepend_deleted_result(item)
       }
     }
+  }
+}
+
+fn prepend_deleted_result(
+  result: Option(#(List(Item(a)), Item(a))),
+  item: Item(a),
+) -> Option(#(List(Item(a)), Item(a))) {
+  case result {
+    Some(#(updated_rest, deleted_item)) ->
+      Some(#([item, ..updated_rest], deleted_item))
+    None -> None
   }
 }
 

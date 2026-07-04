@@ -105,3 +105,64 @@ pub fn text_delete_delta_correctness__test() {
     Nil
   })
 }
+
+pub fn text_delete_range_delta_correctness__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(qcheck.bounded_int(0, 4), qcheck.bounded_int(0, 4), fn(a, b) {
+      #(a, b)
+    }),
+    fn(pair) {
+      let #(a, b) = pair
+      let start = int.min(a, b)
+      let end = int.max(a, b)
+      let base = text.new(rid("A")) |> text.insert(0, "abcd")
+      let #(direct, delta) = text.delete_range_with_delta(base, start, end)
+
+      text.merge(base, delta) |> expect.to_equal(direct)
+      Nil
+    },
+  )
+}
+
+pub fn text_replace_range_delta_correctness__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.bounded_int(0, 4),
+      qcheck.bounded_int(0, 4),
+      qcheck.bounded_int(0, 100),
+      fn(a, b, n) { #(a, b, n) },
+    ),
+    fn(triple) {
+      let #(a, b, n) = triple
+      let start = int.min(a, b)
+      let end = int.max(a, b)
+      let base = text.new(rid("A")) |> text.insert(0, "abcd")
+      let #(direct, delta) =
+        text.replace_range_with_delta(base, start, end, int.to_string(n))
+
+      text.merge(base, delta) |> expect.to_equal(direct)
+      Nil
+    },
+  )
+}
+
+pub fn text_move_delta_correctness__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(0, 3),
+      qcheck.bounded_int(0, 3),
+      fn(from_index, to_index) { #(from_index, to_index) },
+    ),
+    fn(pair) {
+      let #(from_index, to_index) = pair
+      let base = text.new(rid("A")) |> text.insert(0, "abcd")
+      let #(direct, delta) = text.move_with_delta(base, from_index, to_index)
+
+      text.merge(base, delta) |> expect.to_equal(direct)
+      Nil
+    },
+  )
+}
