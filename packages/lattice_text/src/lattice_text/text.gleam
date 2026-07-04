@@ -16,6 +16,8 @@
 
 import gleam/dynamic/decode
 import gleam/json
+import gleam/list
+import gleam/result
 import gleam/string
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_sequence/sequence
@@ -41,10 +43,10 @@ pub fn try_insert(
   value: String,
 ) -> Result(Text, sequence.InsertError) {
   let Text(seq) = text
-  case sequence.try_insert(seq, index, value) {
-    Ok(updated) -> Ok(Text(updated))
-    Error(error) -> Error(error)
-  }
+  value
+  |> string.to_graphemes()
+  |> insert_graphemes(seq, index)
+  |> result.map(Text)
 }
 
 /// Insert a value and return both the updated text and insertion delta.
@@ -64,10 +66,13 @@ pub fn try_insert_with_delta(
   value: String,
 ) -> Result(#(Text, Text), sequence.InsertError) {
   let Text(seq) = text
-  case sequence.try_insert_with_delta(seq, index, value) {
-    Ok(#(updated, delta)) -> Ok(#(Text(updated), Text(delta)))
-    Error(error) -> Error(error)
-  }
+  value
+  |> string.to_graphemes()
+  |> insert_graphemes_with_delta(seq, index)
+  |> result.map(fn(pair) {
+    let #(updated, delta) = pair
+    #(Text(updated), Text(delta))
+  })
 }
 
 /// Delete the value at the visible character index.
@@ -115,6 +120,65 @@ pub fn value(text: Text) -> String {
   text
   |> values()
   |> string.concat()
+}
+
+fn insert_graphemes(
+  graphemes: List(String),
+  seq: sequence.Sequence(String),
+  index: Int,
+) -> Result(sequence.Sequence(String), sequence.InsertError) {
+  let length = sequence.length(seq)
+  case graphemes, index < 0 || index > length {
+    _, True -> Error(sequence.IndexOutOfBounds(index: index, length: length))
+    [], False -> Ok(seq)
+    _, False -> {
+      use #(updated, _) <- result.try(
+        list.try_fold(graphemes, #(seq, index), fn(state, grapheme) {
+          let #(current, current_index) = state
+          case sequence.try_insert(current, current_index, grapheme) {
+            Ok(updated) -> Ok(#(updated, current_index + 1))
+            Error(error) -> Error(error)
+          }
+        }),
+      )
+      Ok(updated)
+    }
+  }
+}
+
+fn insert_graphemes_with_delta(
+  graphemes: List(String),
+  seq: sequence.Sequence(String),
+  index: Int,
+) -> Result(
+  #(sequence.Sequence(String), sequence.Sequence(String)),
+  sequence.InsertError,
+) {
+  let length = sequence.length(seq)
+  case graphemes, index < 0 || index > length {
+    _, True -> Error(sequence.IndexOutOfBounds(index: index, length: length))
+    [], False -> Ok(#(seq, seq))
+    [first, ..rest], False -> {
+      use #(first_updated, first_delta) <- result.try(
+        sequence.try_insert_with_delta(seq, index, first),
+      )
+      list.try_fold(
+        rest,
+        #(first_updated, first_delta, index + 1),
+        fn(state, grapheme) {
+          let #(current, delta, current_index) = state
+          use #(updated, next_delta) <- result.try(
+            sequence.try_insert_with_delta(current, current_index, grapheme),
+          )
+          Ok(#(updated, sequence.merge(delta, next_delta), current_index + 1))
+        },
+      )
+      |> result.map(fn(state) {
+        let #(updated, delta, _) = state
+        #(updated, delta)
+      })
+    }
+  }
 }
 
 /// Merge two text CRDT states.

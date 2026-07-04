@@ -1,0 +1,7 @@
+project: lattice_text
+kind: Fixed
+body: |-
+  Treat multi-character text inserts as character-indexed operations
+
+  Inserted strings are split into graphemes so later inserts and deletes operate on visible character positions instead of whole inserted segments.
+time: 2026-07-04T02:47:33.268394732+00:00

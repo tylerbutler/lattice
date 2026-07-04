@@ -43,6 +43,22 @@ pub fn insert_in_middle_test() {
   |> expect.to_equal("abc")
 }
 
+pub fn insert_multi_character_value_uses_character_indexes_test() {
+  text.new(rid("A"))
+  |> text.insert(0, "hi")
+  |> text.insert(1, "!")
+  |> text.value()
+  |> expect.to_equal("h!i")
+}
+
+pub fn insert_multi_grapheme_value_preserves_each_grapheme_test() {
+  text.new(rid("A"))
+  |> text.insert(0, "a👍")
+  |> text.insert(1, "!")
+  |> text.value()
+  |> expect.to_equal("a!👍")
+}
+
 pub fn try_insert_negative_index_returns_error_test() {
   text.new(rid("A"))
   |> text.try_insert(-1, "x")
@@ -61,6 +77,14 @@ pub fn delete_removes_visible_unit_test() {
   |> text.insert(0, "a")
   |> text.insert(1, "b")
   |> text.insert(2, "c")
+  |> text.delete(1)
+  |> text.value()
+  |> expect.to_equal("ac")
+}
+
+pub fn delete_removes_character_from_multi_character_insert_test() {
+  text.new(rid("A"))
+  |> text.insert(0, "abc")
   |> text.delete(1)
   |> text.value()
   |> expect.to_equal("ac")
@@ -131,6 +155,14 @@ pub fn merge_concurrent_runs_do_not_interleave_for_forward_typing_test() {
 pub fn merge_applies_insert_delta_test() {
   let base = text.new(rid("A"))
   let #(updated, delta) = text.insert_with_delta(base, 0, "x")
+
+  text.merge(base, delta)
+  |> expect.to_equal(updated)
+}
+
+pub fn merge_applies_multi_character_insert_delta_test() {
+  let base = text.new(rid("A"))
+  let #(updated, delta) = text.insert_with_delta(base, 0, "hi")
 
   text.merge(base, delta)
   |> expect.to_equal(updated)
