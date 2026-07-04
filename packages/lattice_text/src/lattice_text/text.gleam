@@ -366,6 +366,88 @@ pub fn try_move_with_delta(
   }
 }
 
+/// Create an anchor at the start of the text. Always resolves to 0.
+pub fn start_anchor() -> sequence.Anchor {
+  sequence.start_anchor()
+}
+
+/// Create an anchor at the end of the text. Always resolves to the current
+/// grapheme length, tracking growth.
+pub fn end_anchor() -> sequence.Anchor {
+  sequence.end_anchor()
+}
+
+/// Create an anchor at the gap before the grapheme at `index`.
+///
+/// Anchors are stable positions that survive concurrent edits and merges:
+/// resolve one back to a current grapheme index with `resolve_anchor`.
+/// `Before` bias glues the anchor to the grapheme at `index`, so inserts at
+/// the gap push it right; `After` bias glues it to the grapheme at
+/// `index - 1`, so inserts at the gap land after it.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let doc = text.new(replica_id.new("A")) |> text.insert(0, "hello")
+/// let cursor = text.anchor_at(doc, 5, sequence.After)
+/// let doc = text.insert(doc, 0, "say ")
+/// text.resolve_anchor(doc, cursor)  // -> 9
+/// ```
+pub fn anchor_at(
+  text: Text,
+  index: Int,
+  bias: sequence.Bias,
+) -> sequence.Anchor {
+  let assert Ok(anchor) = try_anchor_at(text, index, bias)
+  anchor
+}
+
+/// Safely create an anchor at the gap before the grapheme at `index`.
+///
+/// Valid positions are `0 <= index <= length`.
+pub fn try_anchor_at(
+  text: Text,
+  index: Int,
+  bias: sequence.Bias,
+) -> Result(sequence.Anchor, sequence.AnchorError) {
+  let Text(seq) = text
+  sequence.try_anchor_at(seq, index, bias)
+}
+
+/// Resolve an anchor to a current grapheme index in `[0, length]`.
+///
+/// Anchors on deleted graphemes still resolve: they collapse to the gap
+/// where the grapheme used to be. Anchors follow moved graphemes.
+pub fn resolve_anchor(text: Text, anchor: sequence.Anchor) -> Int {
+  let assert Ok(index) = try_resolve_anchor(text, anchor)
+  index
+}
+
+/// Safely resolve an anchor to a current grapheme index in `[0, length]`.
+///
+/// Returns `Error(UnknownAnchorTarget)` when the anchor references a
+/// grapheme this replica has never seen (created remotely and not yet
+/// merged).
+pub fn try_resolve_anchor(
+  text: Text,
+  anchor: sequence.Anchor,
+) -> Result(Int, sequence.AnchorError) {
+  let Text(seq) = text
+  sequence.try_resolve(seq, anchor)
+}
+
+/// Encode an anchor as a self-describing JSON value.
+pub fn anchor_to_json(anchor: sequence.Anchor) -> json.Json {
+  sequence.anchor_to_json(anchor)
+}
+
+/// Decode an anchor from a JSON string produced by `anchor_to_json`.
+pub fn anchor_from_json(
+  json_string: String,
+) -> Result(sequence.Anchor, json.DecodeError) {
+  sequence.anchor_from_json(json_string)
+}
+
 /// Insert a value at the end of the text. Appending is always valid, so no
 /// `try_` variant exists.
 ///
