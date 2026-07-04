@@ -1,0 +1,7 @@
+project: lattice_text
+kind: Added
+body: |-
+  Add grapheme-level cursor anchors with `anchor_at`, `resolve_anchor`, and JSON serialization
+
+  Anchors are stable positions that survive concurrent edits and merges, so editors can keep cursors and selections in place across remote inserts and deletes. `anchor_at`/`try_anchor_at` create an anchor at a grapheme index with a `Before` or `After` bias, `resolve_anchor`/`try_resolve_anchor` map it back to a current index, and `start_anchor`/`end_anchor`/`anchor_to_json`/`anchor_from_json` round out the surface without callers needing to import `lattice_sequence`.
+time: 2026-07-04T22:36:54.630494870+00:00

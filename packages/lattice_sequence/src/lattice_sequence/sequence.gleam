@@ -76,6 +76,35 @@ pub type MoveError {
   MoveToIndexOutOfBounds(index: Int, length_after_removal: Int)
 }
 
+/// Which side of its gap an anchor sticks to when content is inserted
+/// exactly at the anchor position.
+pub type Bias {
+  /// Attach to the item after the gap: inserts at the gap push the anchor
+  /// right, so it stays glued to its item.
+  Before
+  /// Attach to the item before the gap: inserts at the gap land after the
+  /// anchor, so it stays put.
+  After
+}
+
+/// A stable position between items (positions `0..length` inclusive).
+///
+/// Anchors are created from a visible index with `anchor_at` and resolved
+/// back to a current index with `resolve` after any sequence of local edits
+/// and merges. They live outside the CRDT state: creating and resolving
+/// anchors never mutates the sequence.
+pub opaque type Anchor {
+  Start
+  End
+  AtItem(id: ItemId, bias: Bias)
+}
+
+/// An error returned when an anchor cannot be created or resolved.
+pub type AnchorError {
+  AnchorIndexOutOfBounds(index: Int, length: Int)
+  UnknownAnchorTarget
+}
+
 /// Create an empty sequence for a replica.
 pub fn new(replica_id: ReplicaId) -> Sequence(a) {
   Sequence(replica_id: replica_id, counter: 0, items: [])
@@ -323,6 +352,193 @@ fn move_visible_item(
   }
 }
 
+/// Create an anchor at the start of the sequence. Always resolves to 0.
+pub fn start_anchor() -> Anchor {
+  Start
+}
+
+/// Create an anchor at the end of the sequence. Always resolves to the
+/// current visible length, tracking growth.
+pub fn end_anchor() -> Anchor {
+  End
+}
+
+/// Create an anchor at the gap before the visible item at `index`.
+///
+/// `Before` bias binds the anchor to the item at `index`; `After` bias binds
+/// it to the item at `index - 1`. Boundary positions with no item on the
+/// chosen side degrade to the start / end sentinels.
+pub fn anchor_at(sequence: Sequence(a), index: Int, bias: Bias) -> Anchor {
+  let assert Ok(anchor) = try_anchor_at(sequence, index, bias)
+  anchor
+}
+
+/// Safely create an anchor at the gap before the visible item at `index`.
+///
+/// Valid positions are `0 <= index <= length`.
+pub fn try_anchor_at(
+  sequence: Sequence(a),
+  index: Int,
+  bias: Bias,
+) -> Result(Anchor, AnchorError) {
+  let Sequence(_, _, items) = sequence
+  let size = visible_length(items)
+
+  case index < 0 || index > size {
+    True -> Error(AnchorIndexOutOfBounds(index: index, length: size))
+    False ->
+      case bias {
+        Before ->
+          case visible_item_id_at(items, index) {
+            Some(id) -> Ok(AtItem(id: id, bias: Before))
+            None -> Ok(End)
+          }
+        After ->
+          case visible_item_id_at(items, index - 1) {
+            Some(id) -> Ok(AtItem(id: id, bias: After))
+            None -> Ok(Start)
+          }
+      }
+  }
+}
+
+/// Resolve an anchor to a current visible index in `[0, length]`.
+///
+/// Anchors on deleted items still resolve: both biases collapse to the gap
+/// where the item used to be. Anchors follow moved items.
+pub fn resolve(sequence: Sequence(a), anchor: Anchor) -> Int {
+  let assert Ok(index) = try_resolve(sequence, anchor)
+  index
+}
+
+/// Safely resolve an anchor to a current visible index in `[0, length]`.
+///
+/// Returns `Error(UnknownAnchorTarget)` when the anchor references an item
+/// this replica has never seen (created remotely and not yet merged).
+pub fn try_resolve(
+  sequence: Sequence(a),
+  anchor: Anchor,
+) -> Result(Int, AnchorError) {
+  let Sequence(_, _, items) = sequence
+
+  case anchor {
+    Start -> Ok(0)
+    End -> Ok(visible_length(items))
+    AtItem(id, bias) -> resolve_item_anchor(items, id, bias, 0)
+  }
+}
+
+fn resolve_item_anchor(
+  items: List(Item(a)),
+  id: ItemId,
+  bias: Bias,
+  visible_before: Int,
+) -> Result(Int, AnchorError) {
+  case items {
+    [] -> Error(UnknownAnchorTarget)
+    [item, ..rest] ->
+      case item.id == id {
+        True ->
+          case bias, item.deleted {
+            After, False -> Ok(visible_before + 1)
+            _, _ -> Ok(visible_before)
+          }
+        False ->
+          case item.deleted {
+            True -> resolve_item_anchor(rest, id, bias, visible_before)
+            False -> resolve_item_anchor(rest, id, bias, visible_before + 1)
+          }
+      }
+  }
+}
+
+/// Encode an anchor as a self-describing JSON value.
+///
+/// Produces an envelope with `type`, `v` (schema version), and `anchor`, so
+/// anchors can travel between replicas (e.g. shared cursors).
+pub fn anchor_to_json(anchor: Anchor) -> json.Json {
+  let encoded = case anchor {
+    Start -> json.object([#("kind", json.string("start"))])
+    End -> json.object([#("kind", json.string("end"))])
+    AtItem(id, bias) ->
+      json.object([
+        #("kind", json.string("item")),
+        #("id", encode_item_id(id)),
+        #("bias", encode_bias(bias)),
+      ])
+  }
+
+  json.object([
+    #("type", json.string("anchor")),
+    #("v", json.int(1)),
+    #("anchor", encoded),
+  ])
+}
+
+/// Decode an anchor from a JSON string produced by `anchor_to_json`.
+pub fn anchor_from_json(
+  json_string: String,
+) -> Result(Anchor, json.DecodeError) {
+  let anchor_decoder = {
+    use kind <- decode.field("kind", decode.string)
+    case kind {
+      "start" -> decode.success(Start)
+      "end" -> decode.success(End)
+      "item" -> {
+        use id <- decode.field("id", item_id_decoder())
+        use bias <- decode.field("bias", bias_decoder())
+        decode.success(AtItem(id: id, bias: bias))
+      }
+      _ -> decode.failure(Start, "one of start, end, item")
+    }
+  }
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "anchor" && version == 1 {
+        True ->
+          json.parse(from: json_string, using: {
+            use anchor <- decode.field("anchor", anchor_decoder)
+            decode.success(anchor)
+          })
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=anchor and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
+}
+
+fn encode_bias(bias: Bias) -> json.Json {
+  case bias {
+    Before -> json.string("before")
+    After -> json.string("after")
+  }
+}
+
+fn bias_decoder() -> decode.Decoder(Bias) {
+  decode.string
+  |> decode.then(fn(value) {
+    case value {
+      "before" -> decode.success(Before)
+      "after" -> decode.success(After)
+      _ -> decode.failure(Before, "before or after")
+    }
+  })
+}
+
 /// Return all visible values in sequence order.
 pub fn values(sequence: Sequence(a)) -> List(a) {
   let Sequence(_, _, items) = sequence
@@ -387,35 +603,22 @@ pub fn from_json(
   json_string: String,
   value_decoder: decode.Decoder(a),
 ) -> Result(Sequence(a), json.DecodeError) {
-  let non_negative_int =
-    decode.int
-    |> decode.then(fn(val) {
-      case val >= 0 {
-        True -> decode.success(val)
-        False -> decode.failure(val, "a non-negative integer")
-      }
-    })
-  let item_id_decoder = {
-    use rid <- decode.field("replica_id", replica_id.decoder())
-    use counter <- decode.field("counter", non_negative_int)
-    decode.success(ItemId(replica_id: rid, counter: counter))
-  }
   let item_decoder = {
-    use id <- decode.field("id", item_id_decoder)
+    use id <- decode.field("id", item_id_decoder())
     use origin_left <- decode.field(
       "origin_left",
-      decode.optional(item_id_decoder),
+      decode.optional(item_id_decoder()),
     )
     use origin_right <- decode.field(
       "origin_right",
-      decode.optional(item_id_decoder),
+      decode.optional(item_id_decoder()),
     )
     use value <- decode.field("value", value_decoder)
     use deleted <- decode.field("deleted", decode.bool)
     use move <- decode.optional_field(
       "move",
       None,
-      decode.optional(move_decoder(item_id_decoder, non_negative_int)),
+      decode.optional(move_decoder()),
     )
     decode.success(Item(
       id: id,
@@ -429,7 +632,7 @@ pub fn from_json(
   let state_decoder = {
     use state <- decode.field("state", {
       use self_id <- decode.field("self_id", replica_id.decoder())
-      use counter <- decode.field("counter", non_negative_int)
+      use counter <- decode.field("counter", non_negative_int_decoder())
       use items <- decode.field("items", decode.list(item_decoder))
       decode.success(Sequence(
         replica_id: self_id,
@@ -464,13 +667,10 @@ pub fn from_json(
   }
 }
 
-fn move_decoder(
-  item_id_decoder: decode.Decoder(ItemId),
-  non_negative_int: decode.Decoder(Int),
-) -> decode.Decoder(Move) {
+fn move_decoder() -> decode.Decoder(Move) {
   let op_id_decoder = {
     use rid <- decode.field("replica_id", replica_id.decoder())
-    use counter <- decode.field("counter", non_negative_int)
+    use counter <- decode.field("counter", non_negative_int_decoder())
     decode.success(OpId(replica_id: rid, counter: counter))
   }
 
@@ -478,11 +678,11 @@ fn move_decoder(
     use op_id <- decode.field("op_id", op_id_decoder)
     use origin_left <- decode.field(
       "origin_left",
-      decode.optional(item_id_decoder),
+      decode.optional(item_id_decoder()),
     )
     use origin_right <- decode.field(
       "origin_right",
-      decode.optional(item_id_decoder),
+      decode.optional(item_id_decoder()),
     )
     decode.success(Move(
       op_id: op_id,
@@ -490,6 +690,22 @@ fn move_decoder(
       origin_right: origin_right,
     ))
   }
+}
+
+fn non_negative_int_decoder() -> decode.Decoder(Int) {
+  decode.int
+  |> decode.then(fn(val) {
+    case val >= 0 {
+      True -> decode.success(val)
+      False -> decode.failure(val, "a non-negative integer")
+    }
+  })
+}
+
+fn item_id_decoder() -> decode.Decoder(ItemId) {
+  use rid <- decode.field("replica_id", replica_id.decoder())
+  use counter <- decode.field("counter", non_negative_int_decoder())
+  decode.success(ItemId(replica_id: rid, counter: counter))
 }
 
 fn encode_item(item: Item(a), encode_value: fn(a) -> json.Json) -> json.Json {
