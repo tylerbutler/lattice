@@ -127,14 +127,10 @@ fn traverse(
 
 /// Return all visible values in sequence order.
 pub fn values(sequence: Sequence(a)) -> List(a) {
-  full_order(sequence.nodes)
+  visible_ids(sequence.nodes)
   |> list.filter_map(fn(id) {
     case dict.get(sequence.nodes, id) {
-      Ok(node) ->
-        case node.value {
-          Some(value) -> Ok(value)
-          None -> Error(Nil)
-        }
+      Ok(node) -> option.to_result(node.value, Nil)
       Error(Nil) -> Error(Nil)
     }
   })
@@ -244,10 +240,7 @@ fn has_right_children(
   nodes: Dict(NodeId, Node(a)),
   parent: Option(NodeId),
 ) -> Bool {
-  case children(nodes, parent, Right) {
-    [] -> False
-    _ -> True
-  }
+  children(nodes, parent, Right) != []
 }
 
 /// The node that immediately follows `origin` in the full (tombstone-included)
@@ -265,14 +258,11 @@ fn successor_in_full_order(
 }
 
 fn successor_after(order: List(NodeId), target: NodeId) -> Option(NodeId) {
-  case order {
-    [] -> None
-    [head, ..rest] ->
-      case head == target {
-        True -> list.first(rest) |> option.from_result()
-        False -> successor_after(rest, target)
-      }
-  }
+  order
+  |> list.drop_while(fn(id) { id != target })
+  |> list.drop(1)
+  |> list.first()
+  |> option.from_result()
 }
 
 // ---------------------------------------------------------------------------
@@ -366,9 +356,8 @@ pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
 fn merge_node(a: Node(a), b: Node(a)) -> Node(a) {
   // parent/side are identical by invariant; tombstone wins on value.
   let value = case a.value, b.value {
-    None, _ -> None
-    _, None -> None
     Some(v), Some(_) -> Some(v)
+    _, _ -> None
   }
   Node(..a, value: value)
 }
@@ -460,27 +449,10 @@ pub fn from_json(
 fn encode_node(node: Node(a), encode_value: fn(a) -> json.Json) -> json.Json {
   json.object([
     #("id", encode_node_id(node.id)),
-    #("value", encode_optional_value(node.value, encode_value)),
-    #("parent", encode_optional_node_id(node.parent)),
+    #("value", json.nullable(node.value, encode_value)),
+    #("parent", json.nullable(node.parent, encode_node_id)),
     #("side", encode_side(node.side)),
   ])
-}
-
-fn encode_optional_value(
-  value: Option(a),
-  encode_value: fn(a) -> json.Json,
-) -> json.Json {
-  case value {
-    Some(v) -> encode_value(v)
-    None -> json.null()
-  }
-}
-
-fn encode_optional_node_id(id: Option(NodeId)) -> json.Json {
-  case id {
-    Some(node_id) -> encode_node_id(node_id)
-    None -> json.null()
-  }
 }
 
 fn encode_node_id(id: NodeId) -> json.Json {
