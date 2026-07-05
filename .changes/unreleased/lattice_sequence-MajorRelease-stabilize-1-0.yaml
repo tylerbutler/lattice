@@ -1,5 +1,5 @@
 project: lattice_sequence
-kind: Breaking
+kind: MajorRelease
 body: |-
   Stable 1.0 release with a committed public API
 
