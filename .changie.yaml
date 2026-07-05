@@ -90,6 +90,13 @@ projects:
           - path: packages/lattice_sequence/gleam.toml
             find: 'version = ".*"'
             replace: 'version = "{{.VersionNoPrefix}}"'
+    - label: Fugue
+      key: lattice_fugue
+      changelog: packages/lattice_fugue/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_fugue/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
     - label: Maps
       key: lattice_maps
       changelog: packages/lattice_maps/CHANGELOG.md
