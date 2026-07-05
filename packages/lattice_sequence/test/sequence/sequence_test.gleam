@@ -44,14 +44,14 @@ pub fn insert_in_middle_test() {
 
 pub fn try_insert_negative_index_returns_error_test() {
   sequence.new(rid("A"))
-  |> sequence.try_insert(-1, "x")
+  |> sequence.try_insert_with_delta(-1, "x")
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: -1, length: 0)))
 }
 
 pub fn try_insert_past_end_returns_error_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_insert(2, "x")
+  |> sequence.try_insert_with_delta(2, "x")
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: 2, length: 1)))
 }
 
@@ -67,7 +67,7 @@ pub fn delete_removes_visible_item_test() {
 
 pub fn try_delete_negative_index_returns_error_test() {
   sequence.new(rid("A"))
-  |> sequence.try_delete(-1)
+  |> sequence.try_delete_with_delta(-1)
   |> expect.to_equal(
     Error(sequence.DeleteIndexOutOfBounds(index: -1, length: 0)),
   )
@@ -76,7 +76,7 @@ pub fn try_delete_negative_index_returns_error_test() {
 pub fn try_delete_at_end_returns_error_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_delete(1)
+  |> sequence.try_delete_with_delta(1)
   |> expect.to_equal(
     Error(sequence.DeleteIndexOutOfBounds(index: 1, length: 1)),
   )
@@ -180,7 +180,7 @@ pub fn move_reorders_visible_item_test() {
 pub fn try_move_from_index_out_of_bounds_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_move(1, 0)
+  |> sequence.try_move_with_delta(1, 0)
   |> expect.to_equal(
     Error(sequence.MoveFromIndexOutOfBounds(index: 1, length: 1)),
   )
@@ -189,7 +189,7 @@ pub fn try_move_from_index_out_of_bounds_test() {
 pub fn try_move_to_index_out_of_bounds_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_move(0, 2)
+  |> sequence.try_move_with_delta(0, 2)
   |> expect.to_equal(
     Error(sequence.MoveToIndexOutOfBounds(index: 2, length_after_removal: 0)),
   )

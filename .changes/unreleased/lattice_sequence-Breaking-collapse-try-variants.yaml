@@ -1,0 +1,14 @@
+project: lattice_sequence
+kind: Breaking
+body: |-
+  Remove the redundant `try_insert`, `try_delete`, and `try_move` mutators
+
+  Each mutator previously shipped four variants. The safe, delta-less `try_*`
+  functions were the only ones that carried no unique behaviour: they simply
+  discarded the delta returned by their `try_*_with_delta` counterpart. They
+  have been removed to shrink the public API surface. Callers that need a
+  `Result` should use `try_insert_with_delta`, `try_delete_with_delta`, or
+  `try_move_with_delta` and ignore the delta element. The panicking `insert`,
+  `delete`, and `move` variants are unchanged, and their doc comments now state
+  that they panic on out-of-bounds indices.
+time: 2026-07-04T22:35:00.000000000-07:00

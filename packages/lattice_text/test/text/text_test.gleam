@@ -61,14 +61,14 @@ pub fn insert_multi_grapheme_value_preserves_each_grapheme_test() {
 
 pub fn try_insert_negative_index_returns_error_test() {
   text.new(rid("A"))
-  |> text.try_insert(-1, "x")
+  |> text.try_insert_with_delta(-1, "x")
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: -1, length: 0)))
 }
 
 pub fn try_insert_past_end_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "a")
-  |> text.try_insert(2, "x")
+  |> text.try_insert_with_delta(2, "x")
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: 2, length: 1)))
 }
 
@@ -92,7 +92,7 @@ pub fn delete_removes_character_from_multi_character_insert_test() {
 
 pub fn try_delete_negative_index_returns_error_test() {
   text.new(rid("A"))
-  |> text.try_delete(-1)
+  |> text.try_delete_with_delta(-1)
   |> expect.to_equal(
     Error(sequence.DeleteIndexOutOfBounds(index: -1, length: 0)),
   )
@@ -101,7 +101,7 @@ pub fn try_delete_negative_index_returns_error_test() {
 pub fn try_delete_at_end_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "a")
-  |> text.try_delete(1)
+  |> text.try_delete_with_delta(1)
   |> expect.to_equal(
     Error(sequence.DeleteIndexOutOfBounds(index: 1, length: 1)),
   )
@@ -280,21 +280,21 @@ pub fn delete_range_handles_multi_grapheme_content_test() {
 pub fn try_delete_range_negative_start_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "abc")
-  |> text.try_delete_range(-1, 2)
+  |> text.try_delete_range_with_delta(-1, 2)
   |> expect.to_equal(Error(text.RangeOutOfBounds(start: -1, end: 2, length: 3)))
 }
 
 pub fn try_delete_range_end_past_length_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "abc")
-  |> text.try_delete_range(0, 4)
+  |> text.try_delete_range_with_delta(0, 4)
   |> expect.to_equal(Error(text.RangeOutOfBounds(start: 0, end: 4, length: 3)))
 }
 
 pub fn try_delete_range_start_greater_than_end_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "abc")
-  |> text.try_delete_range(2, 1)
+  |> text.try_delete_range_with_delta(2, 1)
   |> expect.to_equal(Error(text.RangeOutOfBounds(start: 2, end: 1, length: 3)))
 }
 
@@ -349,7 +349,7 @@ pub fn replace_range_empty_value_deletes_test() {
 pub fn try_replace_range_invalid_range_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "abc")
-  |> text.try_replace_range(2, 1, "x")
+  |> text.try_replace_range_with_delta(2, 1, "x")
   |> expect.to_equal(Error(text.RangeOutOfBounds(start: 2, end: 1, length: 3)))
 }
 
@@ -380,7 +380,7 @@ pub fn move_backward_test() {
 pub fn try_move_from_index_out_of_bounds_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "abc")
-  |> text.try_move(3, 0)
+  |> text.try_move_with_delta(3, 0)
   |> expect.to_equal(
     Error(sequence.MoveFromIndexOutOfBounds(index: 3, length: 3)),
   )
@@ -389,7 +389,7 @@ pub fn try_move_from_index_out_of_bounds_returns_error_test() {
 pub fn try_move_to_index_out_of_bounds_returns_error_test() {
   text.new(rid("A"))
   |> text.insert(0, "abc")
-  |> text.try_move(0, 3)
+  |> text.try_move_with_delta(0, 3)
   |> expect.to_equal(
     Error(sequence.MoveToIndexOutOfBounds(index: 3, length_after_removal: 2)),
   )

@@ -189,24 +189,19 @@ pub fn new(replica_id: ReplicaId) -> Sequence(a) {
 }
 
 /// Insert a value at the visible item index.
+///
+/// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
+/// `try_insert_with_delta` to handle an untrusted index without crashing.
 pub fn insert(sequence: Sequence(a), index: Int, value: a) -> Sequence(a) {
-  let assert Ok(updated) = try_insert(sequence, index, value)
+  let assert Ok(#(updated, _delta)) =
+    try_insert_with_delta(sequence, index, value)
   updated
 }
 
-/// Safely insert a value at the visible item index.
-pub fn try_insert(
-  sequence: Sequence(a),
-  index: Int,
-  value: a,
-) -> Result(Sequence(a), InsertError) {
-  case try_insert_with_delta(sequence, index, value) {
-    Ok(#(updated, _delta)) -> Ok(updated)
-    Error(error) -> Error(error)
-  }
-}
-
 /// Insert a value and return both the updated sequence and insertion delta.
+///
+/// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
+/// `try_insert_with_delta` to handle an untrusted index without crashing.
 pub fn insert_with_delta(
   sequence: Sequence(a),
   index: Int,
@@ -273,23 +268,20 @@ pub fn try_insert_with_delta(
 }
 
 /// Delete the value at the visible item index.
+///
+/// Panics with `DeleteIndexOutOfBounds` when `index` is outside
+/// `[0, length)`. Use `try_delete_with_delta` to handle an untrusted index
+/// without crashing.
 pub fn delete(sequence: Sequence(a), index: Int) -> Sequence(a) {
-  let assert Ok(updated) = try_delete(sequence, index)
+  let assert Ok(#(updated, _delta)) = try_delete_with_delta(sequence, index)
   updated
 }
 
-/// Safely delete the value at the visible item index.
-pub fn try_delete(
-  sequence: Sequence(a),
-  index: Int,
-) -> Result(Sequence(a), DeleteError) {
-  case try_delete_with_delta(sequence, index) {
-    Ok(#(updated, _delta)) -> Ok(updated)
-    Error(error) -> Error(error)
-  }
-}
-
 /// Delete a value and return both the updated sequence and deletion delta.
+///
+/// Panics with `DeleteIndexOutOfBounds` when `index` is outside
+/// `[0, length)`. Use `try_delete_with_delta` to handle an untrusted index
+/// without crashing.
 pub fn delete_with_delta(
   sequence: Sequence(a),
   index: Int,
@@ -337,30 +329,25 @@ pub fn try_delete_with_delta(
 /// Move a visible item to another visible index.
 ///
 /// The `to_index` is interpreted after removing the item from `from_index`.
+///
+/// Panics with a `MoveError` when either index is out of bounds. Use
+/// `try_move_with_delta` to handle untrusted indices without crashing.
 pub fn move(
   sequence: Sequence(a),
   from_index: Int,
   to_index: Int,
 ) -> Sequence(a) {
-  let assert Ok(updated) = try_move(sequence, from_index, to_index)
+  let assert Ok(#(updated, _delta)) =
+    try_move_with_delta(sequence, from_index, to_index)
   updated
 }
 
-/// Safely move a visible item to another visible index.
+/// Move a visible item and return both the updated sequence and move delta.
 ///
 /// The `to_index` is interpreted after removing the item from `from_index`.
-pub fn try_move(
-  sequence: Sequence(a),
-  from_index: Int,
-  to_index: Int,
-) -> Result(Sequence(a), MoveError) {
-  case try_move_with_delta(sequence, from_index, to_index) {
-    Ok(#(updated, _delta)) -> Ok(updated)
-    Error(error) -> Error(error)
-  }
-}
-
-/// Move a visible item and return both the updated sequence and move delta.
+///
+/// Panics with a `MoveError` when either index is out of bounds. Use
+/// `try_move_with_delta` to handle untrusted indices without crashing.
 pub fn move_with_delta(
   sequence: Sequence(a),
   from_index: Int,
