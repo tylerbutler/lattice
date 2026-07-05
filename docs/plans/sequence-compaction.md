@@ -1,6 +1,7 @@
 # Plan: Sequence Compaction (Tombstone GC + Block Merging)
 
-> Status: draft (2026-07-04)
+> Status: implemented (2026-07-04) — see "Implementation notes" at the end
+> for where the built design deviates from or refines this plan.
 > Scope: `packages/lattice_sequence` (compaction, block representation,
 > forwarding map) with knock-on effects in `packages/lattice_text` (anchors)
 > and the state JSON envelope.
@@ -291,3 +292,47 @@ since by assumption none exist.
 - Op-log truncation and snapshot storage/distribution.
 - Compaction for other lattice packages (maps/sets have their own tombstone
   stories, e.g. `or_set.prune`, and are not touched here).
+
+## Implementation notes (2026-07-04)
+
+The plan shipped with these refinements, discovered while making the
+property suite pass:
+
+- **Ordering engine replaced.** The recursive origin-tree rebuild could not
+  order live items against origin-stripped blocks. The implementation uses
+  a canonical rebuild instead: elements at or below the frontier are pinned
+  in stored order (their order converged before the frontier passed), and
+  volatile items are integrated one at a time in Lamport order with the
+  YATA/Yjs conflict scan. Every construction path (local ops and both merge
+  directions) goes through the same rebuild, so merge convergence holds by
+  construction.
+- **Origins are creation-time invariants for the scan.** An insert records
+  its visible left neighbor and that neighbor's successor in the CANONICAL
+  (pre-move) order, which makes the conflict window empty at creation and
+  provably free of compacted elements for causally valid ops. The scan
+  compares forwarding-chased left origins (so dropped IDs behave like the
+  gap they collapsed into) but RAW right origins (chasing those conflates
+  ops created before and after a neighbor's delete).
+- **Forwardings carry both neighbors.** Entries are
+  `dropped_id -> #(left, right)` retained neighbors, not just the left
+  gap: right targets are needed to rebase right origins and to resolve
+  move-target gaps without inverting their stacking order.
+- **Merge takes the covered order from the dominating frontier's side**
+  (tiebroken deterministically for concurrent frontiers), reconciles flags
+  in place, pools volatile items, and rebuilds. An item absent from a side
+  whose frontier covers it is treated as compacted away and stays dropped.
+- **Moves gate compaction.** `compact` is a no-op while any move record
+  exists in the state. Stabilizing moved geometry would bake the
+  displacement into the block skeleton while uncompacted peers still order
+  concurrent edits against pre-move positions — the plan's "origins may
+  reference tombstones" analysis understated moves. Volatile moves arriving
+  AFTER compaction merge correctly and all merge directions converge, but a
+  compacted replica can transiently disagree with a never-compacted one
+  about the neighborhood of an item a peer concurrently moved; states
+  re-align on the next merge. Move origins were reverted to visible-neighbor
+  semantics so a volatile move's targets can never be dropped at the floor
+  its creator acked. Lifting the gate needs a design pass (likely retaining
+  minimal origin metadata for stable items).
+- **Deletes carry the winning delete `OpId`** (concurrent deletes keep the
+  smaller op deterministically), and delete/move both mint counters as
+  planned.
