@@ -1,0 +1,7 @@
+project: lattice_sequence
+kind: MajorRelease
+body: |-
+  Stable 1.0 release with a committed public API
+
+  `lattice_sequence` is now 1.0. Its generic sequence CRDT API — index-based insert, delete, and move operations, mergeable deltas, JSON serialization, position anchors, and tombstone compaction — is stable and safe to depend on. From this release on, the package follows semantic versioning, so any future breaking change will come with a new major version.
+time: 2026-07-04T22:19:16.764000000-07:00

@@ -3,5 +3,5 @@ kind: Added
 body: |-
   Add `compact`, `remove_forwardings`, and `frontier` passthroughs
 
-  Text documents compact through the underlying sequence without importing `lattice_sequence`: stable tombstones are dropped and stable grapheme runs merge into compact blocks. Anchor resolution now resolves through forwardings for compacted graphemes; `try_resolve_anchor`'s `UnknownAnchorTarget` contract widens to also cover anchors whose forwarding entry the host has expired — treat it as "re-anchor".
+  Text documents compact through the underlying sequence without importing `lattice_sequence`: stable tombstones are dropped and stable grapheme runs merge into compact blocks. Anchor resolution resolves through forwardings for compacted graphemes; `try_resolve_anchor` returns `UnknownAnchorTarget` for anchors whose forwarding entry the host has expired — treat it as "re-anchor".
 time: 2026-07-05T03:45:09.929665806+00:00

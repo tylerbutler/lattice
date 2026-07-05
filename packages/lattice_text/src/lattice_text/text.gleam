@@ -40,25 +40,18 @@ pub fn new(replica_id: ReplicaId) -> Text {
 }
 
 /// Insert a value at the visible character index.
+///
+/// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
+/// `try_insert_with_delta` to handle an untrusted index without crashing.
 pub fn insert(text: Text, index: Int, value: String) -> Text {
-  let assert Ok(updated) = try_insert(text, index, value)
+  let assert Ok(#(updated, _delta)) = try_insert_with_delta(text, index, value)
   updated
 }
 
-/// Safely insert a value at the visible character index.
-pub fn try_insert(
-  text: Text,
-  index: Int,
-  value: String,
-) -> Result(Text, sequence.InsertError) {
-  let Text(seq) = text
-  value
-  |> string.to_graphemes()
-  |> insert_graphemes(seq, index)
-  |> result.map(Text)
-}
-
 /// Insert a value and return both the updated text and insertion delta.
+///
+/// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
+/// `try_insert_with_delta` to handle an untrusted index without crashing.
 pub fn insert_with_delta(
   text: Text,
   index: Int,
@@ -85,24 +78,20 @@ pub fn try_insert_with_delta(
 }
 
 /// Delete the value at the visible character index.
+///
+/// Panics with `DeleteIndexOutOfBounds` when `index` is outside
+/// `[0, length)`. Use `try_delete_with_delta` to handle an untrusted index
+/// without crashing.
 pub fn delete(text: Text, index: Int) -> Text {
-  let assert Ok(updated) = try_delete(text, index)
+  let assert Ok(#(updated, _delta)) = try_delete_with_delta(text, index)
   updated
 }
 
-/// Safely delete the value at the visible character index.
-pub fn try_delete(
-  text: Text,
-  index: Int,
-) -> Result(Text, sequence.DeleteError) {
-  let Text(seq) = text
-  case sequence.try_delete(seq, index) {
-    Ok(updated) -> Ok(Text(updated))
-    Error(error) -> Error(error)
-  }
-}
-
 /// Delete a value and return both the updated text and deletion delta.
+///
+/// Panics with `DeleteIndexOutOfBounds` when `index` is outside
+/// `[0, length)`. Use `try_delete_with_delta` to handle an untrusted index
+/// without crashing.
 pub fn delete_with_delta(text: Text, index: Int) -> #(Text, Text) {
   let assert Ok(result) = try_delete_with_delta(text, index)
   result
@@ -193,25 +182,22 @@ pub fn try_substring(
 /// |> text.value()
 /// // -> "ad"
 /// ```
+///
+/// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
+/// `[0, length]`. Use `try_delete_range_with_delta` to handle untrusted
+/// bounds without crashing.
 pub fn delete_range(text: Text, start: Int, end: Int) -> Text {
-  let assert Ok(updated) = try_delete_range(text, start, end)
+  let assert Ok(#(updated, _delta)) =
+    try_delete_range_with_delta(text, start, end)
   updated
-}
-
-/// Safely delete the graphemes in `[start, end)`.
-pub fn try_delete_range(
-  text: Text,
-  start: Int,
-  end: Int,
-) -> Result(Text, RangeError) {
-  case try_delete_range_with_delta(text, start, end) {
-    Ok(#(updated, _delta)) -> Ok(updated)
-    Error(error) -> Error(error)
-  }
 }
 
 /// Delete a grapheme range and return both the updated text and deletion
 /// delta.
+///
+/// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
+/// `[0, length]`. Use `try_delete_range_with_delta` to handle untrusted
+/// bounds without crashing.
 pub fn delete_range_with_delta(
   text: Text,
   start: Int,
@@ -248,26 +234,22 @@ pub fn try_delete_range_with_delta(
 /// |> text.value()
 /// // -> "aXYd"
 /// ```
+///
+/// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
+/// `[0, length]`. Use `try_replace_range_with_delta` to handle untrusted
+/// bounds without crashing.
 pub fn replace_range(text: Text, start: Int, end: Int, value: String) -> Text {
-  let assert Ok(updated) = try_replace_range(text, start, end, value)
+  let assert Ok(#(updated, _delta)) =
+    try_replace_range_with_delta(text, start, end, value)
   updated
-}
-
-/// Safely replace the graphemes in `[start, end)` with a value.
-pub fn try_replace_range(
-  text: Text,
-  start: Int,
-  end: Int,
-  value: String,
-) -> Result(Text, RangeError) {
-  case try_replace_range_with_delta(text, start, end, value) {
-    Ok(#(updated, _delta)) -> Ok(updated)
-    Error(error) -> Error(error)
-  }
 }
 
 /// Replace a grapheme range and return both the updated text and
 /// replacement delta.
+///
+/// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
+/// `[0, length]`. Use `try_replace_range_with_delta` to handle untrusted
+/// bounds without crashing.
 pub fn replace_range_with_delta(
   text: Text,
   start: Int,
@@ -321,27 +303,19 @@ pub fn try_replace_range_with_delta(
 /// |> text.value()
 /// // -> "bca"
 /// ```
+///
+/// Panics with a `MoveError` when either index is out of bounds. Use
+/// `try_move_with_delta` to handle untrusted indices without crashing.
 pub fn move(text: Text, from_index: Int, to_index: Int) -> Text {
-  let assert Ok(updated) = try_move(text, from_index, to_index)
+  let assert Ok(#(updated, _delta)) =
+    try_move_with_delta(text, from_index, to_index)
   updated
 }
 
-/// Safely move the grapheme at `from_index` to `to_index`.
-///
-/// The `to_index` is interpreted after removing the grapheme from
-/// `from_index`.
-pub fn try_move(
-  text: Text,
-  from_index: Int,
-  to_index: Int,
-) -> Result(Text, sequence.MoveError) {
-  case try_move_with_delta(text, from_index, to_index) {
-    Ok(#(updated, _delta)) -> Ok(updated)
-    Error(error) -> Error(error)
-  }
-}
-
 /// Move a grapheme and return both the updated text and move delta.
+///
+/// Panics with a `MoveError` when either index is out of bounds. Use
+/// `try_move_with_delta` to handle untrusted indices without crashing.
 pub fn move_with_delta(
   text: Text,
   from_index: Int,
@@ -535,30 +509,6 @@ fn delete_grapheme(
     Ok(pair) -> Ok(pair)
     Error(sequence.DeleteIndexOutOfBounds(index, length)) ->
       Error(RangeOutOfBounds(start: index, end: index, length: length))
-  }
-}
-
-fn insert_graphemes(
-  graphemes: List(String),
-  seq: sequence.Sequence(String),
-  index: Int,
-) -> Result(sequence.Sequence(String), sequence.InsertError) {
-  let length = sequence.length(seq)
-  case graphemes, index < 0 || index > length {
-    _, True -> Error(sequence.IndexOutOfBounds(index: index, length: length))
-    [], False -> Ok(seq)
-    _, False -> {
-      use #(updated, _) <- result.try(
-        list.try_fold(graphemes, #(seq, index), fn(state, grapheme) {
-          let #(current, current_index) = state
-          case sequence.try_insert(current, current_index, grapheme) {
-            Ok(updated) -> Ok(#(updated, current_index + 1))
-            Error(error) -> Error(error)
-          }
-        }),
-      )
-      Ok(updated)
-    }
   }
 }
 
