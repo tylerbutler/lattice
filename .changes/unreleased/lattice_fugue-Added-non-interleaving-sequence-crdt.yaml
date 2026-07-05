@@ -1,0 +1,7 @@
+project: lattice_fugue
+kind: Added
+body: |-
+  Add non-interleaving sequence CRDT package
+
+  Introduces `lattice_fugue/sequence`, a state-based sequence CRDT implementing the plain Fugue algorithm (Weidner & Kleppmann, arXiv:2305.00583). Provides index-based insert/delete, mergeable deltas, generic JSON codecs, and forward non-interleaving of concurrent insertions that YATA-style ordering cannot guarantee.
+time: 2026-07-05T14:24:00.000000000+00:00
