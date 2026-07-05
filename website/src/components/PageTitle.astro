@@ -1,0 +1,132 @@
+---
+const { entry } = Astro.locals.starlightRoute;
+const title = entry.data.title;
+const description = entry.data.description;
+const PAGE_TITLE_ID = "_top";
+const section = entry.id.includes("/")
+	? (entry.id.split("/")[0] ?? "start")
+	: "start";
+
+const sectionLabels: Record<string, string> = {
+	advanced: "advanced note",
+	guides: "field guide",
+	start: "orientation",
+};
+
+const sectionLabel = sectionLabels[section] ?? section;
+---
+
+<header class="proof-title" aria-labelledby={PAGE_TITLE_ID}>
+	<p class="proof-title__section">lattice / {sectionLabel}</p>
+	<div class="proof-title__body">
+		<h1 id={PAGE_TITLE_ID}>{title}</h1>
+		{description && <p>{description}</p>}
+	</div>
+	<div class="proof-title__artifact" aria-hidden="true">
+		<span></span>
+		<span></span>
+		<span></span>
+	</div>
+</header>
+
+<style>
+	.proof-title {
+		position: relative;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(8rem, 0.24fr);
+		gap: clamp(1.25rem, 4vw, 3rem);
+		align-items: end;
+		padding-block: clamp(1.75rem, 6vw, 4.75rem) clamp(1.5rem, 4vw, 3rem);
+		border-bottom: 1px solid var(--lattice-rule);
+		overflow: hidden;
+	}
+
+	.proof-title::before {
+		content: "";
+		position: absolute;
+		inset-block: 0;
+		inset-inline-end: 13%;
+		width: 1px;
+		background: linear-gradient(transparent, var(--lattice-rule), transparent);
+	}
+
+	.proof-title__section {
+		grid-column: 1 / -1;
+		margin: 0;
+		color: var(--sl-color-accent-high);
+		font-family: var(--sl-font-headings);
+		font-weight: 700;
+		letter-spacing: -0.01em;
+	}
+
+	.proof-title__body {
+		max-width: 70ch;
+	}
+
+	.proof-title h1 {
+		margin: 0;
+		max-width: 12ch;
+		color: var(--sl-color-white);
+		font-family: var(--sl-font-headings);
+		font-size: clamp(2.75rem, 10vw, 6rem);
+		font-weight: 700;
+		letter-spacing: -0.04em;
+		line-height: 0.92;
+		text-wrap: balance;
+	}
+
+	.proof-title__body > p {
+		margin: clamp(1rem, 2.5vw, 1.35rem) 0 0;
+		max-width: 58ch;
+		color: var(--lattice-text-muted);
+		font-size: clamp(1.05rem, 1.8vw, 1.22rem);
+		line-height: 1.65;
+		text-wrap: pretty;
+	}
+
+	.proof-title__artifact {
+		display: grid;
+		gap: 0.65rem;
+		justify-self: stretch;
+		padding: 0.75rem;
+		border: 1px solid var(--lattice-rule);
+		border-radius: 1rem;
+		background:
+			linear-gradient(135deg, color-mix(in oklab, var(--sl-color-accent-low), transparent 12%), transparent),
+			var(--lattice-panel-raised);
+	}
+
+	.proof-title__artifact span {
+		display: block;
+		height: clamp(2.1rem, 5vw, 3.4rem);
+		border: 1px solid color-mix(in oklab, var(--sl-color-accent), transparent 54%);
+		border-radius: 0.7rem;
+		background:
+			linear-gradient(90deg, color-mix(in oklab, var(--sl-color-accent), transparent 48%) 0 18%, transparent 18%),
+			color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 26%);
+	}
+
+	.proof-title__artifact span:nth-child(2) {
+		transform: translateX(12%);
+	}
+
+	.proof-title__artifact span:nth-child(3) {
+		width: 72%;
+	}
+
+	@media (max-width: 52rem) {
+		.proof-title {
+			grid-template-columns: 1fr;
+		}
+
+		.proof-title::before,
+		.proof-title__artifact {
+			display: none;
+		}
+
+		.proof-title h1 {
+			max-width: 100%;
+			font-size: clamp(2.35rem, 14vw, 4.5rem);
+		}
+	}
+</style>

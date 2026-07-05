@@ -1,0 +1,95 @@
+---
+import DefaultTableOfContents from "@astrojs/starlight/components/TableOfContents.astro";
+
+const { toc } = Astro.locals.starlightRoute;
+const itemCount = toc?.items.length ?? 0;
+---
+
+{
+	toc && (
+		<div class="reading-path">
+			<p class="reading-path__label">Reading path</p>
+			<p class="reading-path__count">
+				{itemCount === 1 ? "1 stop" : `${itemCount} stops`}
+			</p>
+			<DefaultTableOfContents />
+		</div>
+	)
+}
+
+<style>
+	.reading-path {
+		position: relative;
+		padding: 0.85rem;
+		border: 1px solid var(--lattice-rule);
+		border-radius: 1rem;
+		background:
+			radial-gradient(circle at 100% 0, color-mix(in oklab, var(--sl-color-accent), transparent 88%), transparent 9rem),
+			var(--lattice-panel-raised);
+	}
+
+	.reading-path__label,
+	.reading-path__count {
+		margin: 0;
+	}
+
+	.reading-path__label {
+		color: var(--sl-color-accent-high);
+		font-family: var(--sl-font-headings);
+		font-size: 0.96rem;
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+
+	.reading-path__count {
+		margin-top: 0.1rem;
+		color: var(--lattice-text-muted);
+		font-size: 0.78rem;
+	}
+
+	.reading-path :global(#starlight__on-this-page) {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	.reading-path :global(starlight-toc) {
+		display: block;
+		margin-top: 0.85rem;
+	}
+
+	.reading-path :global(ul) {
+		display: grid;
+		gap: 0.2rem;
+	}
+
+	.reading-path :global(a) {
+		border: 1px solid transparent;
+		border-radius: 0.6rem;
+		padding: 0.45rem 0.55rem;
+		color: var(--lattice-text-muted);
+		text-decoration: none;
+		transition:
+			background-color 160ms ease-out,
+			border-color 160ms ease-out,
+			color 160ms ease-out;
+	}
+
+	.reading-path :global(a:hover) {
+		background: color-mix(in oklab, var(--sl-color-accent-low), transparent 36%);
+		color: var(--sl-color-white);
+	}
+
+	.reading-path :global(a[aria-current="true"]) {
+		border-color: color-mix(in oklab, var(--sl-color-accent), transparent 48%);
+		background: color-mix(in oklab, var(--sl-color-accent-low), transparent 20%);
+		color: var(--sl-color-accent-high);
+		font-weight: 700;
+	}
+</style>
