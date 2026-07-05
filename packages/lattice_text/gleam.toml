@@ -1,5 +1,5 @@
 name = "lattice_text"
-version = "1.0.0"
+version = "0.0.1"
 description = "Plain-text CRDT for Gleam using YATA-style left/right origins"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
