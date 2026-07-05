@@ -25,7 +25,7 @@
 		"@astrojs/starlight": "^0.38.3",
 		"@fontsource/atkinson-hyperlegible": "^5.2.8",
 		"@fontsource/bricolage-grotesque": "^5.2.10",
-		"astro": "^6.1.4",
+		"astro": "^6.4.6",
 		"astro-mermaid": "^2.0.1",
 		"astro-tinylytics": "^0.1.0",
 		"mermaid": "^11.14.0",
