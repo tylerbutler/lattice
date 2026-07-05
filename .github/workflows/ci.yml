@@ -24,29 +24,24 @@ jobs:
 
   lint:
     name: Lint
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    with:
+      cache: true
+      run-deps: true
+      build-strict: false
+      custom-command: gleam run -m glinter
+
+  lint-examples:
+    name: Lint (examples)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache Gleam dependencies
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # ratchet:actions/cache@v5
-        with:
-          path: |
-            packages/*/build/packages
-            examples/build/packages
-            ~/.cache/gleam
-          key: gleam-lint-${{ runner.os }}-${{ hashFiles('**/gleam.toml', '**/manifest.toml') }}
-          restore-keys: |
-            gleam-lint-${{ runner.os }}-
-
       - name: Setup environment
         uses: tylerbutler/actions/setup-gleam@v1
 
-      - name: Download dependencies
-        run: just deps
-
-      - name: Lint (glinter)
-        run: just lint
+      - name: Lint examples (glinter)
+        run: cd examples && gleam run -m glinter
 
   build:
     name: Build
