@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-03T20:15:46.785-07:00",
+  "title": "Design System: lattice",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Convergence Magenta",
+        "canonical": "#f54780",
+        "tonalRamp": [
+          "oklch(15% 0.12 350)",
+          "oklch(25% 0.14 350)",
+          "oklch(35% 0.16 350)",
+          "oklch(45% 0.18 350)",
+          "oklch(58% 0.20 350)",
+          "oklch(70% 0.16 350)",
+          "oklch(84% 0.10 350)",
+          "oklch(95% 0.04 350)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink Plum",
+        "canonical": "#2a0818",
+        "tonalRamp": [
+          "#2a0818",
+          "#4d1029",
+          "#6e1f3d",
+          "#a8345e",
+          "#e8729a",
+          "#f5a8c0",
+          "#ffe7ee",
+          "#fff3f7"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Splash and page-level identity moments."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Readable long-form documentation and guides."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "color 160ms ease-out, background-color 160ms ease-out, border-color 160ms ease-out",
+        "purpose": "Restrained feedback for links, buttons, and navigation states."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Docs Action",
+      "kind": "button",
+      "refersTo": "docs-primary-action",
+      "description": "Primary call to start reading or install the library.",
+      "html": "<a class=\"ds-primary-action\" href=\"#\">Get started</a>",
+      "css": ".ds-primary-action { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0.7rem 1rem; border-radius: 0.5rem; background: #f54780; color: #ffffff; font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700; text-decoration: none; transition: background-color 160ms ease-out, transform 160ms ease-out; } .ds-primary-action:hover { background: #c72e62; transform: translateY(-1px); } .ds-primary-action:focus-visible { outline: 3px solid #f9b0cb; outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Docs Action",
+      "kind": "button",
+      "refersTo": "docs-secondary-action",
+      "description": "Secondary navigation action for explanatory pages.",
+      "html": "<a class=\"ds-secondary-action\" href=\"#\">What is lattice?</a>",
+      "css": ".ds-secondary-action { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0.7rem 1rem; border-radius: 0.5rem; background: #3d1527; color: #f9b0cb; font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700; text-decoration: none; border: 1px solid #6e1f3d; transition: color 160ms ease-out, border-color 160ms ease-out; } .ds-secondary-action:hover { color: #ffe7ee; border-color: #f54780; } .ds-secondary-action:focus-visible { outline: 3px solid #f9b0cb; outline-offset: 3px; }"
+    },
+    {
+      "name": "Docs Card",
+      "kind": "card",
+      "refersTo": "docs-card",
+      "description": "Documentation feature grouping for CRDT types or package concepts.",
+      "html": "<article class=\"ds-docs-card\"><h3>Counters</h3><p>Grow-only and positive-negative counters for distributed counting with automatic convergence.</p></article>",
+      "css": ".ds-docs-card { max-width: 22rem; padding: 1rem; border: 1px solid #6e1f3d; border-radius: 0.75rem; background: #2a0818; color: #ffe7ee; font-family: 'Atkinson Hyperlegible', sans-serif; } .ds-docs-card h3 { margin: 0 0 0.45rem; font-family: 'Bricolage Grotesque', 'Atkinson Hyperlegible', sans-serif; font-size: 1.15rem; line-height: 1.15; letter-spacing: -0.02em; } .ds-docs-card p { margin: 0; line-height: 1.6; color: #f5a8c0; }"
+    },
+    {
+      "name": "Caution Aside",
+      "kind": "custom",
+      "description": "Trust-building caution block for pre-1.0 status or API stability notes.",
+      "html": "<aside class=\"ds-caution\"><strong>Pre-1.0 Software</strong><p>The API is unstable, features may be removed in minor releases, and quality should not be considered production-ready.</p></aside>",
+      "css": ".ds-caution { max-width: 40rem; padding: 1rem; border-radius: 0.75rem; border: 1px solid #a8345e; background: #3d1527; color: #ffe7ee; font-family: 'Atkinson Hyperlegible', sans-serif; } .ds-caution strong { display: block; margin-bottom: 0.35rem; font-family: 'Bricolage Grotesque', 'Atkinson Hyperlegible', sans-serif; font-size: 1.05rem; } .ds-caution p { margin: 0; line-height: 1.6; color: #f9b0cb; }"
+    },
+    {
+      "name": "Navigation Item",
+      "kind": "nav",
+      "description": "Sidebar-style navigation item for docs orientation.",
+      "html": "<a class=\"ds-nav-item\" href=\"#\">Version Vectors</a>",
+      "css": ".ds-nav-item { display: block; padding: 0.45rem 0.65rem; border-radius: 0.45rem; color: #ffe7ee; font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700; text-decoration: none; transition: background-color 160ms ease-out, color 160ms ease-out; } .ds-nav-item:hover, .ds-nav-item[aria-current='page'] { background: #3d1527; color: #f9b0cb; } .ds-nav-item:focus-visible { outline: 3px solid #f54780; outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Convergence Notebook",
+    "overview": "lattice should feel like rigorous proofs made readable: a precise technical notebook where every visual choice helps developers trust the convergence model, choose the right CRDT, and move into code. The system is documentation-first, but it still needs a memorable public face: saturated magenta and plum tones give the library identity without becoming generic devtool gloss.",
+    "keyCharacteristics": [
+      "Precise, mathematical, approachable.",
+      "Documentation density with a clear public identity.",
+      "Magenta/plum color as structure, not decoration.",
+      "High-contrast reading surfaces for long-form technical content.",
+      "Honest pre-1.0 caution presented as trust-building context."
+    ],
+    "rules": [
+      {
+        "name": "The One Proof Color Rule",
+        "body": "Magenta is the proof mark: it should identify actions, links, and selected state. Do not scatter it as decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Gradient Hero Rule",
+        "body": "Gradient text and gradient hero treatments are prohibited. The brand is carried by type, color discipline, and explanatory artifacts.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Math Rule",
+        "body": "If a typography choice makes a proof, code example, package table, or warning harder to read, it is wrong no matter how distinctive it looks.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Notebook Rule",
+        "body": "Surfaces are pages, not floating panes. Use borders, spacing, and tone before shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use Convergence Magenta for meaningful action, active, and link states.",
+      "Do keep Bricolage Grotesque focused on headings and identity moments.",
+      "Do use Atkinson Hyperlegible for long-form docs, package explanations, and guides.",
+      "Do show correctness with code, examples, package boundaries, and explanatory diagrams.",
+      "Do preserve high contrast for docs and code in both light and dark themes."
+    ],
+    "donts": [
+      "Don't use generic SaaS/devtool landing-page clichés: gradient heroes, metric blocks, identical icon-card grids as the primary storytelling device, or vague \"scale your workflow\" copy.",
+      "Don't use gradient text.",
+      "Don't turn CRDT rigor into a dense academic archive.",
+      "Don't use monospace as decorative shorthand for \"technical\"; reserve code faces for code.",
+      "Don't add glassmorphism, oversized glow, or ambient shadows as a default surface treatment."
+    ]
+  }
+}

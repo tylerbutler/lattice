@@ -1,0 +1,50 @@
+---
+import DefaultMobileTableOfContents from "@astrojs/starlight/components/MobileTableOfContents.astro";
+---
+
+<div class="mobile-reading-path">
+	<DefaultMobileTableOfContents />
+</div>
+
+<style>
+	.mobile-reading-path :global(nav) {
+		border-block: 1px solid var(--lattice-rule);
+		background:
+			linear-gradient(90deg, color-mix(in oklab, var(--sl-color-accent-low), transparent 24%), transparent),
+			var(--lattice-panel);
+	}
+
+	.mobile-reading-path :global(summary) {
+		border-bottom-color: var(--lattice-rule);
+	}
+
+	.mobile-reading-path :global(.toggle) {
+		border-color: color-mix(in oklab, var(--sl-color-accent), transparent 52%);
+		border-radius: 999rem;
+		background: var(--lattice-panel-raised);
+		color: var(--sl-color-accent-high);
+		font-family: var(--sl-font-headings);
+		font-size: 0;
+		font-weight: 700;
+		letter-spacing: -0.01em;
+	}
+
+	.mobile-reading-path :global(.toggle::before) {
+		content: "Reading path";
+		font-size: 0.82rem;
+	}
+
+	.mobile-reading-path :global(.toggle svg) {
+		font-size: 1rem;
+	}
+
+	.mobile-reading-path :global(.display-current) {
+		color: var(--sl-color-gray-1);
+	}
+
+	.mobile-reading-path :global(.dropdown) {
+		border-color: var(--lattice-rule);
+		background: var(--lattice-panel);
+		box-shadow: none;
+	}
+</style>
