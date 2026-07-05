@@ -22,6 +22,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import lattice_core/replica_id.{type ReplicaId}
+import lattice_core/version_vector.{type VersionVector}
 import lattice_sequence/sequence
 
 pub opaque type Text {
@@ -366,6 +367,98 @@ pub fn try_move_with_delta(
   }
 }
 
+/// Create an anchor at the start of the text. Always resolves to 0.
+pub fn start_anchor() -> sequence.Anchor {
+  sequence.start_anchor()
+}
+
+/// Create an anchor at the end of the text. Always resolves to the current
+/// grapheme length, tracking growth.
+pub fn end_anchor() -> sequence.Anchor {
+  sequence.end_anchor()
+}
+
+/// Create an anchor at the gap before the grapheme at `index`.
+///
+/// Anchors are stable positions that survive concurrent edits and merges:
+/// resolve one back to a current grapheme index with `resolve_anchor`.
+/// `Before` bias glues the anchor to the grapheme at `index`, so inserts at
+/// the gap push it right; `After` bias glues it to the grapheme at
+/// `index - 1`, so inserts at the gap land after it.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let doc = text.new(replica_id.new("A")) |> text.insert(0, "hello")
+/// let cursor = text.anchor_at(doc, 5, sequence.After)
+/// let doc = text.insert(doc, 0, "say ")
+/// text.resolve_anchor(doc, cursor)  // -> 9
+/// ```
+pub fn anchor_at(
+  text: Text,
+  index: Int,
+  bias: sequence.Bias,
+) -> sequence.Anchor {
+  let assert Ok(anchor) = try_anchor_at(text, index, bias)
+  anchor
+}
+
+/// Safely create an anchor at the gap before the grapheme at `index`.
+///
+/// Valid positions are `0 <= index <= length`.
+pub fn try_anchor_at(
+  text: Text,
+  index: Int,
+  bias: sequence.Bias,
+) -> Result(sequence.Anchor, sequence.AnchorError) {
+  let Text(seq) = text
+  sequence.try_anchor_at(seq, index, bias)
+}
+
+/// Resolve an anchor to a current grapheme index in `[0, length]`.
+///
+/// Anchors on deleted graphemes still resolve: they collapse to the gap
+/// where the grapheme used to be. Anchors follow moved graphemes. Panics
+/// with `UnknownAnchorTarget` when the target was never merged or was
+/// compacted away and its forwarding has expired — hosts holding anchors
+/// across compaction rounds should use `try_resolve_anchor` and treat
+/// failure as "re-anchor".
+pub fn resolve_anchor(text: Text, anchor: sequence.Anchor) -> Int {
+  let assert Ok(index) = try_resolve_anchor(text, anchor)
+  index
+}
+
+/// Safely resolve an anchor to a current grapheme index in `[0, length]`.
+///
+/// Anchors to compacted graphemes resolve through the forwarding map to the
+/// gap the grapheme left behind — semantically the same as tombstone
+/// collapse.
+///
+/// Returns `Error(UnknownAnchorTarget)` when the anchor references a
+/// grapheme this replica has never seen (created remotely and not yet
+/// merged), or one that was compacted away and whose forwarding entry has
+/// since been removed by the host's retention policy. Either way the anchor
+/// is unusable and the holder should re-anchor.
+pub fn try_resolve_anchor(
+  text: Text,
+  anchor: sequence.Anchor,
+) -> Result(Int, sequence.AnchorError) {
+  let Text(seq) = text
+  sequence.try_resolve(seq, anchor)
+}
+
+/// Encode an anchor as a self-describing JSON value.
+pub fn anchor_to_json(anchor: sequence.Anchor) -> json.Json {
+  sequence.anchor_to_json(anchor)
+}
+
+/// Decode an anchor from a JSON string produced by `anchor_to_json`.
+pub fn anchor_from_json(
+  json_string: String,
+) -> Result(sequence.Anchor, json.DecodeError) {
+  sequence.anchor_from_json(json_string)
+}
+
 /// Insert a value at the end of the text. Appending is always valid, so no
 /// `try_` variant exists.
 ///
@@ -502,6 +595,37 @@ fn insert_graphemes_with_delta(
       })
     }
   }
+}
+
+/// Compact everything at or below a stability frontier.
+///
+/// Delegates to `sequence.compact`: stable tombstones are dropped, runs of
+/// stable graphemes are merged into compact blocks, and every dropped ID
+/// gets a forwarding entry so anchors and rebased operations still resolve.
+/// See `lattice_sequence/sequence.compact` for the stability contract.
+pub fn compact(
+  text: Text,
+  stable: VersionVector,
+) -> #(Text, sequence.ForwardingMap) {
+  let Text(seq) = text
+  let #(compacted, forwardings) = sequence.compact(seq, stable)
+  #(Text(compacted), forwardings)
+}
+
+/// Remove previously emitted forwarding entries from the text.
+///
+/// Forwardings are bounded by the host's retention policy: keep the map
+/// returned by each `compact` round and expire old rounds by passing them
+/// here.
+pub fn remove_forwardings(text: Text, map: sequence.ForwardingMap) -> Text {
+  let Text(seq) = text
+  Text(sequence.remove_forwardings(seq, map))
+}
+
+/// The stability frontier this text was last compacted at.
+pub fn frontier(text: Text) -> VersionVector {
+  let Text(seq) = text
+  sequence.frontier(seq)
 }
 
 /// Merge two text CRDT states.
