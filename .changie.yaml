@@ -83,6 +83,22 @@ projects:
           - path: packages/lattice_text/gleam.toml
             find: 'version = ".*"'
             replace: 'version = "{{.VersionNoPrefix}}"'
+
+    - label: Text Core
+      key: lattice_text_core
+      changelog: packages/lattice_text_core/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_text_core/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
+
+    - label: Fugue Text
+      key: lattice_fugue_text
+      changelog: packages/lattice_fugue_text/CHANGELOG.md
+      replacements:
+          - path: packages/lattice_fugue_text/gleam.toml
+            find: 'version = ".*"'
+            replace: 'version = "{{.VersionNoPrefix}}"'
     - label: Sequence
       key: lattice_sequence
       changelog: packages/lattice_sequence/CHANGELOG.md

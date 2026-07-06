@@ -1,0 +1,7 @@
+project: lattice_fugue_text
+kind: Added
+body: |-
+  Add non-interleaving plain-text CRDT backed by lattice_fugue
+
+  Introduces `lattice_fugue_text/text`, a grapheme-based plain-text CRDT built on `lattice_fugue` and `lattice_text_core`. Concurrent insertions at the same position stay contiguous instead of interleaving. Supports the core text API (insert/delete/substring/range/replace/append), position anchors, a causal frontier, and JSON serialization. Move and compaction are intentionally out of scope.
+time: 2026-07-05T18:53:00.000000000+00:00
