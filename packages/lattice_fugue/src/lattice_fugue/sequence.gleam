@@ -32,6 +32,7 @@
 //// sequence.values(list)  // -> ["hello", "world"]
 //// ```
 
+import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/int
@@ -40,6 +41,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order
 import lattice_core/replica_id.{type ReplicaId}
+import lattice_core/version_vector.{type VersionVector}
 
 /// The internal identity of a tree node.
 ///
@@ -73,6 +75,38 @@ pub type InsertError {
 /// An error returned when a delete cannot be applied.
 pub type DeleteError {
   DeleteIndexOutOfBounds(index: Int, length: Int)
+}
+
+/// Which item a gap-anchor binds to when items are inserted at its position.
+pub type Bias {
+  /// Attach to the item after the gap: inserts at the gap push the anchor
+  /// right, so it stays glued to its item.
+  Before
+  /// Attach to the item before the gap: inserts at the gap land after the
+  /// anchor, so it stays put.
+  After
+}
+
+/// A stable position between items (positions `0..length` inclusive).
+///
+/// Anchors are created from a visible index with `anchor_at` and resolved
+/// back to a current index with `resolve` after any sequence of local edits
+/// and merges. They live outside the CRDT state: creating and resolving
+/// anchors never mutates the sequence.
+pub opaque type Anchor {
+  Start
+  End
+  AtNode(id: NodeId, bias: Bias)
+}
+
+/// An error returned when an anchor cannot be created or resolved.
+pub type AnchorError {
+  AnchorIndexOutOfBounds(index: Int, length: Int)
+  /// The anchor references a node this replica cannot locate because it was
+  /// created remotely and not merged yet. Unlike `lattice_sequence`, Fugue
+  /// never drops nodes, so there is no "compacted away" case: a node that was
+  /// ever merged remains locatable forever. Treat this as "re-anchor".
+  UnknownAnchorTarget
 }
 
 /// Create an empty sequence for a replica.
@@ -325,9 +359,250 @@ pub fn try_delete_with_delta(
 }
 
 // ---------------------------------------------------------------------------
-// Merge
+// Anchors and frontier
 // ---------------------------------------------------------------------------
 
+/// The causal frontier of this sequence: for each replica, the greatest
+/// node counter it has minted that this replica has observed.
+///
+/// Unlike `lattice_sequence`, whose frontier is a last-compaction stability
+/// marker (empty until the first `compact`), Fugue has no compaction, so the
+/// frontier is defined purely from the node set. It grows monotonically as
+/// nodes are inserted, deleted, or merged in, and can be used to compare how
+/// much causal history two replicas have each seen.
+pub fn frontier(sequence: Sequence(a)) -> VersionVector {
+  dict.fold(sequence.nodes, dict.new(), fn(acc, id, _node) {
+    let NodeId(rid, counter) = id
+    let current = case dict.get(acc, rid) {
+      Ok(seen) -> seen
+      Error(Nil) -> 0
+    }
+    dict.insert(acc, rid, int.max(current, counter))
+  })
+  |> version_vector.from_dict()
+}
+
+/// Create an anchor at the start of the sequence. Always resolves to 0.
+pub fn start_anchor() -> Anchor {
+  Start
+}
+
+/// Create an anchor at the end of the sequence. Always resolves to the
+/// current visible length, tracking growth.
+pub fn end_anchor() -> Anchor {
+  End
+}
+
+/// Create an anchor at the gap before the visible item at `index`.
+///
+/// `Before` bias binds the anchor to the item at `index`; `After` bias binds
+/// it to the item at `index - 1`. Boundary positions with no item on the
+/// chosen side degrade to the start / end sentinels.
+///
+/// Panics with `AnchorIndexOutOfBounds` when `index` is outside `[0, length]`.
+/// Use `try_anchor_at` to handle an untrusted index without crashing.
+pub fn anchor_at(sequence: Sequence(a), index: Int, bias: Bias) -> Anchor {
+  let assert Ok(anchor) = try_anchor_at(sequence, index, bias)
+  anchor
+}
+
+/// Safely create an anchor at the gap before the visible item at `index`.
+///
+/// Valid positions are `0 <= index <= length`.
+pub fn try_anchor_at(
+  sequence: Sequence(a),
+  index: Int,
+  bias: Bias,
+) -> Result(Anchor, AnchorError) {
+  let visible = visible_ids(sequence.nodes)
+  let size = list.length(visible)
+
+  case index < 0 || index > size {
+    True -> Error(AnchorIndexOutOfBounds(index: index, length: size))
+    False ->
+      case bias {
+        Before ->
+          case nth(visible, index) {
+            Some(id) -> Ok(AtNode(id: id, bias: Before))
+            None -> Ok(End)
+          }
+        After ->
+          case nth(visible, index - 1) {
+            Some(id) -> Ok(AtNode(id: id, bias: After))
+            None -> Ok(Start)
+          }
+      }
+  }
+}
+
+/// Resolve an anchor to a current visible index in `[0, length]`.
+///
+/// Anchors on deleted items still resolve: both biases collapse to the gap
+/// where the item used to be, because Fugue retains tombstoned nodes in the
+/// tree. Panics with `UnknownAnchorTarget` when the target node has never
+/// been merged into this replica; use `try_resolve` to treat that as
+/// "re-anchor".
+pub fn resolve(sequence: Sequence(a), anchor: Anchor) -> Int {
+  let assert Ok(index) = try_resolve(sequence, anchor)
+  index
+}
+
+/// Safely resolve an anchor to a current visible index in `[0, length]`.
+///
+/// Returns `Error(UnknownAnchorTarget)` when the anchor references a node this
+/// replica has never seen (created remotely and not yet merged). Because
+/// Fugue never drops nodes, any node that was ever merged remains resolvable,
+/// so this is the only failure mode.
+pub fn try_resolve(
+  sequence: Sequence(a),
+  anchor: Anchor,
+) -> Result(Int, AnchorError) {
+  case anchor {
+    Start -> Ok(0)
+    End -> Ok(list.length(visible_ids(sequence.nodes)))
+    AtNode(id, bias) ->
+      case dict.get(sequence.nodes, id) {
+        Error(Nil) -> Error(UnknownAnchorTarget)
+        Ok(_) ->
+          Ok(resolve_node_index(
+            full_order(sequence.nodes),
+            sequence.nodes,
+            id,
+            bias,
+            0,
+          ))
+      }
+  }
+}
+
+/// Walk the full traversal order counting visible nodes until `target`,
+/// returning the gap index the anchor resolves to.
+fn resolve_node_index(
+  order: List(NodeId),
+  nodes: Dict(NodeId, Node(a)),
+  target: NodeId,
+  bias: Bias,
+  visible_before: Int,
+) -> Int {
+  case order {
+    [] -> visible_before
+    [head, ..rest] ->
+      case head == target {
+        True ->
+          case bias, node_is_visible(nodes, head) {
+            After, True -> visible_before + 1
+            _, _ -> visible_before
+          }
+        False ->
+          case node_is_visible(nodes, head) {
+            True ->
+              resolve_node_index(rest, nodes, target, bias, visible_before + 1)
+            False ->
+              resolve_node_index(rest, nodes, target, bias, visible_before)
+          }
+      }
+  }
+}
+
+fn node_is_visible(nodes: Dict(NodeId, Node(a)), id: NodeId) -> Bool {
+  case dict.get(nodes, id) {
+    Ok(node) -> option.is_some(node.value)
+    Error(Nil) -> False
+  }
+}
+
+/// Encode an anchor as a self-describing JSON value.
+///
+/// Produces an envelope with `type`, `v` (schema version), and `anchor`, so
+/// anchors can travel between replicas (e.g. shared cursors). Fugue anchors
+/// are not interchangeable with `lattice_sequence` anchors; the envelope type
+/// (`fugue_anchor`) discriminates them.
+pub fn anchor_to_json(anchor: Anchor) -> json.Json {
+  let encoded = case anchor {
+    Start -> json.object([#("kind", json.string("start"))])
+    End -> json.object([#("kind", json.string("end"))])
+    AtNode(id, bias) ->
+      json.object([
+        #("kind", json.string("node")),
+        #("id", encode_node_id(id)),
+        #("bias", encode_bias(bias)),
+      ])
+  }
+
+  json.object([
+    #("type", json.string("fugue_anchor")),
+    #("v", json.int(1)),
+    #("anchor", encoded),
+  ])
+}
+
+/// Decode an anchor from a JSON string produced by `anchor_to_json`.
+pub fn anchor_from_json(
+  json_string: String,
+) -> Result(Anchor, json.DecodeError) {
+  let anchor_decoder = {
+    use kind <- decode.field("kind", decode.string)
+    case kind {
+      "start" -> decode.success(Start)
+      "end" -> decode.success(End)
+      "node" -> {
+        use id <- decode.field("id", node_id_decoder())
+        use bias <- decode.field("bias", bias_decoder())
+        decode.success(AtNode(id: id, bias: bias))
+      }
+      _ -> decode.failure(Start, "one of start, end, node")
+    }
+  }
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    decode.success(#(type_tag, version))
+  }
+
+  case json.parse(from: json_string, using: envelope_decoder) {
+    Error(e) -> Error(e)
+    Ok(#(type_tag, version)) ->
+      case type_tag == "fugue_anchor" && version == 1 {
+        True ->
+          json.parse(from: json_string, using: {
+            use anchor <- decode.field("anchor", anchor_decoder)
+            decode.success(anchor)
+          })
+        False ->
+          Error(
+            json.UnableToDecode([
+              decode.DecodeError(
+                expected: "type=fugue_anchor and v=1",
+                found: type_tag <> " v=" <> int.to_string(version),
+                path: [],
+              ),
+            ]),
+          )
+      }
+  }
+}
+
+fn encode_bias(bias: Bias) -> json.Json {
+  case bias {
+    Before -> json.string("before")
+    After -> json.string("after")
+  }
+}
+
+fn bias_decoder() -> decode.Decoder(Bias) {
+  decode.string
+  |> decode.then(fn(value) {
+    case value {
+      "before" -> decode.success(Before)
+      "after" -> decode.success(After)
+      _ -> decode.failure(Before, "before or after")
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Merge
+// ---------------------------------------------------------------------------
 /// Merge two sequence CRDT states.
 ///
 /// Because a node's `parent`/`side` are creation-time invariants and never
@@ -530,5 +805,6 @@ fn compare_node_ids(a: NodeId, b: NodeId) -> order.Order {
 }
 
 fn nth(items: List(a), index: Int) -> Option(a) {
+  use <- bool.guard(index < 0, None)
   items |> list.drop(index) |> list.first() |> option.from_result()
 }

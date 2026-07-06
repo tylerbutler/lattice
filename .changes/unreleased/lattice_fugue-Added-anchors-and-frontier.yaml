@@ -1,0 +1,7 @@
+project: lattice_fugue
+kind: Added
+body: |-
+  Add position anchors and causal frontier
+
+  Adds `Anchor`, `Bias`, and `AnchorError` types plus `start_anchor`, `end_anchor`, `anchor_at`/`try_anchor_at`, `resolve`/`try_resolve`, and `anchor_to_json`/`anchor_from_json` for stable positions that survive edits and merges. Adds `frontier`, returning the causal frontier (max node counter per replica) as a `VersionVector`. These are the features a text CRDT needs from its sequence backend; move and compaction remain out of scope.
+time: 2026-07-05T18:42:00.000000000+00:00
