@@ -2,9 +2,9 @@
 # You typically do not need to edit this file
 
 packages = [
-  { name = "argv", version = "1.0.2", build_tools = ["gleam"], requirements = [], otp_app = "argv", source = "hex", outer_checksum = "BA1FF0929525DEBA1CE67256E5ADF77A7CDDFE729E3E3F57A5BDCAA031DED09D" },
+  { name = "argv", version = "1.1.0", build_tools = ["gleam"], requirements = [], otp_app = "argv", source = "hex", outer_checksum = "3277D100448BDB4A29B6D58C0F36F631CBC349E8BDD09766C6309DF202831140" },
   { name = "bigben", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib", "gleam_time", "interior"], otp_app = "bigben", source = "hex", outer_checksum = "4B0D9F2514C06AE577F284532270A6F89007781620E4B12A843388BA549C17D2" },
-  { name = "exception", version = "2.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "329D269D5C2A314F7364BD2711372B6F2C58FA6F39981572E5CA68624D291F8C" },
+  { name = "exception", version = "2.1.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "exception", source = "hex", outer_checksum = "6BDEA95248093599391C3B5DF1835C5C6A86C353C2F99CE539B450E3432FE117" },
   { name = "filepath", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "filepath", source = "hex", outer_checksum = "B06A9AF0BF10E51401D64B98E4B627F1D2E48C154967DA7AF4D0914780A6D40A" },
   { name = "glance", version = "6.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib", "glexer"], otp_app = "glance", source = "hex", outer_checksum = "9037EBBAD2A220CD46DADEDCDF9DFAC7406FD2959535334473E60C32F170622A" },
   { name = "gleam_community_ansi", version = "1.4.4", build_tools = ["gleam"], requirements = ["gleam_community_colour", "gleam_regexp", "gleam_stdlib"], otp_app = "gleam_community_ansi", source = "hex", outer_checksum = "1B3AEA6074AB34D5F0674744F36DDC7290303A03295507E2DEC61EDD6F5777FE" },
@@ -21,12 +21,9 @@ packages = [
   { name = "glint", version = "1.2.1", build_tools = ["gleam"], requirements = ["gleam_community_ansi", "gleam_community_colour", "gleam_stdlib", "snag"], otp_app = "glint", source = "hex", outer_checksum = "2214C7CEFDE457CEE62140C3D4899B964E05236DA74E4243DFADF4AF29C382BB" },
   { name = "glinter", version = "2.19.1", build_tools = ["gleam"], requirements = ["argv", "glance", "gleam_json", "gleam_stdlib", "simplifile", "tom"], otp_app = "glinter", source = "hex", outer_checksum = "F5A7C94BC703F5781441A282AF514864F831F49F444B6E1ED72CF8A81A83ED1F" },
   { name = "interior", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib"], otp_app = "interior", source = "hex", outer_checksum = "EE2728791E34400CB3CD986B6AD0E02A2F970F50B5ED59896E2820702C7DDD29" },
-  { name = "lattice_core", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], source = "local", path = "../lattice_core" },
-  { name = "lattice_sequence", version = "0.0.1", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../lattice_sequence" },
-  { name = "lattice_text_core", version = "0.0.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], source = "local", path = "../lattice_text_core" },
   { name = "prng", version = "5.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "prng", source = "hex", outer_checksum = "29DA88BCFB54D06DD1472951DF101E9524878056D139DA2616B04350B403CE10" },
   { name = "qcheck", version = "1.0.4", build_tools = ["gleam"], requirements = ["exception", "gleam_regexp", "gleam_stdlib", "gleam_yielder", "prng"], otp_app = "qcheck", source = "hex", outer_checksum = "BD9B18C1602FBC667E3E139ED270458F8C743ED791F892CC90989CE10478C4FA" },
-  { name = "simplifile", version = "2.4.0", build_tools = ["gleam"], requirements = ["filepath", "gleam_stdlib"], otp_app = "simplifile", source = "hex", outer_checksum = "7C18AFA4FED0B4CE1FA5B0B4BAC1FA1744427054EA993565F6F3F82E5453170D" },
+  { name = "simplifile", version = "2.5.0", build_tools = ["gleam"], requirements = ["filepath", "gleam_stdlib"], otp_app = "simplifile", source = "hex", outer_checksum = "6C72DCCDF25C38A5931740B30E823969F33106831FD1637719B5EDBCA30027A4" },
   { name = "snag", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "snag", source = "hex", outer_checksum = "274F41D6C3ECF99F7686FDCE54183333E41D2C1CA5A3A673F9A8B2C7A4401077" },
   { name = "splitter", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "splitter", source = "hex", outer_checksum = "3DFD6B6C49E61EDAF6F7B27A42054A17CFF6CA2135FF553D0CB61C234D281DD0" },
   { name = "startest", version = "0.8.0", build_tools = ["gleam"], requirements = ["argv", "bigben", "exception", "gleam_community_ansi", "gleam_erlang", "gleam_javascript", "gleam_regexp", "gleam_stdlib", "gleam_time", "glint", "simplifile", "tom"], otp_app = "startest", source = "hex", outer_checksum = "47362F1D9DFEFC2F81C590F73A5BFBE902F427408EFBFB48765A05512AED02DC" },
@@ -34,11 +31,7 @@ packages = [
 ]
 
 [requirements]
-gleam_json = { version = ">= 3.1.0 and < 4.0.0" }
 gleam_stdlib = { version = ">= 0.48.0 and < 2.0.0" }
 glinter = { version = ">= 2.19.0 and < 3.0.0" }
-lattice_core = { path = "../lattice_core" }
-lattice_sequence = { path = "../lattice_sequence" }
-lattice_text_core = { path = "../lattice_text_core" }
 qcheck = { version = ">= 1.0.0 and < 2.0.0" }
 startest = { version = ">= 0.8.0 and < 1.0.0" }

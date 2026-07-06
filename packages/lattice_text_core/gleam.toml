@@ -1,16 +1,12 @@
-name = "lattice_text"
+name = "lattice_text_core"
 version = "0.0.1"
-description = "Plain-text CRDT for Gleam using YATA-style left/right origins"
+description = "Backend-agnostic grapheme and range helpers shared by lattice text CRDTs"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
 gleam = ">= 1.7.0"
 
 [dependencies]
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
-gleam_json = ">= 3.1.0 and < 4.0.0"
-lattice_core = { path = "../lattice_core" }
-lattice_sequence = { path = "../lattice_sequence" }
-lattice_text_core = { path = "../lattice_text_core" }
 
 [dev-dependencies]
 startest = ">= 0.8.0 and < 1.0.0"
@@ -31,9 +27,6 @@ unused_exports = "off"
 label_possible = "off"
 
 [tools.glinter.ignore]
-# The non-try convenience API preserves existing assert-on-invalid-index
-# behavior; callers that need fallible handling should use the try_* variants.
-"src/lattice_text/text.gleam" = ["assert_ok_pattern"]
 # Tests use `let assert Ok(...)`, discard errors, panic in unreachable match
 # arms, and skip return-type annotations by convention; these rules apply to
 # src/ only.

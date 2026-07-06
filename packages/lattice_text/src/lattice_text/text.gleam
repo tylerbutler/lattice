@@ -18,12 +18,12 @@ import gleam/bool
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
-import gleam/list
 import gleam/result
 import gleam/string
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
 import lattice_sequence/sequence
+import lattice_text_core/grapheme
 
 pub opaque type Text {
   Text(sequence: sequence.Sequence(String))
@@ -467,11 +467,7 @@ fn validate_range(
 }
 
 fn slice_values(text: Text, start: Int, end: Int) -> String {
-  text
-  |> values()
-  |> list.drop(start)
-  |> list.take(end - start)
-  |> string.concat()
+  grapheme.slice(values(text), start, end)
 }
 
 fn insert_error_to_range_error(error: sequence.InsertError) -> RangeError {
@@ -484,21 +480,7 @@ fn delete_graphemes_with_delta(
   start: Int,
   end: Int,
 ) -> Result(#(sequence.Sequence(String), sequence.Sequence(String)), RangeError) {
-  case end - start {
-    0 -> Ok(#(seq, seq))
-    count -> {
-      use #(first_updated, first_delta) <- result.try(delete_grapheme(
-        seq,
-        start,
-      ))
-      list.repeat(Nil, count - 1)
-      |> list.try_fold(#(first_updated, first_delta), fn(state, _) {
-        let #(current, delta) = state
-        use #(updated, next_delta) <- result.try(delete_grapheme(current, start))
-        Ok(#(updated, sequence.merge(delta, next_delta)))
-      })
-    }
-  }
+  grapheme.delete_graphemes(seq, start, end, delete_grapheme, sequence.merge)
 }
 
 fn delete_grapheme(
@@ -520,31 +502,15 @@ fn insert_graphemes_with_delta(
   #(sequence.Sequence(String), sequence.Sequence(String)),
   sequence.InsertError,
 ) {
-  let length = sequence.length(seq)
-  case graphemes, index < 0 || index > length {
-    _, True -> Error(sequence.IndexOutOfBounds(index: index, length: length))
-    [], False -> Ok(#(seq, seq))
-    [first, ..rest], False -> {
-      use #(first_updated, first_delta) <- result.try(
-        sequence.try_insert_with_delta(seq, index, first),
-      )
-      list.try_fold(
-        rest,
-        #(first_updated, first_delta, index + 1),
-        fn(state, grapheme) {
-          let #(current, delta, current_index) = state
-          use #(updated, next_delta) <- result.try(
-            sequence.try_insert_with_delta(current, current_index, grapheme),
-          )
-          Ok(#(updated, sequence.merge(delta, next_delta), current_index + 1))
-        },
-      )
-      |> result.map(fn(state) {
-        let #(updated, delta, _) = state
-        #(updated, delta)
-      })
-    }
-  }
+  grapheme.insert_graphemes(
+    graphemes,
+    seq,
+    index,
+    sequence.length,
+    sequence.try_insert_with_delta,
+    sequence.merge,
+    sequence.IndexOutOfBounds,
+  )
 }
 
 /// Compact everything at or below a stability frontier.
