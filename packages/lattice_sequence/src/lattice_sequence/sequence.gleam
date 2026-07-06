@@ -218,52 +218,187 @@ pub fn try_insert_with_delta(
   index: Int,
   value: a,
 ) -> Result(#(Sequence(a), Sequence(a)), InsertError) {
+  try_insert_many_with_delta(sequence, index, [value])
+}
+
+/// Insert several values at consecutive visible indices starting at `index`.
+///
+/// `values` are placed in order — the first at `index`, the next at
+/// `index + 1`, and so on — exactly as looping `insert` would, but the whole
+/// run is spliced in a single pass and reported as one delta. Panics with
+/// `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
+/// `try_insert_many_with_delta` to handle an untrusted index without crashing.
+pub fn insert_many(
+  sequence: Sequence(a),
+  index: Int,
+  values: List(a),
+) -> Sequence(a) {
+  let assert Ok(#(updated, _delta)) =
+    try_insert_many_with_delta(sequence, index, values)
+  updated
+}
+
+/// Insert several values and return both the updated sequence and the merged
+/// insertion delta covering every new item.
+///
+/// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
+/// `try_insert_many_with_delta` to handle an untrusted index without crashing.
+pub fn insert_many_with_delta(
+  sequence: Sequence(a),
+  index: Int,
+  values: List(a),
+) -> #(Sequence(a), Sequence(a)) {
+  let assert Ok(result) = try_insert_many_with_delta(sequence, index, values)
+  result
+}
+
+/// Safely insert several values at consecutive visible indices starting at
+/// `index`, returning the updated sequence and a single delta of all new
+/// items.
+///
+/// Each new item's left origin is the previous new item (the first pins to the
+/// visible left neighbor) and every item shares the same right origin — the
+/// left neighbor's canonical successor — so the run integrates contiguously on
+/// every replica. When the state holds no live move record, stored order is
+/// already the canonical order, so the run is spliced directly in place rather
+/// than re-deriving the whole order; otherwise it falls back to a full rebuild.
+pub fn try_insert_many_with_delta(
+  sequence: Sequence(a),
+  index: Int,
+  values: List(a),
+) -> Result(#(Sequence(a), Sequence(a)), InsertError) {
   let elements = segments_to_elements(sequence.segments)
   let size = visible_length_elements(elements)
 
   case index < 0 || index > size {
     True -> Error(IndexOutOfBounds(index: index, length: size))
-    False -> {
-      let next_counter = sequence.counter + 1
-      let id = ItemId(replica_id: sequence.replica_id, counter: next_counter)
-      // The left origin is the visible left neighbor in the user's (move-
-      // applied) view; the right origin is that element's successor in the
-      // CANONICAL pre-move order. This makes the conflict window between an
-      // item's origins empty in canonical space at creation, so on every
-      // replica the window can only ever contain concurrently integrated
-      // volatile items — never a compacted element.
-      let origin_left = case index {
-        0 -> None
-        _ -> visible_element_id_at(elements, index - 1)
-      }
-      let base = rebuild_base(elements, sequence.forwardings, sequence.frontier)
-      let origin_right = canonical_successor(base, origin_left)
-      let item =
-        Item(
-          id: id,
-          origin_left: origin_left,
-          origin_right: origin_right,
-          value: value,
-          deleted: None,
-          move: None,
-        )
-      // Rebuild canonically with the new item in the set, exactly as merge
-      // does, so every replica computes the same placement for this op.
-      let updated_elements =
-        rebuild(
-          list.append(elements, [LiveEl(item)]),
-          sequence.forwardings,
-          sequence.frontier,
-        )
-      let updated =
-        Sequence(
-          ..sequence,
-          counter: next_counter,
-          segments: elements_to_segments(updated_elements),
-        )
+    False ->
+      case values {
+        [] -> Ok(#(sequence, empty_delta(sequence.replica_id)))
+        _ -> {
+          // The left origin is the visible left neighbor in the user's (move-
+          // applied) view; the right origin is that element's successor in the
+          // CANONICAL pre-move order. This makes the conflict window between an
+          // item's origins empty in canonical space at creation, so on every
+          // replica the window can only ever contain concurrently integrated
+          // volatile items — never a compacted element.
+          let origin_left = case index {
+            0 -> None
+            _ -> visible_element_id_at(elements, index - 1)
+          }
+          let has_live_move = list.any(live_items_of(elements), has_move)
+          // Without moves the stored order IS the canonical base, so its
+          // stored successor is the canonical successor. With moves present
+          // the two diverge and we must consult the rebuilt base.
+          let origin_right = case has_live_move {
+            False -> canonical_successor(elements, origin_left)
+            True ->
+              canonical_successor(
+                rebuild_base(elements, sequence.forwardings, sequence.frontier),
+                origin_left,
+              )
+          }
+          let #(items, last_counter) =
+            build_insert_run(
+              sequence.replica_id,
+              sequence.counter + 1,
+              values,
+              origin_left,
+              origin_right,
+            )
+          let new_elements = list.map(items, LiveEl)
+          // Local edits splice into the authoritative stored order; only a
+          // live move makes stored order diverge from canonical, forcing the
+          // rebuild path.
+          let updated_elements = case has_live_move {
+            False -> splice_run_after(elements, origin_left, new_elements)
+            True ->
+              rebuild(
+                list.append(elements, new_elements),
+                sequence.forwardings,
+                sequence.frontier,
+              )
+          }
+          let updated =
+            Sequence(
+              ..sequence,
+              counter: last_counter,
+              segments: elements_to_segments(updated_elements),
+            )
+          let delta =
+            Sequence(
+              replica_id: sequence.replica_id,
+              counter: last_counter,
+              segments: list.map(items, Live),
+              forwardings: dict.new(),
+              frontier: version_vector.new(),
+            )
 
-      Ok(#(updated, delta_sequence(sequence.replica_id, next_counter, item)))
-    }
+          Ok(#(updated, delta))
+        }
+      }
+  }
+}
+
+/// Build a contiguous run of new items with chained left origins and a shared
+/// right origin, minting consecutive counters from `start_counter`. Returns
+/// the items in insertion order and the last counter used.
+fn build_insert_run(
+  replica_id: ReplicaId,
+  start_counter: Int,
+  values: List(a),
+  origin_left: Option(ItemId),
+  origin_right: Option(ItemId),
+) -> #(List(Item(a)), Int) {
+  let items =
+    list.index_map(values, fn(value, offset) {
+      // IDs are consecutive, so each item's left origin is simply the
+      // previous item's (deterministic) ID; the first pins to origin_left.
+      let left = case offset {
+        0 -> origin_left
+        _ ->
+          Some(ItemId(
+            replica_id: replica_id,
+            counter: start_counter + offset - 1,
+          ))
+      }
+      Item(
+        id: ItemId(replica_id: replica_id, counter: start_counter + offset),
+        origin_left: left,
+        origin_right: origin_right,
+        value: value,
+        deleted: None,
+        move: None,
+      )
+    })
+  #(items, start_counter + list.length(values) - 1)
+}
+
+/// Splice a run of elements into the stored order immediately after `after`
+/// (or at the head when `after` is `None`), preserving run order.
+fn splice_run_after(
+  elements: List(Element(a)),
+  after: Option(ItemId),
+  run: List(Element(a)),
+) -> List(Element(a)) {
+  case after {
+    None -> list.append(run, elements)
+    Some(id) -> insert_run_after_id(elements, id, run)
+  }
+}
+
+fn insert_run_after_id(
+  elements: List(Element(a)),
+  after: ItemId,
+  run: List(Element(a)),
+) -> List(Element(a)) {
+  case elements {
+    [] -> run
+    [first, ..rest] ->
+      case element_id(first) == after {
+        True -> [first, ..list.append(run, rest)]
+        False -> [first, ..insert_run_after_id(rest, after, run)]
+      }
   }
 }
 
@@ -1597,6 +1732,18 @@ fn encode_item_id(id: ItemId) -> json.Json {
 // ---------------------------------------------------------------------------
 // Element and segment plumbing
 // ---------------------------------------------------------------------------
+
+/// An empty delta carrying no items — the neutral element for `merge`,
+/// returned when an insert covers zero values.
+fn empty_delta(replica_id: ReplicaId) -> Sequence(a) {
+  Sequence(
+    replica_id: replica_id,
+    counter: 0,
+    segments: [],
+    forwardings: dict.new(),
+    frontier: version_vector.new(),
+  )
+}
 
 fn delta_sequence(
   replica_id: ReplicaId,

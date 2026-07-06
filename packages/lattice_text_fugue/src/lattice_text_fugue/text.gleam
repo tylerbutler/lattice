@@ -33,6 +33,7 @@ import gleam/bool
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/list
 import gleam/result
 import gleam/string
 import lattice_core/replica_id.{type ReplicaId}
@@ -437,8 +438,43 @@ fn insert_graphemes_with_delta(
     seq,
     index,
     sequence.length,
-    sequence.try_insert_with_delta,
-    sequence.merge,
+    fugue_insert_many,
     sequence.IndexOutOfBounds,
   )
+}
+
+/// Insert a grapheme run into the Fugue backend, one node at a time, threading
+/// a merged delta. The Fugue backend has no batch primitive yet, so this folds
+/// the single-node insert; `insert_graphemes` never calls it with an empty run.
+fn fugue_insert_many(
+  seq: sequence.Sequence(String),
+  index: Int,
+  graphemes: List(String),
+) -> Result(
+  #(sequence.Sequence(String), sequence.Sequence(String)),
+  sequence.InsertError,
+) {
+  case graphemes {
+    [] -> Ok(#(seq, seq))
+    [first, ..rest] -> {
+      use #(first_state, first_delta) <- result.try(
+        sequence.try_insert_with_delta(seq, index, first),
+      )
+      list.try_fold(
+        rest,
+        #(first_state, first_delta, index + 1),
+        fn(acc, grapheme) {
+          let #(current, delta, current_index) = acc
+          use #(updated, next_delta) <- result.try(
+            sequence.try_insert_with_delta(current, current_index, grapheme),
+          )
+          Ok(#(updated, sequence.merge(delta, next_delta), current_index + 1))
+        },
+      )
+      |> result.map(fn(acc) {
+        let #(updated, delta, _) = acc
+        #(updated, delta)
+      })
+    }
+  }
 }
