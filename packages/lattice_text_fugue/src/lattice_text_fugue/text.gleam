@@ -4,7 +4,7 @@
 //// same grapheme-oriented text API; the difference is the ordering guarantee
 //// of the underlying sequence CRDT. `lattice_text` uses `lattice_sequence`
 //// (YATA-style), which converges but can *interleave* two users' concurrent
-//// runs of typing at the same position. `lattice_fugue_text` uses
+//// runs of typing at the same position. `lattice_text_fugue` uses
 //// `lattice_fugue`, which keeps each concurrent run contiguous.
 ////
 //// ## Supported subset
@@ -19,7 +19,7 @@
 ////
 //// ```gleam
 //// import lattice_core/replica_id
-//// import lattice_fugue_text/text
+//// import lattice_text_fugue/text
 ////
 //// let doc =
 ////   text.new(replica_id.new("A"))

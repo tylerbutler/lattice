@@ -3,5 +3,5 @@ kind: Added
 body: |-
   Add backend-agnostic text-core helpers package
 
-  Introduces `lattice_text_core/grapheme` with `RangeError`/`validate_range`, `value`, `slice`, and generic `insert_graphemes`/`delete_graphemes` fold helpers parameterized over a sequence backend's insert/delete/merge. Shared by `lattice_text` and `lattice_fugue_text` so the grapheme/range layer lives in one place.
+  Introduces `lattice_text_core/grapheme` with `RangeError`/`validate_range`, `value`, `slice`, and generic `insert_graphemes`/`delete_graphemes` fold helpers parameterized over a sequence backend's insert/delete/merge. Shared by `lattice_text` and `lattice_text_fugue` so the grapheme/range layer lives in one place.
 time: 2026-07-05T18:45:00.000000000+00:00

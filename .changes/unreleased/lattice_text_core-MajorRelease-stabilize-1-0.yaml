@@ -1,0 +1,7 @@
+project: lattice_text_core
+kind: MajorRelease
+body: |-
+  Stable 1.0 release with a committed public API
+
+  `lattice_text_core` is now 1.0. Its backend-agnostic grapheme and range helpers — `RangeError`/`validate_range`, `value`, `slice`, and the generic `insert_graphemes`/`delete_graphemes` fold helpers shared by `lattice_text` and `lattice_text_fugue` — are stable and safe to depend on. From this release on, the package follows semantic versioning, so any future breaking change will come with a new major version.
+time: 2026-07-05T22:29:02.000000000-07:00

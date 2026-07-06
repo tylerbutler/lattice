@@ -1,0 +1,7 @@
+project: lattice_fugue
+kind: MajorRelease
+body: |-
+  Stable 1.0 release with a committed public API
+
+  `lattice_fugue` is now 1.0. Its non-interleaving sequence CRDT API — the plain Fugue algorithm with index-based insert and delete, mergeable deltas, generic JSON codecs, position anchors, and a causal frontier — is stable and safe to depend on. From this release on, the package follows semantic versioning, so any future breaking change will come with a new major version.
+time: 2026-07-05T22:29:00.000000000-07:00

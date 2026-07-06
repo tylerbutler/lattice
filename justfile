@@ -15,7 +15,7 @@ default:
     @just --list
 
 # Packages in topological (dependency) order
-packages := "lattice_core lattice_counters lattice_sequence lattice_text_core lattice_text lattice_sets lattice_registers lattice_fugue lattice_fugue_text lattice_maps lattice_presence lattice_crdt"
+packages := "lattice_core lattice_counters lattice_sequence lattice_text_core lattice_text lattice_sets lattice_registers lattice_fugue lattice_text_fugue lattice_maps lattice_presence lattice_crdt"
 
 # === DEPENDENCIES ===
 

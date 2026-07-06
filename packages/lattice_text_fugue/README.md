@@ -1,4 +1,4 @@
-# lattice_fugue_text
+# lattice_text_fugue
 
 Non-interleaving plain-text CRDT for Gleam, backed by `lattice_fugue`.
 
@@ -15,14 +15,14 @@ no Fugue equivalent in this release.
 ## Installation
 
 ```sh
-gleam add lattice_fugue_text
+gleam add lattice_text_fugue
 ```
 
 ## Quick example
 
 ```gleam
 import lattice_core/replica_id
-import lattice_fugue_text/text
+import lattice_text_fugue/text
 
 pub fn main() {
   let node_a =
@@ -57,7 +57,7 @@ Anchor JSON is not interchangeable with `lattice_text` anchors.
 
 ## Choosing a backend
 
-| Feature          | `lattice_text` | `lattice_fugue_text` |
+| Feature          | `lattice_text` | `lattice_text_fugue` |
 | ---------------- | -------------- | -------------------- |
 | Non-interleaving | no             | yes                  |
 | Anchors          | yes            | yes                  |

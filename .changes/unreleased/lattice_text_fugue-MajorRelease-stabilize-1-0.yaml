@@ -1,0 +1,7 @@
+project: lattice_text_fugue
+kind: MajorRelease
+body: |-
+  Stable 1.0 release with a committed public API
+
+  `lattice_text_fugue` is now 1.0. Its non-interleaving plain-text CRDT API — grapheme-based insert, delete, substring, range, replace, and append operations, position anchors, a causal frontier, and JSON serialization, all backed by `lattice_fugue` and `lattice_text_core` — is stable and safe to depend on. From this release on, the package follows semantic versioning, so any future breaking change will come with a new major version.
+time: 2026-07-05T22:29:01.000000000-07:00

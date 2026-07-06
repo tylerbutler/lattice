@@ -1,6 +1,6 @@
 import gleam/json
 import lattice_core/replica_id
-import lattice_fugue_text/text
+import lattice_text_fugue/text
 import startest/expect
 
 fn rid(id: String) {
