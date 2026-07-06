@@ -1,17 +1,32 @@
-//// A plain-text CRDT backed by `lattice_sequence`.
+//// A non-interleaving plain-text CRDT backed by `lattice_fugue`.
 ////
-//// Text stores each inserted string segment as a sequence item. Insert,
-//// delete, merge, and delta operations delegate to `lattice_sequence`.
-//// Use `lattice_sequence/sequence` directly when you need a generic list CRDT.
+//// This is the fugue-backed counterpart to `lattice_text`. Both present the
+//// same grapheme-oriented text API; the difference is the ordering guarantee
+//// of the underlying sequence CRDT. `lattice_text` uses `lattice_sequence`
+//// (YATA-style), which converges but can *interleave* two users' concurrent
+//// runs of typing at the same position. `lattice_fugue_text` uses
+//// `lattice_fugue`, which keeps each concurrent run contiguous.
+////
+//// ## Supported subset
+////
+//// Because `lattice_fugue` deliberately does not implement move or compaction,
+//// this package exposes only the features that a fugue backend supports:
+//// insert, delete, range edits, substring, append, position anchors, causal
+//// frontier, merge, and JSON. There are no `move` or `compact` functions.
+//// Applications that need those should use `lattice_text`.
 ////
 //// ## Example
 ////
 //// ```gleam
 //// import lattice_core/replica_id
-//// import lattice_text/text
+//// import lattice_fugue_text/text
 ////
-//// let doc = text.new(replica_id.new("node-a"))
-//// text.value(doc)  // -> ""
+//// let doc =
+////   text.new(replica_id.new("A"))
+////   |> text.insert(0, "hello")
+////   |> text.append(" world")
+////
+//// text.value(doc)  // -> "hello world"
 //// ```
 
 import gleam/bool
@@ -22,9 +37,10 @@ import gleam/result
 import gleam/string
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
-import lattice_sequence/sequence
+import lattice_fugue/sequence
 import lattice_text_core/grapheme
 
+/// A non-interleaving plain-text CRDT value.
 pub opaque type Text {
   Text(sequence: sequence.Sequence(String))
 }
@@ -35,11 +51,12 @@ pub type RangeError {
   RangeOutOfBounds(start: Int, end: Int, length: Int)
 }
 
+/// Create an empty text CRDT for a replica.
 pub fn new(replica_id: ReplicaId) -> Text {
   Text(sequence.new(replica_id))
 }
 
-/// Insert a value at the visible character index.
+/// Insert a value at the visible grapheme index.
 ///
 /// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
 /// `try_insert_with_delta` to handle an untrusted index without crashing.
@@ -77,11 +94,10 @@ pub fn try_insert_with_delta(
   })
 }
 
-/// Delete the value at the visible character index.
+/// Delete the value at the visible grapheme index.
 ///
-/// Panics with `DeleteIndexOutOfBounds` when `index` is outside
-/// `[0, length)`. Use `try_delete_with_delta` to handle an untrusted index
-/// without crashing.
+/// Panics with `DeleteIndexOutOfBounds` when `index` is outside `[0, length)`.
+/// Use `try_delete_with_delta` to handle an untrusted index without crashing.
 pub fn delete(text: Text, index: Int) -> Text {
   let assert Ok(#(updated, _delta)) = try_delete_with_delta(text, index)
   updated
@@ -89,9 +105,8 @@ pub fn delete(text: Text, index: Int) -> Text {
 
 /// Delete a value and return both the updated text and deletion delta.
 ///
-/// Panics with `DeleteIndexOutOfBounds` when `index` is outside
-/// `[0, length)`. Use `try_delete_with_delta` to handle an untrusted index
-/// without crashing.
+/// Panics with `DeleteIndexOutOfBounds` when `index` is outside `[0, length)`.
+/// Use `try_delete_with_delta` to handle an untrusted index without crashing.
 pub fn delete_with_delta(text: Text, index: Int) -> #(Text, Text) {
   let assert Ok(result) = try_delete_with_delta(text, index)
   result
@@ -109,95 +124,59 @@ pub fn try_delete_with_delta(
   }
 }
 
+/// Return the visible graphemes as a list.
 pub fn values(text: Text) -> List(String) {
   let Text(seq) = text
   sequence.values(seq)
 }
 
+/// Return the visible text as a single string.
 pub fn value(text: Text) -> String {
   text
   |> values()
-  |> string.concat()
+  |> grapheme.value()
 }
 
 /// Count the visible graphemes in the text.
-///
-/// ## Examples
-///
-/// ```gleam
-/// text.new(replica_id.new("A"))
-/// |> text.insert(0, "a👍")
-/// |> text.length()
-/// // -> 2
-/// ```
 pub fn length(text: Text) -> Int {
   let Text(seq) = text
   sequence.length(seq)
 }
 
-/// Return the graphemes in `[start, end)`, clamping both indexes to the
-/// text bounds. An empty range (including `start > end`) yields `""`.
-///
-/// ## Examples
-///
-/// ```gleam
-/// text.new(replica_id.new("A"))
-/// |> text.insert(0, "abcd")
-/// |> text.substring(1, 3)
-/// // -> "bc"
-/// ```
+/// Return the graphemes in `[start, end)`, clamping both indexes to the text
+/// bounds. An empty range (including `start > end`) yields `""`.
 pub fn substring(text: Text, start: Int, end: Int) -> String {
   let len = length(text)
-  slice_values(text, int.clamp(start, 0, len), int.clamp(end, 0, len))
+  grapheme.slice(values(text), int.clamp(start, 0, len), int.clamp(end, 0, len))
 }
 
-/// Return the graphemes in `[start, end)`, or an error when the range does
-/// not satisfy `0 <= start <= end <= length`.
-///
-/// ## Examples
-///
-/// ```gleam
-/// text.new(replica_id.new("A"))
-/// |> text.insert(0, "abc")
-/// |> text.try_substring(0, 4)
-/// // -> Error(text.RangeOutOfBounds(start: 0, end: 4, length: 3))
-/// ```
+/// Return the graphemes in `[start, end)`, or an error when the range does not
+/// satisfy `0 <= start <= end <= length`.
 pub fn try_substring(
   text: Text,
   start: Int,
   end: Int,
 ) -> Result(String, RangeError) {
   use Nil <- result.try(validate_range(start, end, length(text)))
-  Ok(slice_values(text, start, end))
+  Ok(grapheme.slice(values(text), start, end))
 }
 
 /// Delete the graphemes in `[start, end)`.
 ///
-/// ## Examples
-///
-/// ```gleam
-/// text.new(replica_id.new("A"))
-/// |> text.insert(0, "abcd")
-/// |> text.delete_range(1, 3)
-/// |> text.value()
-/// // -> "ad"
-/// ```
-///
 /// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
-/// `[0, length]`. Use `try_delete_range_with_delta` to handle untrusted
-/// bounds without crashing.
+/// `[0, length]`. Use `try_delete_range_with_delta` to handle untrusted bounds
+/// without crashing.
 pub fn delete_range(text: Text, start: Int, end: Int) -> Text {
   let assert Ok(#(updated, _delta)) =
     try_delete_range_with_delta(text, start, end)
   updated
 }
 
-/// Delete a grapheme range and return both the updated text and deletion
-/// delta.
+/// Delete a grapheme range and return both the updated text and deletion delta.
 ///
 /// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
-/// `[0, length]`. Use `try_delete_range_with_delta` to handle untrusted
-/// bounds without crashing.
+/// `[0, length]`. Use `try_delete_range_with_delta` to handle untrusted bounds
+/// without crashing.
 pub fn delete_range_with_delta(
   text: Text,
   start: Int,
@@ -207,8 +186,8 @@ pub fn delete_range_with_delta(
   result
 }
 
-/// Safely delete a grapheme range and return both the updated text and
-/// deletion delta.
+/// Safely delete a grapheme range and return both the updated text and deletion
+/// delta.
 pub fn try_delete_range_with_delta(
   text: Text,
   start: Int,
@@ -225,31 +204,21 @@ pub fn try_delete_range_with_delta(
 
 /// Replace the graphemes in `[start, end)` with a value.
 ///
-/// ## Examples
-///
-/// ```gleam
-/// text.new(replica_id.new("A"))
-/// |> text.insert(0, "abcd")
-/// |> text.replace_range(1, 3, "XY")
-/// |> text.value()
-/// // -> "aXYd"
-/// ```
-///
 /// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
-/// `[0, length]`. Use `try_replace_range_with_delta` to handle untrusted
-/// bounds without crashing.
+/// `[0, length]`. Use `try_replace_range_with_delta` to handle untrusted bounds
+/// without crashing.
 pub fn replace_range(text: Text, start: Int, end: Int, value: String) -> Text {
   let assert Ok(#(updated, _delta)) =
     try_replace_range_with_delta(text, start, end, value)
   updated
 }
 
-/// Replace a grapheme range and return both the updated text and
-/// replacement delta.
+/// Replace a grapheme range and return both the updated text and replacement
+/// delta.
 ///
 /// Panics with `RangeOutOfBounds` when `[start, end)` is not a valid range in
-/// `[0, length]`. Use `try_replace_range_with_delta` to handle untrusted
-/// bounds without crashing.
+/// `[0, length]`. Use `try_replace_range_with_delta` to handle untrusted bounds
+/// without crashing.
 pub fn replace_range_with_delta(
   text: Text,
   start: Int,
@@ -289,57 +258,20 @@ pub fn try_replace_range_with_delta(
   Ok(#(Text(updated), Text(delta)))
 }
 
-/// Move the grapheme at `from_index` to `to_index`.
-///
-/// The `to_index` is interpreted after removing the grapheme from
-/// `from_index`.
-///
-/// ## Examples
-///
-/// ```gleam
-/// text.new(replica_id.new("A"))
-/// |> text.insert(0, "abc")
-/// |> text.move(0, 2)
-/// |> text.value()
-/// // -> "bca"
-/// ```
-///
-/// Panics with a `MoveError` when either index is out of bounds. Use
-/// `try_move_with_delta` to handle untrusted indices without crashing.
-pub fn move(text: Text, from_index: Int, to_index: Int) -> Text {
-  let assert Ok(#(updated, _delta)) =
-    try_move_with_delta(text, from_index, to_index)
-  updated
+/// Insert a value at the end of the text. Appending is always valid, so no
+/// `try_` variant exists.
+pub fn append(text: Text, value: String) -> Text {
+  insert(text, length(text), value)
 }
 
-/// Move a grapheme and return both the updated text and move delta.
-///
-/// Panics with a `MoveError` when either index is out of bounds. Use
-/// `try_move_with_delta` to handle untrusted indices without crashing.
-pub fn move_with_delta(
-  text: Text,
-  from_index: Int,
-  to_index: Int,
-) -> #(Text, Text) {
-  let assert Ok(result) = try_move_with_delta(text, from_index, to_index)
-  result
+/// Append a value and return both the updated text and insertion delta.
+pub fn append_with_delta(text: Text, value: String) -> #(Text, Text) {
+  insert_with_delta(text, length(text), value)
 }
 
-/// Safely move a grapheme and return both the updated text and move delta.
-///
-/// The `to_index` is interpreted after removing the grapheme from
-/// `from_index`.
-pub fn try_move_with_delta(
-  text: Text,
-  from_index: Int,
-  to_index: Int,
-) -> Result(#(Text, Text), sequence.MoveError) {
-  let Text(seq) = text
-  case sequence.try_move_with_delta(seq, from_index, to_index) {
-    Ok(#(updated, delta)) -> Ok(#(Text(updated), Text(delta)))
-    Error(error) -> Error(error)
-  }
-}
+// ---------------------------------------------------------------------------
+// Anchors
+// ---------------------------------------------------------------------------
 
 /// Create an anchor at the start of the text. Always resolves to 0.
 pub fn start_anchor() -> sequence.Anchor {
@@ -356,18 +288,12 @@ pub fn end_anchor() -> sequence.Anchor {
 ///
 /// Anchors are stable positions that survive concurrent edits and merges:
 /// resolve one back to a current grapheme index with `resolve_anchor`.
-/// `Before` bias glues the anchor to the grapheme at `index`, so inserts at
-/// the gap push it right; `After` bias glues it to the grapheme at
-/// `index - 1`, so inserts at the gap land after it.
+/// `Before` bias glues the anchor to the grapheme at `index`, so inserts at the
+/// gap push it right; `After` bias glues it to the grapheme at `index - 1`, so
+/// inserts at the gap land after it.
 ///
-/// ## Examples
-///
-/// ```gleam
-/// let doc = text.new(replica_id.new("A")) |> text.insert(0, "hello")
-/// let cursor = text.anchor_at(doc, 5, sequence.After)
-/// let doc = text.insert(doc, 0, "say ")
-/// text.resolve_anchor(doc, cursor)  // -> 9
-/// ```
+/// Panics with `AnchorIndexOutOfBounds` when `index` is outside `[0, length]`.
+/// Use `try_anchor_at` to handle an untrusted index without crashing.
 pub fn anchor_at(
   text: Text,
   index: Int,
@@ -391,11 +317,9 @@ pub fn try_anchor_at(
 
 /// Resolve an anchor to a current grapheme index in `[0, length]`.
 ///
-/// Anchors on deleted graphemes still resolve: they collapse to the gap
-/// where the grapheme used to be. Anchors follow moved graphemes. Panics
-/// with `UnknownAnchorTarget` when the target was never merged or was
-/// compacted away and its forwarding has expired — hosts holding anchors
-/// across compaction rounds should use `try_resolve_anchor` and treat
+/// Anchors on deleted graphemes still resolve: they collapse to the gap where
+/// the grapheme used to be. Panics with `UnknownAnchorTarget` when the target
+/// was never merged into this replica; use `try_resolve_anchor` and treat
 /// failure as "re-anchor".
 pub fn resolve_anchor(text: Text, anchor: sequence.Anchor) -> Int {
   let assert Ok(index) = try_resolve_anchor(text, anchor)
@@ -404,15 +328,10 @@ pub fn resolve_anchor(text: Text, anchor: sequence.Anchor) -> Int {
 
 /// Safely resolve an anchor to a current grapheme index in `[0, length]`.
 ///
-/// Anchors to compacted graphemes resolve through the forwarding map to the
-/// gap the grapheme left behind — semantically the same as tombstone
-/// collapse.
-///
-/// Returns `Error(UnknownAnchorTarget)` when the anchor references a
-/// grapheme this replica has never seen (created remotely and not yet
-/// merged), or one that was compacted away and whose forwarding entry has
-/// since been removed by the host's retention policy. Either way the anchor
-/// is unusable and the holder should re-anchor.
+/// Returns `Error(UnknownAnchorTarget)` when the anchor references a grapheme
+/// this replica has never seen (created remotely and not yet merged). Because
+/// `lattice_fugue` never drops nodes, any grapheme that was ever merged remains
+/// resolvable, so this is the only failure mode.
 pub fn try_resolve_anchor(
   text: Text,
   anchor: sequence.Anchor,
@@ -433,26 +352,41 @@ pub fn anchor_from_json(
   sequence.anchor_from_json(json_string)
 }
 
-/// Insert a value at the end of the text. Appending is always valid, so no
-/// `try_` variant exists.
-///
-/// ## Examples
-///
-/// ```gleam
-/// text.new(replica_id.new("A"))
-/// |> text.insert(0, "ab")
-/// |> text.append("cd")
-/// |> text.value()
-/// // -> "abcd"
-/// ```
-pub fn append(text: Text, value: String) -> Text {
-  insert(text, length(text), value)
+// ---------------------------------------------------------------------------
+// Frontier, merge, JSON
+// ---------------------------------------------------------------------------
+
+/// The causal frontier of this text: for each replica, the greatest node
+/// counter it has minted that this replica has observed.
+pub fn frontier(text: Text) -> VersionVector {
+  let Text(seq) = text
+  sequence.frontier(seq)
 }
 
-/// Append a value and return both the updated text and insertion delta.
-pub fn append_with_delta(text: Text, value: String) -> #(Text, Text) {
-  insert_with_delta(text, length(text), value)
+/// Merge two text CRDT states.
+pub fn merge(a: Text, b: Text) -> Text {
+  let Text(a_seq) = a
+  let Text(b_seq) = b
+  Text(sequence.merge(a_seq, b_seq))
 }
+
+/// Encode text using the canonical fugue sequence JSON envelope.
+pub fn to_json(text: Text) -> json.Json {
+  let Text(seq) = text
+  sequence.to_json(seq, json.string)
+}
+
+/// Decode text from the canonical fugue sequence JSON envelope.
+pub fn from_json(json_string: String) -> Result(Text, json.DecodeError) {
+  case sequence.from_json(json_string, decode.string) {
+    Ok(seq) -> Ok(Text(seq))
+    Error(error) -> Error(error)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 fn validate_range(
   start: Int,
@@ -464,10 +398,6 @@ fn validate_range(
     Error(RangeOutOfBounds(start: start, end: end, length: length)),
   )
   Ok(Nil)
-}
-
-fn slice_values(text: Text, start: Int, end: Int) -> String {
-  grapheme.slice(values(text), start, end)
 }
 
 fn insert_error_to_range_error(error: sequence.InsertError) -> RangeError {
@@ -511,56 +441,4 @@ fn insert_graphemes_with_delta(
     sequence.merge,
     sequence.IndexOutOfBounds,
   )
-}
-
-/// Compact everything at or below a stability frontier.
-///
-/// Delegates to `sequence.compact`: stable tombstones are dropped, runs of
-/// stable graphemes are merged into compact blocks, and every dropped ID
-/// gets a forwarding entry so anchors and rebased operations still resolve.
-/// See `lattice_sequence/sequence.compact` for the stability contract.
-pub fn compact(
-  text: Text,
-  stable: VersionVector,
-) -> #(Text, sequence.ForwardingMap) {
-  let Text(seq) = text
-  let #(compacted, forwardings) = sequence.compact(seq, stable)
-  #(Text(compacted), forwardings)
-}
-
-/// Remove previously emitted forwarding entries from the text.
-///
-/// Forwardings are bounded by the host's retention policy: keep the map
-/// returned by each `compact` round and expire old rounds by passing them
-/// here.
-pub fn remove_forwardings(text: Text, map: sequence.ForwardingMap) -> Text {
-  let Text(seq) = text
-  Text(sequence.remove_forwardings(seq, map))
-}
-
-/// The stability frontier this text was last compacted at.
-pub fn frontier(text: Text) -> VersionVector {
-  let Text(seq) = text
-  sequence.frontier(seq)
-}
-
-/// Merge two text CRDT states.
-pub fn merge(a: Text, b: Text) -> Text {
-  let Text(a_seq) = a
-  let Text(b_seq) = b
-  Text(sequence.merge(a_seq, b_seq))
-}
-
-/// Encode text using the canonical sequence JSON envelope.
-pub fn to_json(text: Text) -> json.Json {
-  let Text(seq) = text
-  sequence.to_json(seq, json.string)
-}
-
-/// Decode text from the canonical sequence JSON envelope.
-pub fn from_json(json_string: String) -> Result(Text, json.DecodeError) {
-  case sequence.from_json(json_string, decode.string) {
-    Ok(seq) -> Ok(Text(seq))
-    Error(error) -> Error(error)
-  }
 }

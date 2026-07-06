@@ -1,0 +1,7 @@
+project: lattice_text
+kind: Changed
+body: |-
+  Refactor grapheme/range logic onto lattice_text_core
+
+  Internal-only change: the multi-grapheme insert/delete fold loops and the substring slice helper now delegate to the shared `lattice_text_core` package. Public API and behavior are unchanged.
+time: 2026-07-05T18:47:00.000000000+00:00
