@@ -826,23 +826,19 @@ fn reconcile_element(
 }
 
 /// One side has the element compacted into a block, the other still holds a
-/// live item for it. A tombstone or an uncovered (still volatile) move
-/// supersedes the block slot; a plain copy — or one whose move the merged
-/// frontier already covers, meaning the block slot reflects its settled
-/// position — collapses to the stable representation. The rule looks only
-/// at the live item and the merged frontier, so both merge directions agree.
-fn stable_or_live(item: Item(a), frontier: VersionVector) -> Element(a) {
-  case item.deleted {
-    Some(_) -> LiveEl(item)
-    None ->
-      case item.move {
-        None -> Stable(id: item.id, value: item.value)
-        Some(Move(op, _, _)) ->
-          case frontier_covers_op(frontier, op) {
-            True -> Stable(id: item.id, value: item.value)
-            False -> LiveEl(item)
-          }
-      }
+/// live item for it. A tombstone or a move keeps the item live and supersedes
+/// the block slot; only a plain copy collapses to the stable representation.
+/// The rule looks only at the live item, so both merge directions agree.
+///
+/// A moved item is never collapsed into the block skeleton, even if the merged
+/// frontier covers its move op: `compact` refuses to stabilize any state that
+/// holds a move (see `compact`), so a covered-move block slot cannot legitimately
+/// arise, and baking one here would strip the origins a peer's concurrent
+/// above-frontier inserts integrate against and break merge commutativity.
+fn stable_or_live(item: Item(a), _frontier: VersionVector) -> Element(a) {
+  case item.deleted, item.move {
+    None, None -> Stable(id: item.id, value: item.value)
+    _, _ -> LiveEl(item)
   }
 }
 
@@ -1087,12 +1083,17 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// Compacting at the current frontier, at an older one, or at one concurrent
 /// with it is a no-op — frontiers only advance.
 ///
-/// A state currently holding any move record is also left unchanged:
-/// stabilizing moved geometry would bake the displacement into the compact
-/// skeleton while uncompacted peers still order concurrent edits against
-/// the pre-move positions. Moves merged in AFTER compaction are fine — they
-/// re-place items without touching the compacted skeleton — so hosts using
-/// `move` compact during move-free windows.
+/// A state holding ANY move record is left unchanged, even when the move op is
+/// already covered by `stable`. This guard is load-bearing for convergence, not
+/// just conservatism: baking a settled move into the compact skeleton fixes its
+/// position from only the compacting replica's items, but a peer's still-live
+/// concurrent inserts above the frontier integrate against the moved item's
+/// origins — which stabilization strips. The two then order those inserts
+/// differently and `merge` stops commuting (see the property test
+/// `merge_commutes_with_compaction_for_deltas_above_frontier`). Because move
+/// records are never cleared locally, a replica that uses `move` cannot compact
+/// until it merges a peer that has already stabilized the item into a block; a
+/// safe stabilization path for moves is future work (see issue #98).
 pub fn compact(
   sequence: Sequence(a),
   stable: VersionVector,

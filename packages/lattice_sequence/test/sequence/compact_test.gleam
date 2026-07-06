@@ -118,9 +118,16 @@ pub fn compact_does_not_merge_blocks_across_counter_gaps_test() {
 }
 
 pub fn compact_is_noop_while_move_records_exist_test() {
-  // Stabilizing moved geometry would bake the displacement into the compact
-  // skeleton while uncompacted peers still order concurrent edits against
-  // pre-move positions, so a state holding move records is left unchanged.
+  // A state holding a move record is left unchanged EVEN when the move op is
+  // covered by the frontier (here frontier_a(4) covers the move's counter 4).
+  // This is load-bearing for convergence, not mere conservatism: baking the
+  // moved position into the skeleton strips the moved item's origins, so a
+  // peer's concurrent above-frontier inserts would integrate against the
+  // baked item differently depending on merge order and `merge` would stop
+  // commuting. See the property test
+  // `merge_commutes_with_compaction_for_deltas_above_frontier`, and issue #98
+  // for a safe move-stabilization path. Do not relax this to "in-flight moves
+  // only" without first making stabilized moves converge.
   let seq = abc() |> sequence.move(0, 2)
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(4))
 
