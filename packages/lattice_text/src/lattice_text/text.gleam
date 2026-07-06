@@ -1,6 +1,8 @@
 //// A plain-text CRDT backed by `lattice_sequence`.
 ////
-//// Text stores each inserted string segment as a sequence item. Insert,
+//// Text is stored as a sequence of single-grapheme items: every inserted
+//// string is split into graphemes and each grapheme becomes one sequence
+//// item, so indices, anchors, and `length` are all grapheme-based. Insert,
 //// delete, merge, and delta operations delegate to `lattice_sequence`.
 //// Use `lattice_sequence/sequence` directly when you need a generic list CRDT.
 ////
