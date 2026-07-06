@@ -6,7 +6,7 @@
 //// multi-grapheme inserts/deletes into a single mergeable delta. That layer is
 //// identical regardless of which sequence CRDT stores the graphemes, so it
 //// lives here and is shared by `lattice_text` (backed by `lattice_sequence`)
-//// and `lattice_fugue_text` (backed by `lattice_fugue`).
+//// and `lattice_text_fugue` (backed by `lattice_fugue`).
 ////
 //// The multi-grapheme fold helpers are generic over the backend's state type
 //// `s` and take the backend's `insert`, `delete`, and `merge` as ordinary

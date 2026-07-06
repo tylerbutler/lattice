@@ -92,11 +92,11 @@ projects:
             find: 'version = ".*"'
             replace: 'version = "{{.VersionNoPrefix}}"'
 
-    - label: Fugue Text
-      key: lattice_fugue_text
-      changelog: packages/lattice_fugue_text/CHANGELOG.md
+    - label: Text Fugue
+      key: lattice_text_fugue
+      changelog: packages/lattice_text_fugue/CHANGELOG.md
       replacements:
-          - path: packages/lattice_fugue_text/gleam.toml
+          - path: packages/lattice_text_fugue/gleam.toml
             find: 'version = ".*"'
             replace: 'version = "{{.VersionNoPrefix}}"'
     - label: Sequence
