@@ -35,6 +35,7 @@ pub type RangeError {
   RangeOutOfBounds(start: Int, end: Int, length: Int)
 }
 
+/// Create an empty text CRDT for a replica.
 pub fn new(replica_id: ReplicaId) -> Text {
   Text(sequence.new(replica_id))
 }
@@ -109,11 +110,13 @@ pub fn try_delete_with_delta(
   }
 }
 
+/// Return the visible graphemes as a list.
 pub fn values(text: Text) -> List(String) {
   let Text(seq) = text
   sequence.values(seq)
 }
 
+/// Return the visible text as a single string.
 pub fn value(text: Text) -> String {
   text
   |> values()
