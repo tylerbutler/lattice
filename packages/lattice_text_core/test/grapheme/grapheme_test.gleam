@@ -16,10 +16,10 @@ fn length(state: List(String)) -> Int {
   list.length(state)
 }
 
-fn insert(
+fn insert_many(
   state: List(String),
   index: Int,
-  grapheme: String,
+  graphemes: List(String),
 ) -> Result(#(List(String), List(String)), Err) {
   let len = list.length(state)
   case index < 0 || index > len {
@@ -27,7 +27,7 @@ fn insert(
     False -> {
       let before = list.take(state, index)
       let after = list.drop(state, index)
-      Ok(#(list.flatten([before, [grapheme], after]), [grapheme]))
+      Ok(#(list.flatten([before, graphemes, after]), graphemes))
     }
   }
 }
@@ -117,8 +117,7 @@ pub fn insert_graphemes_into_empty_test() {
     [],
     0,
     length,
-    insert,
-    insert_merge,
+    insert_many,
     IndexOutOfBounds,
   )
   |> expect.to_equal(Ok(#(["a", "b", "c"], ["a", "b", "c"])))
@@ -130,8 +129,7 @@ pub fn insert_graphemes_in_middle_test() {
     ["a", "d"],
     1,
     length,
-    insert,
-    insert_merge,
+    insert_many,
     IndexOutOfBounds,
   )
   |> expect.to_equal(Ok(#(["a", "x", "y", "d"], ["x", "y"])))
@@ -143,8 +141,7 @@ pub fn insert_empty_graphemes_is_noop_test() {
     ["a", "b"],
     1,
     length,
-    insert,
-    insert_merge,
+    insert_many,
     IndexOutOfBounds,
   )
   |> expect.to_equal(Ok(#(["a", "b"], ["a", "b"])))
@@ -156,8 +153,7 @@ pub fn insert_empty_graphemes_at_bad_index_errors_test() {
     ["a", "b"],
     9,
     length,
-    insert,
-    insert_merge,
+    insert_many,
     IndexOutOfBounds,
   )
   |> expect.to_equal(Error(IndexOutOfBounds(index: 9, length: 2)))
@@ -169,8 +165,7 @@ pub fn insert_graphemes_out_of_bounds_test() {
     ["a"],
     5,
     length,
-    insert,
-    insert_merge,
+    insert_many,
     IndexOutOfBounds,
   )
   |> expect.to_equal(Error(IndexOutOfBounds(index: 5, length: 1)))

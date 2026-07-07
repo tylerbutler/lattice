@@ -62,53 +62,32 @@ pub fn slice(graphemes: List(String), start: Int, end: Int) -> String {
   |> string.concat()
 }
 
-/// Insert a list of graphemes one at a time from `index`, threading a merged
-/// delta of every inserted node.
+/// Insert a list of graphemes at `index` as a single batched operation,
+/// returning the updated state and one delta covering every inserted node.
 ///
 /// Generic over the backend state `s` and insert-error `e`:
 /// - `length` reports the backend's current visible length.
-/// - `insert` inserts a single grapheme, returning the updated state and its
-///   one-node delta, or a backend error.
-/// - `merge` joins two deltas.
+/// - `insert_many` inserts the whole grapheme run starting at `index`,
+///   returning the updated state and its combined delta, or a backend error.
 /// - `index_out_of_bounds` builds the backend error for an invalid `index`.
 ///
 /// Returns `Error` (via `index_out_of_bounds`) when `index` is outside
 /// `[0, length]`, mirroring the backend's own bounds contract even when the
 /// grapheme list is empty. An empty grapheme list at a valid index is a no-op
-/// whose delta is the unchanged state.
+/// whose delta is the unchanged state, and never reaches `insert_many`.
 pub fn insert_graphemes(
   graphemes: List(String),
   state: s,
   index: Int,
   length: fn(s) -> Int,
-  insert: fn(s, Int, String) -> Result(#(s, s), e),
-  merge: fn(s, s) -> s,
+  insert_many: fn(s, Int, List(String)) -> Result(#(s, s), e),
   index_out_of_bounds: fn(Int, Int) -> e,
 ) -> Result(#(s, s), e) {
   let len = length(state)
   case graphemes, index < 0 || index > len {
     _, True -> Error(index_out_of_bounds(index, len))
     [], False -> Ok(#(state, state))
-    [first, ..rest], False -> {
-      use #(first_state, first_delta) <- result.try(insert(state, index, first))
-      list.try_fold(
-        rest,
-        #(first_state, first_delta, index + 1),
-        fn(acc, grapheme) {
-          let #(current, delta, current_index) = acc
-          use #(updated, next_delta) <- result.try(insert(
-            current,
-            current_index,
-            grapheme,
-          ))
-          Ok(#(updated, merge(delta, next_delta), current_index + 1))
-        },
-      )
-      |> result.map(fn(acc) {
-        let #(updated, delta, _) = acc
-        #(updated, delta)
-      })
-    }
+    _, False -> insert_many(state, index, graphemes)
   }
 }
 

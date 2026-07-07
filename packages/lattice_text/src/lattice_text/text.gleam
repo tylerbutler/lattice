@@ -512,8 +512,7 @@ fn insert_graphemes_with_delta(
     seq,
     index,
     sequence.length,
-    sequence.try_insert_with_delta,
-    sequence.merge,
+    sequence.try_insert_many_with_delta,
     sequence.IndexOutOfBounds,
   )
 }

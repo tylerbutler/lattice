@@ -167,6 +167,118 @@ pub fn insert_after_delete_at_same_index_is_canonically_ordered_test() {
   sequence.values(updated) |> expect.to_equal(["x", "b"])
 }
 
+pub fn insert_many_into_empty_test() {
+  sequence.new(rid("A"))
+  |> sequence.insert_many(0, ["a", "b", "c"])
+  |> sequence.values()
+  |> expect.to_equal(["a", "b", "c"])
+}
+
+pub fn insert_many_in_middle_test() {
+  sequence.new(rid("A"))
+  |> sequence.insert(0, "a")
+  |> sequence.insert(1, "d")
+  |> sequence.insert_many(1, ["b", "c"])
+  |> sequence.values()
+  |> expect.to_equal(["a", "b", "c", "d"])
+}
+
+pub fn insert_many_empty_list_is_noop_test() {
+  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  base
+  |> sequence.insert_many(1, [])
+  |> expect.to_equal(base)
+}
+
+pub fn try_insert_many_negative_index_returns_error_test() {
+  sequence.new(rid("A"))
+  |> sequence.try_insert_many_with_delta(-1, ["x"])
+  |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: -1, length: 0)))
+}
+
+pub fn try_insert_many_past_end_returns_error_test() {
+  sequence.new(rid("A"))
+  |> sequence.insert(0, "a")
+  |> sequence.try_insert_many_with_delta(2, ["x"])
+  |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: 2, length: 1)))
+}
+
+pub fn insert_many_delta_merges_to_direct_state_test() {
+  // The batched delta applied via merge on a peer must structurally equal the
+  // directly-updated state — the same invariant single inserts uphold.
+  let base =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "d")
+  let #(direct, delta) = sequence.insert_many_with_delta(base, 1, ["b", "c"])
+
+  sequence.merge(base, delta)
+  |> expect.to_equal(direct)
+}
+
+pub fn insert_many_equivalent_to_looped_inserts_test() {
+  // A single batched insert must produce a state structurally identical to
+  // inserting the same values one at a time.
+  let looped =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "d")
+    |> sequence.insert(1, "b")
+    |> sequence.insert(2, "c")
+  let batched =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "d")
+    |> sequence.insert_many(1, ["b", "c"])
+
+  batched |> expect.to_equal(looped)
+}
+
+pub fn insert_many_delta_merges_after_tombstone_test() {
+  // A batched insert whose position is preceded by tombstones must still
+  // reconcile structurally with merge, mirroring the single-insert regression.
+  let base =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.delete(0)
+  let #(direct, delta) = sequence.insert_many_with_delta(base, 0, ["x", "y"])
+
+  sequence.merge(base, delta)
+  |> expect.to_equal(direct)
+  sequence.values(direct) |> expect.to_equal(["x", "y", "b"])
+}
+
+pub fn insert_after_move_delta_merges_to_direct_state_test() {
+  // With a live move record present the fast path falls back to a full
+  // rebuild; the delta must still reconcile structurally with merge.
+  let base =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.insert(2, "c")
+    |> sequence.move(0, 2)
+  let #(direct, delta) = sequence.insert_with_delta(base, 1, "x")
+
+  sequence.merge(base, delta)
+  |> expect.to_equal(direct)
+  sequence.values(direct) |> expect.to_equal(["b", "x", "c", "a"])
+}
+
+pub fn insert_many_after_move_delta_merges_to_direct_state_test() {
+  let base =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.insert(2, "c")
+    |> sequence.move(0, 2)
+  let #(direct, delta) = sequence.insert_many_with_delta(base, 1, ["x", "y"])
+
+  sequence.merge(base, delta)
+  |> expect.to_equal(direct)
+  sequence.values(direct) |> expect.to_equal(["b", "x", "y", "c", "a"])
+}
+
 pub fn move_reorders_visible_item_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")

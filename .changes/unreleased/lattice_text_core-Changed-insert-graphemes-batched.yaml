@@ -1,0 +1,7 @@
+project: lattice_text_core
+kind: Changed
+body: |-
+  `insert_graphemes` now takes a batched `insert_many` backend closure
+
+  The generic helper accepts a single `insert_many(state, index, graphemes)` callback instead of a per-grapheme `insert` plus a `merge`, so backends splice a whole run in one operation.
+time: 2026-07-06T23:42:03.000000000+00:00

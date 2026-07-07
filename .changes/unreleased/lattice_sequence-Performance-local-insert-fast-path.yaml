@@ -1,0 +1,7 @@
+project: lattice_sequence
+kind: Performance
+body: |-
+  Splice local inserts into the stored order instead of rebuilding it
+
+  When the state holds no live move record, stored order is already the canonical order, so a local insert is spliced directly in place (O(n)) rather than re-deriving the whole canonical order twice (O(n^2)). States holding a live move fall back to the previous rebuild path. The emitted delta is unchanged, so convergence is unaffected.
+time: 2026-07-06T23:42:01.000000000+00:00
