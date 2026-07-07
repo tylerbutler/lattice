@@ -32,12 +32,31 @@ jobs:
           PACKAGE: ${{ steps.ws.outputs.tag-package-path }}
         run: |
           cd "$PACKAGE"
-          gleam deps download
+
+          # Shared GitHub runner IPs frequently trip the Hex API rate limit
+          # during version resolution. Retry the Hex-touching steps with
+          # exponential backoff so a transient rate-limit response doesn't fail
+          # the whole release. Dependency downloads happen implicitly on the
+          # first build/check, so no explicit `gleam deps download` is needed.
+          retry() {
+            local n=1 max=5 delay=30
+            until "$@"; do
+              if [ "$n" -ge "$max" ]; then
+                echo "Command failed after ${max} attempts: $*" >&2
+                return 1
+              fi
+              echo "Attempt ${n} failed; retrying in ${delay}s..." >&2
+              sleep "$delay"
+              n=$((n + 1))
+              delay=$((delay * 2))
+            done
+          }
+
           gleam format --check src test
-          gleam check
-          gleam build --warnings-as-errors
+          retry gleam check
+          retry gleam build --warnings-as-errors
           gleam test
-          gleam test --target javascript
+          retry gleam test --target javascript
           gleam docs build
 
   publish:
