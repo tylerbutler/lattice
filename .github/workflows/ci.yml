@@ -39,6 +39,8 @@ jobs:
 
       - name: Setup environment
         uses: tylerbutler/actions/setup-gleam@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/setup-gleam@main
+        with:
+          working-directory: examples
 
       - name: Lint examples (glinter)
         run: cd examples && gleam run -m glinter
