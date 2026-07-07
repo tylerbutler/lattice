@@ -62,6 +62,10 @@ jobs:
             lattice_registers:packages/lattice_registers/gleam.toml
             lattice_sets:packages/lattice_sets/gleam.toml
             lattice_maps:packages/lattice_maps/gleam.toml
+            lattice_sequence:packages/lattice_sequence/gleam.toml
+            lattice_text_core:packages/lattice_text_core/gleam.toml
+            lattice_text:packages/lattice_text/gleam.toml
+            lattice_fugue:packages/lattice_fugue/gleam.toml
           hex-api-key: ${{ secrets.HEXPM_API_KEY }}
 
   # After publishing, update manifest.toml lockfiles so they reflect the
@@ -69,6 +73,12 @@ jobs:
   update-lockfiles:
     needs: publish
     runs-on: ubuntu-latest
+    # Lockfile refresh is a best-effort convenience: it hits the Hex API for
+    # every package right after publish and can trip Hex rate limits. A failure
+    # here must not mark the Publish run as failed, otherwise downstream
+    # automation (e.g. auto-tag waiting on this workflow) aborts the rest of
+    # the release even though the package was published successfully.
+    continue-on-error: true
     permissions:
       contents: write
       pull-requests: write
