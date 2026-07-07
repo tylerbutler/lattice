@@ -55,9 +55,9 @@ jobs:
           gleam format --check src test
           retry gleam check
           retry gleam build --warnings-as-errors
-          gleam test
+          retry gleam test
           retry gleam test --target javascript
-          gleam docs build
+          retry gleam docs build
 
   publish:
     needs: test
