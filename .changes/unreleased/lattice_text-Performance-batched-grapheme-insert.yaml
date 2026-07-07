@@ -1,7 +1,0 @@
-project: lattice_text
-kind: Performance
-body: |-
-  Batch multi-grapheme inserts into a single sequence operation
-
-  Inserting or pasting a string now issues one batched backend insert covering every grapheme instead of one insert (and one delta merge) per grapheme, removing a large multiplier from building or pasting text.
-time: 2026-07-06T23:42:02.000000000+00:00

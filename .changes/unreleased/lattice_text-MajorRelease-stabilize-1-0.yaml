@@ -1,7 +1,0 @@
-project: lattice_text
-kind: MajorRelease
-body: |-
-  Stable 1.0 release with a committed public API
-
-  `lattice_text` is now 1.0. Its plain-text CRDT API — grapheme-based insert, delete, and range operations, merge and delta-state mutators, cursor anchors, compaction, and JSON serialization — is stable and safe to depend on. From this release on, the package follows semantic versioning, so any future breaking change will come with a new major version.
-time: 2026-07-04T22:19:16.765000000-07:00

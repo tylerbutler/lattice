@@ -1,7 +1,0 @@
-project: lattice_crdt
-kind: Breaking
-body: |-
-  Remove the root `lattice_crdt` module and its unused `version` constant
-
-  `lattice_crdt.version` was dead code: nothing in the codebase or its dependents read it, and it had drifted out of sync with the package's actual version in `gleam.toml` (it still reported "2.0.0" after the package moved to 2.1.0). Removing it left the root module with no public definitions, and no other package in the workspace keeps a doc-only root module, so it is removed too — its content (sub-package list, delta-state replication conventions) now lives in `README.md`. Consumers that read `lattice_crdt.version` should get the package version from their build tooling (e.g. Hex/gleam.toml) instead; anything importing the bare `lattice_crdt` module should import the individual sub-package modules directly.
-time: 2026-07-05T18:35:40.700284787+00:00

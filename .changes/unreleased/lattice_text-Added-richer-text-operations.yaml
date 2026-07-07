@@ -1,7 +1,0 @@
-project: lattice_text
-kind: Added
-body: |-
-  Add richer grapheme-based text operations
-
-  New query helpers `length`, `substring`, and `try_substring`, plus plain, `*_with_delta`, and `try_*_with_delta` variants for `delete_range`, `replace_range`, and `move`, and total `append`/`append_with_delta` helpers. Range operations validate `0 <= start <= end <= length` and return the `RangeError` type on invalid input.
-time: 2026-07-04T21:59:52.829099406+00:00
