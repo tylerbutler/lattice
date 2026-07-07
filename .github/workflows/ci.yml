@@ -10,21 +10,21 @@ on:
 jobs:
   format:
     name: Format
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
       format-check: true
 
   check:
     name: Check
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
       check: true
 
   lint:
     name: Lint
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
       run-deps: true
@@ -35,23 +35,23 @@ jobs:
     name: Lint (examples)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
 
       - name: Setup environment
-        uses: tylerbutler/actions/setup-gleam@v1
+        uses: tylerbutler/actions/setup-gleam@ee7def5950abcf0a519add705a95719ab345c05e # ratchet:tylerbutler/actions/setup-gleam@v1
 
       - name: Lint examples (glinter)
         run: cd examples && gleam run -m glinter
 
   build:
     name: Build
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
 
   test:
     name: Test
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
       run-deps: true
@@ -59,7 +59,7 @@ jobs:
 
   test-js:
     name: Test (JavaScript)
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
       run-deps: true
@@ -67,7 +67,7 @@ jobs:
 
   docs:
     name: Docs
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@d67948fe17fa338034eb7cff2ef51779992438a3 # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
+    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
     with:
       cache: true
       build-strict: false

@@ -14,11 +14,11 @@ jobs:
     outputs:
       package-path: ${{ steps.ws.outputs.tag-package-path }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
 
       - name: Read workspace
         id: ws
-        uses: tylerbutler/actions/read-gleam-workspace@f3a3a7d38466a1407c7965872f20e9e8157c11f1 # ratchet:tylerbutler/actions/read-gleam-workspace@main
+        uses: tylerbutler/actions/read-gleam-workspace@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/read-gleam-workspace@main
         with:
           tag: ${{ github.ref_name }}
 
@@ -44,7 +44,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
 
       - name: Setup environment
         uses: ./.github/actions/setup
@@ -53,7 +53,7 @@ jobs:
       # replace-path-deps rewrites path dependencies to Hex version ranges
       # derived from each package's gleam.toml before publishing.
       - name: Publish to Hex.pm
-        uses: tylerbutler/actions/gleam-publish@f3a3a7d38466a1407c7965872f20e9e8157c11f1 # ratchet:tylerbutler/actions/gleam-publish@main
+        uses: tylerbutler/actions/gleam-publish@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/gleam-publish@main
         with:
           packages: ${{ needs.test.outputs.package-path }}
           replace-path-deps: |
@@ -75,12 +75,12 @@ jobs:
     steps:
       - name: Generate app token
         id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # ratchet:actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # ratchet:actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
         with:
           ref: main
           token: ${{ steps.app-token.outputs.token }}
