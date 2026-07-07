@@ -71,13 +71,12 @@ jobs:
   # After publishing, update manifest.toml lockfiles so they reflect the
   # latest published versions. This keeps the repo in sync with Hex.
   update-lockfiles:
-    needs: publish
+    needs: [test, publish]
     runs-on: ubuntu-latest
-    # Lockfile refresh is a best-effort convenience: it hits the Hex API for
-    # every package right after publish and can trip Hex rate limits. A failure
-    # here must not mark the Publish run as failed, otherwise downstream
-    # automation (e.g. auto-tag waiting on this workflow) aborts the rest of
-    # the release even though the package was published successfully.
+    # Lockfile refresh is a best-effort convenience. It must not mark the
+    # Publish run as failed, otherwise downstream automation (e.g. auto-tag
+    # waiting on this workflow) aborts the rest of the release even though the
+    # package was published successfully.
     continue-on-error: true
     permissions:
       contents: write
@@ -98,14 +97,16 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup
 
-      - name: Refresh lockfiles
+      - name: Refresh lockfile
+        # Only refresh the manifest for the package that was just published.
+        # Sibling packages reference each other via path deps (not Hex), so
+        # refreshing the whole workspace here would issue N redundant Hex API
+        # requests per tag and trip Hex rate limits.
+        env:
+          PACKAGE: ${{ needs.test.outputs.package-path }}
         run: |
-          for pkg_dir in packages/lattice_*/; do
-            if [ -f "$pkg_dir/gleam.toml" ]; then
-              echo "Refreshing $pkg_dir manifest..."
-              (cd "$pkg_dir" && gleam deps download)
-            fi
-          done
+          echo "Refreshing $PACKAGE manifest..."
+          (cd "$PACKAGE" && gleam deps download)
 
       - name: Check for changes
         id: changes
