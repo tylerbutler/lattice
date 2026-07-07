@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup environment
-        uses: tylerbutler/actions/setup-gleam@v1
+        uses: tylerbutler/actions/setup-gleam@main
 
       - name: Check formatting
         run: just format-check
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup environment
-        uses: tylerbutler/actions/setup-gleam@v1
+        uses: tylerbutler/actions/setup-gleam@main
 
       - name: Build documentation
         run: just docs
