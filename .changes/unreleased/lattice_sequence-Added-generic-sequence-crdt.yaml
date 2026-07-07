@@ -1,7 +1,0 @@
-project: lattice_sequence
-kind: Added
-body: |-
-  Add generic sequence CRDT package
-
-  Introduces `lattice_sequence/sequence` with index-based insert/delete/move operations, mergeable deltas, generic JSON codecs, and YATA-style left/right origin ordering for ordered-list CRDT values.
-time: 2026-05-10T04:44:26.565581798+00:00

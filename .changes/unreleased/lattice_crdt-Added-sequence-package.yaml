@@ -1,7 +1,0 @@
-project: lattice_crdt
-kind: Added
-body: |-
-  Include `lattice_sequence` in the umbrella package
-
-  The umbrella package now depends on the generic sequence CRDT package so users can import `lattice_sequence/sequence` alongside the existing CRDT modules.
-time: 2026-05-10T04:44:26.565581798+00:00

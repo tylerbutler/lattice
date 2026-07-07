@@ -1,7 +1,0 @@
-project: lattice_sequence
-kind: Added
-body: |-
-  Add `insert_many`, `insert_many_with_delta`, and `try_insert_many_with_delta`
-
-  Insert a run of values at consecutive indices in a single operation, reported as one combined delta instead of one delta per value. `try_insert_with_delta` now delegates to the batched path.
-time: 2026-07-06T23:42:00.000000000+00:00

@@ -1,7 +1,0 @@
-project: lattice_sequence
-kind: Added
-body: |-
-  Add `compact` for tombstone garbage collection and block merging
-
-  `compact(sequence, stable)` takes a stability frontier (a `VersionVector` covering everything no in-flight or future op can reference, e.g. derived from a global sequencer's acknowledgement floor) and rewrites the stable region: stable tombstones are dropped, runs of adjacent same-replica items with sequential counters merge into compact value blocks, and stable items shed their origins and move slots. Every dropped ID gets a forwarding entry pointing at its retained neighbors so anchors and rebased ops still resolve; hosts bound the map with `remove_forwardings` and can read the applied frontier with `frontier`. `translate_origins` rebases a delta from an evicted client onto a compacted state, hard-failing with `UnknownOriginTarget` when a forwarding has expired. Deletes now mint an op ID (bumping the replica counter) so a frontier can distinguish acknowledged deletes from in-flight ones, and the state JSON envelope (`"v": 1`) carries segments, forwardings, and the applied frontier. States holding move records are not compacted; compact during move-free windows.
-time: 2026-07-05T03:45:09.929665806+00:00

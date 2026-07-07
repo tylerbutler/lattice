@@ -1,7 +1,0 @@
-project: lattice_sequence
-kind: Added
-body: |-
-  Add stable position anchors with `anchor_at`, `resolve`, and JSON serialization
-
-  Anchors name a gap between items and survive concurrent edits and merges: `anchor_at`/`try_anchor_at` create one from a visible index with a `Bias` (`Before` or `After`) controlling which side of the gap it sticks to, and `resolve`/`try_resolve` map it back to a current index. `start_anchor` and `end_anchor` provide sentinels, and `anchor_to_json`/`anchor_from_json` let anchors travel between replicas for shared-cursor features. Anchors on deleted items collapse to the gap left behind, and anchors follow moved items.
-time: 2026-07-04T22:36:54.630494870+00:00
