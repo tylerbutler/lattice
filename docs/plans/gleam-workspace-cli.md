@@ -93,10 +93,12 @@ starts by loading the **workspace model**:
 
 ```toml
 [workspace]
-members = ["packages/lattice_*"]
-# Projects that participate in format/lint/build/test fan-out but are never
-# versioned or published. Replaces the hand special-casing of examples/.
-auxiliary = ["examples"]
+members = ["packages/lattice_*", "examples"]
+# Glob array matched against member paths. Matching members participate in all
+# task fan-out (format/lint/build/test) like any other member, but are excluded
+# from changelog, versioning, tagging, and publishing. Replaces the hand
+# special-casing of examples/ in the justfile.
+ignore-release = ["examples"]
 
 # Custom tasks, available to `trellis run <name>`. Built-in verbs (build, test,
 # check, format, docs, deps, clean) need no declaration.
@@ -125,12 +127,14 @@ blocks, version-file maps, path-dep rewrite maps, tag→package mappings.
 ### Introspection
 
 ```
-trellis list [--json] [--since <ref>] [--with-dependents]
+trellis list [--json] [--since <ref>] [--with-dependents] [--releasable]
 trellis graph [--format text|dot|mermaid|json]
 trellis info <package> [--json]
 ```
 
 - `list` prints members in topological order — this alone replaces `justfile:18`.
+  `--releasable` filters out `ignore-release` matches, i.e. the set that
+  changelog/tag/publish commands operate on.
 - `--since origin/main` filters to packages owning changed files (diff paths mapped
   to package directories); `--with-dependents` adds the reverse-dependency closure.
   This is the primitive behind "only test what a PR touched."
@@ -141,7 +145,7 @@ trellis info <package> [--json]
 
 ```
 trellis run <task> [pkgs...] [--since <ref>] [--target erlang|javascript|all]
-                   [--strict] [--serial] [--keep-going] [--include-auxiliary]
+                   [--strict] [--serial] [--keep-going]
 trellis exec [pkgs...] -- <command...>
 ```
 
@@ -170,7 +174,8 @@ trellis version apply                             # batch + merge + lockfile pat
 
 - `changelog sync` generates the `projects:` section of `.changie.yaml` from the
   workspace model — label, key, changelog path, and version-replacement block per
-  member. The 88 hand-written lines in lattice's `.changie.yaml` become output.
+  releasable member (`ignore-release` matches get no project block). The 88
+  hand-written lines in lattice's `.changie.yaml` become output.
   `doctor` fails if the file is out of date (same model as generated lockfiles).
 - `changelog check` reimplements the changie-check glue: map the base..head diff to
   packages, decide which need fragments, emit JSON (`has-entries`, `needs-entry`,
@@ -191,7 +196,8 @@ trellis publish <pkg | --tag <tag> | --all-untagged> [--dry-run]
 trellis lockfile refresh [--package <pkg>]
 ```
 
-- `tag plan/create` replaces the auto-tag workflow's core: compare each member's
+- `tag plan/create` replaces the auto-tag workflow's core: compare each
+  releasable member's
   `gleam.toml` version against existing `{name}-v{version}` tags, create missing
   tags in topological order, optionally create GitHub Releases with the matching
   CHANGELOG section as the body.
@@ -241,11 +247,13 @@ Checks, each of which is an unenforced invariant in lattice today:
 2. Every path dep between members stays inside the workspace; graph is acyclic.
 3. Generated files are current: `.changie.yaml` projects match members (`--fix`
    regenerates).
-4. Each member's `gleam.toml` version ≥ its latest CHANGELOG version, and each has
-   a changelog file where expected.
+4. Each releasable member's `gleam.toml` version ≥ its latest CHANGELOG version,
+   and each has a changelog file where expected.
 5. `manifest.toml` locked versions of workspace-internal deps match those deps'
    actual `gleam.toml` versions (catches a missed lockfile patch).
-6. Auxiliary projects' path deps resolve to members.
+6. Every `ignore-release` glob matches at least one member (catches typos), and
+   no releasable member path-depends on an ignore-release member — a published
+   package cannot require a project that will never exist on Hex.
 7. Tag-format collisions (two members whose names would produce ambiguous tags).
 
 `doctor` is the CI tripwire for the duplication that can't be eliminated. Today,
