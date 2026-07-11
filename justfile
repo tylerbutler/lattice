@@ -96,9 +96,9 @@ doctor:
 
 # === DOCUMENTATION ===
 
-# Build documentation for all packages
-docs *ARGS:
-    trellis run docs {{ ARGS }}
+# Build documentation for published packages without bursting the Hex API
+docs:
+    trellis run docs --serial $(trellis list --releasable)
 
 # === CHANGELOG ===
 
