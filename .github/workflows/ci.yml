@@ -8,12 +8,22 @@ on:
   workflow_call:
 
 jobs:
+  dependencies:
+    name: Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run deps --serial
+
   doctor:
     name: Doctor
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
+        with:
+          cache: "false"
       - run: trellis doctor
 
   format:
@@ -22,10 +32,13 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
+        with:
+          cache: "false"
       - run: trellis run format --check
 
   check:
     name: Check
+    needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
@@ -34,6 +47,7 @@ jobs:
 
   lint:
     name: Lint
+    needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
@@ -42,6 +56,7 @@ jobs:
 
   build:
     name: Build
+    needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
@@ -50,6 +65,7 @@ jobs:
 
   test:
     name: Test
+    needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
@@ -58,6 +74,7 @@ jobs:
 
   test-js:
     name: Test (JavaScript)
+    needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
@@ -66,6 +83,7 @@ jobs:
 
   docs:
     name: Docs
+    needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7

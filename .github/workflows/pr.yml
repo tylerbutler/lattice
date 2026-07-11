@@ -40,6 +40,8 @@ jobs:
 
       - name: Setup environment
         uses: ./.github/actions/setup
+        with:
+          cache: "false"
 
       - name: Check changelog entries
         id: changelog
