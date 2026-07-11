@@ -13,14 +13,13 @@ Ensure you have the following installed:
 | just | 1.38.0+ | Task runner (thin delegation layer) |
 | [trellis](https://github.com/tylerbutler/trellis) | 0.1.0 | Workspace CLI: task fan-out, changelog, versioning, publishing |
 
-**Recommended:** Use [mise](https://mise.jdx.dev/) or [asdf](https://asdf-vm.com/) with the provided `.tool-versions` file.
+**Recommended:** Use [mise](https://mise.jdx.dev/) — `mise install` installs
+everything above (including trellis, via the `github:` backend in
+`.mise.toml`). CI uses the same files through `jdx/mise-action`, so local and
+CI toolchains can't drift.
 
 ```bash
-# With mise
 mise install
-
-# With asdf
-asdf install
 ```
 
 ## Getting Started

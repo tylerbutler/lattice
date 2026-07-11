@@ -1,23 +1,19 @@
-name: "Setup Gleam Environment"
-description: "Thin wrapper around setup-gleam with monorepo-aware caching"
-
-inputs:
-  node:
-    description: "Whether to setup Node.js for JavaScript target"
-    required: false
-    default: "false"
+name: "Setup Environment"
+description: "Install the toolchain via mise (cached) with monorepo-aware Gleam dependency caching"
 
 runs:
   using: "composite"
   steps:
-    - name: Setup Gleam
-      uses: tylerbutler/actions/setup-gleam@1b043450f1919503d6c23e3ada9fc7aaa4e2a99b # ratchet:tylerbutler/actions/setup-gleam@main
+    # Installs everything from .tool-versions + .mise.toml in one cached step:
+    # erlang (precompiled on ubuntu runners), gleam, just, node, trellis.
+    - name: Install tools with mise
+      uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # ratchet:jdx/mise-action@v4.2.0
+      env:
+        # The github: backend (trellis) queries the GitHub API for releases;
+        # authenticated requests avoid the anonymous rate limit.
+        GITHUB_TOKEN: ${{ github.token }}
       with:
-        node: ${{ inputs.node }}
-        # Disable built-in caching — it hashes a single gleam.toml in the working
-        # directory, which doesn't work for our monorepo layout (packages/*/gleam.toml).
-        # We add our own cache step below with the correct hashFiles() patterns.
-        cache: "false"
+        version: 2026.7.5
 
     - name: Cache Gleam dependencies
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # ratchet:actions/cache@v4
@@ -29,8 +25,3 @@ runs:
         # adds, removes, or changes a dependency.
         key: gleam-${{ runner.os }}-${{ hashFiles('packages/*/gleam.toml', 'packages/*/manifest.toml') }}
         restore-keys: gleam-${{ runner.os }}-
-
-    - name: Install trellis
-      shell: bash
-      # Pinned release; the cargo-dist installer adds the binary to GITHUB_PATH.
-      run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tylerbutler/trellis/releases/download/v0.1.0/trellis-installer.sh | sh

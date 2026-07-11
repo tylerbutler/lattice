@@ -99,13 +99,10 @@ just test-pkg <name>   # Single package
 
 ## Tool Versions
 
-Managed via `.tool-versions` (source of truth for CI):
-- Erlang 27.2.1
-- Gleam 1.16.0
-- just 1.38.0
-
-trellis is pinned in `.mise.toml` (locally) and in
-`.github/actions/setup/action.yml` (CI).
+Managed via `.tool-versions` (erlang, gleam, just — exact pins) plus
+`.mise.toml` (node, trellis). CI installs everything with `jdx/mise-action`
+(cached) in `.github/actions/setup`, so local and CI toolchains come from the
+same two files; `mise install` sets up a dev machine.
 
 ## CI/CD
 
