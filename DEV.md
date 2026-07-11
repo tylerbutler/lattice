@@ -10,17 +10,16 @@ Ensure you have the following installed:
 |------|---------|---------|
 | Erlang/OTP | 27.2.1+ | BEAM runtime |
 | Gleam | 1.16.0+ | Compiler and tooling |
-| just | 1.38.0+ | Task runner |
-| changie | latest | Changelog management |
+| just | 1.38.0+ | Task runner (thin delegation layer) |
+| [trellis](https://github.com/tylerbutler/trellis) | 0.1.0 | Workspace CLI: task fan-out, changelog, versioning, publishing |
 
-**Recommended:** Use [mise](https://mise.jdx.dev/) or [asdf](https://asdf-vm.com/) with the provided `.tool-versions` file.
+**Recommended:** Use [mise](https://mise.jdx.dev/) — `mise install` installs
+everything above (including trellis, via the `github:` backend in
+`.mise.toml`). CI uses the same files through `jdx/mise-action`, so local and
+CI toolchains can't drift.
 
 ```bash
-# With mise
 mise install
-
-# With asdf
-asdf install
 ```
 
 ## Getting Started
@@ -39,33 +38,63 @@ just ci
 
 ## Monorepo Structure
 
-This project is a monorepo containing 6 independently-versioned Gleam packages:
+This project is a monorepo of independently-versioned Gleam packages managed
+by [trellis](https://github.com/tylerbutler/trellis). Workspace membership is
+declared once, in the `[tools.trellis]` table of the root `gleam.toml`;
+everything else — the package list, dependency order, release wiring — is
+derived from each package's `gleam.toml`.
 
 ```
-lattice/                               # git repo root (NOT a Gleam package)
-├── packages/
-│   ├── lattice_core/                  # VersionVector, DotContext
-│   ├── lattice_counters/              # GCounter, PNCounter
-│   ├── lattice_sets/                  # GSet, TwoPSet, ORSet
-│   ├── lattice_registers/             # LWWRegister, MVRegister
-│   ├── lattice_maps/                  # LWWMap, ORMap, Crdt dispatch
-│   └── lattice_crdt/                  # Umbrella — depends on all above
-├── examples/                          # Runnable examples
-├── workspace.toml                     # Gleam workspace definition (source of truth)
-├── justfile                           # Orchestrates across all packages
-├── .changie.yaml                      # Project-mode changelog config
+lattice/                               # git repo root
+├── packages/lattice_*/                # one directory per package
+├── examples/                          # Runnable examples (member, never published)
+├── gleam.toml                         # Workspace root: [tools.trellis] config
+├── justfile                           # Thin recipes delegating to trellis
+├── .changes/                          # Changelog fragments + version sections
 └── .tool-versions                     # Tool version pinning
 ```
 
+Run `trellis list` for the members in dependency order, and `trellis info
+<package>` for one package's dependencies and dependents.
+
 ### Dependency graph
 
-```
-lattice_core          (no lattice deps)
-lattice_counters      (no lattice deps)
-lattice_sets          (no lattice deps)
-lattice_registers  →  lattice_core
-lattice_maps       →  lattice_core, lattice_counters, lattice_registers, lattice_sets
-lattice_crdt       →  all of the above (umbrella)
+Generated with `trellis graph --format mermaid` (regenerate after adding a
+package or path dependency):
+
+```mermaid
+graph TD
+    lattice_counters --> lattice_core
+    lattice_fugue --> lattice_core
+    lattice_registers --> lattice_core
+    lattice_sequence --> lattice_core
+    lattice_sets --> lattice_core
+    lattice_maps --> lattice_core
+    lattice_maps --> lattice_counters
+    lattice_maps --> lattice_registers
+    lattice_maps --> lattice_sets
+    lattice_text --> lattice_core
+    lattice_text --> lattice_sequence
+    lattice_text --> lattice_text_core
+    lattice_crdt --> lattice_core
+    lattice_crdt --> lattice_counters
+    lattice_crdt --> lattice_registers
+    lattice_crdt --> lattice_sequence
+    lattice_crdt --> lattice_sets
+    lattice_crdt --> lattice_maps
+    lattice_crdt --> lattice_text
+    examples --> lattice_core
+    examples --> lattice_counters
+    examples --> lattice_registers
+    examples --> lattice_sequence
+    examples --> lattice_sets
+    examples --> lattice_maps
+    examples --> lattice_text
+    examples --> lattice_crdt
+    lattice_text_fugue --> lattice_core
+    lattice_text_fugue --> lattice_fugue
+    lattice_text_fugue --> lattice_text_core
+    lattice_presence
 ```
 
 Each package has its own `gleam.toml`, `src/`, and `test/` directories. Packages use **path dependencies** for local development (e.g., `lattice_core = { path = "../lattice_core" }`).
@@ -97,20 +126,21 @@ just pr
 
 ### Changelog Entries
 
-Use changie to create per-package changelog entries:
+Changes are recorded as TOML fragments in `.changes/unreleased/`, written by
+trellis's native changelog engine:
 
 ```bash
-# Interactive project selection
-just change
-
-# Direct entry for a specific package
-just change-pkg lattice_sets
+just change --package lattice_sets --kind Added --body "Add or_set.map"
 # or directly:
-changie new --project lattice_sets
+trellis changelog new --package lattice_sets --kind Added --body "Add or_set.map"
 
-# Preview unreleased changes for a package
-just changelog-preview lattice_sets
+# Preview the pending version bumps
+just changelog-preview
 ```
+
+Kinds and their semver bumps are configured under `[tools.trellis.changelog]`
+in the root `gleam.toml` (Breaking → major, Added → minor, most others →
+patch). `trellis doctor` validates every fragment on each PR.
 
 ## Code Style
 
@@ -221,31 +251,34 @@ Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`
 
 ## Publishing
 
-Packages are published to Hex.pm independently in dependency order. The `publish.yml` workflow handles this automatically:
+Packages are published to Hex.pm independently, in dependency order, using a
+tags-after-publish flow — tags record what shipped rather than triggering it:
 
-1. Developer adds changelog entries with `just change` or `just change-pkg <name>`
-2. On merge to main, `release.yml` batches unreleased changes into a release PR
-3. Merging the release PR triggers `auto-tag.yml`, which creates per-package git tags (e.g., `lattice_core-v1.1.0`)
-4. Tags trigger `publish.yml`, which:
-   - Runs CI tests
-   - Rewrites path dependencies to Hex version ranges (via `replace-path-deps`)
-   - Publishes packages in dependency order
-   - Creates a PR to refresh lockfiles
+1. Developer adds changelog fragments with `just change` / `trellis changelog new`
+2. On merge to main, `release.yml` runs `trellis release pr`, which batches
+   unreleased fragments into per-package version bumps (gleam.toml,
+   CHANGELOG.md, and lockfile patches — zero Hex calls) on the
+   `release/pending` branch and opens/updates the release PR
+3. Merging the release PR triggers `release-publish.yml`, which:
+   - Runs `trellis publish --all-untagged` — for each unpublished version, in
+     dependency order: Hex idempotency check, validation (format/build/test),
+     path-dep rewrite to Hex version ranges computed from the graph, publish
+     with retry/backoff, restore
+   - Runs `trellis tag create --push --github-release` to create per-package
+     tags (e.g., `lattice_core-v1.1.0`) and GitHub Releases
+   - Refreshes `manifest.toml` lockfiles for the published packages and opens
+     a follow-up PR
+
+Publishing is idempotent (already-published versions are skipped), so a
+partially failed release can be retried via the workflow's manual dispatch.
 
 ### Workspace Configuration
 
-`workspace.toml` defines which packages belong to the workspace. All workflows read it via the `read-gleam-workspace` action — no need to hardcode package lists in workflow files.
-
-### Publishing Order
-
-Packages must be published in dependency order so that Hex.pm can resolve dependencies:
-
-1. `lattice_core`, `lattice_counters`, `lattice_sets` (no lattice deps)
-2. `lattice_registers` (depends on `lattice_core`)
-3. `lattice_sequence` (depends on `lattice_core`)
-4. `lattice_text` (depends on `lattice_core`, `lattice_sequence`)
-5. `lattice_maps` (depends on `lattice_core`, `lattice_counters`, `lattice_registers`, `lattice_sets`)
-6. `lattice_crdt` (depends on all above)
+The `[tools.trellis]` table in the root `gleam.toml` defines workspace
+membership (`members` globs) and release config. Nothing else is declared:
+package lists, dependency order, and path-dep rewrite maps are all derived
+from `packages/*/gleam.toml`. `trellis doctor` (run in CI) validates the
+invariants that can't be derived.
 
 ## Troubleshooting
 

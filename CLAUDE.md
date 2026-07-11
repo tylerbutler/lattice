@@ -6,8 +6,13 @@ A Gleam CRDT (Conflict-free Replicated Data Types) library targeting both Erlang
 
 ## Package Structure
 
+The workspace is managed by [trellis](https://github.com/tylerbutler/trellis):
+membership is declared once in the root `gleam.toml` (`[tools.trellis]`
+table); the package list, dependency graph, and release wiring are derived
+from `packages/*/gleam.toml`.
+
 ```
-lattice/                               # git repo root (NOT a Gleam package)
+lattice/                               # git repo root
 ├── packages/
 │   ├── lattice_core/                  # VersionVector, DotContext
 │   ├── lattice_counters/              # GCounter, PNCounter
@@ -15,29 +20,30 @@ lattice/                               # git repo root (NOT a Gleam package)
 │   ├── lattice_registers/             # LWWRegister, MVRegister
 │   ├── lattice_maps/                  # LWWMap, ORMap
 │   ├── lattice_sequence/              # Generic sequence CRDT
+│   ├── lattice_fugue/                 # Fugue tree sequence CRDT
+│   ├── lattice_text_core/             # Shared text primitives
 │   ├── lattice_text/                  # Plain-text CRDT backed by sequence
-│   └── lattice_crdt/                  # Umbrella — depends on all above
-├── examples/                          # Runnable examples
-├── workspace.toml                     # Gleam workspace definition (source of truth)
-├── justfile                           # Orchestrates across all packages
-├── .changie.yaml                      # Project-mode changelog config
+│   ├── lattice_text_fugue/            # Text CRDT backed by fugue
+│   ├── lattice_presence/              # Ephemeral presence
+│   └── lattice_crdt/                  # Umbrella — depends on the above
+├── examples/                          # Runnable examples (member, never published)
+├── gleam.toml                         # Workspace root: [tools.trellis] config
+├── justfile                           # Thin recipes delegating to trellis
+├── .changes/                          # Changelog fragments + version sections
 └── .tool-versions                     # Tool version pinning
 ```
 
 ### Dependency Graph
 
-```
-lattice_core          (no lattice deps)
-lattice_counters      (no lattice deps)
-lattice_sets          (no lattice deps)
-lattice_registers  →  lattice_core
-lattice_maps       →  lattice_core, lattice_counters, lattice_registers, lattice_sets
-lattice_sequence   →  lattice_core
-lattice_text       →  lattice_core, lattice_sequence
-lattice_crdt       →  all of the above (umbrella)
-```
+Derived, never declared — run `trellis list` (topological order),
+`trellis graph` (full graph, `--format mermaid` for docs), or
+`trellis info <package>` (one package's deps and dependents).
 
 ## Just Commands
+
+Recipes are thin delegations to `trellis run <task>`, which fans out over the
+workspace graph-parallel, in dependency order. Extra args pass through (e.g.
+`just test lattice_core`).
 
 ```bash
 just deps              # Download dependencies for all packages
@@ -52,13 +58,14 @@ just check             # Type check all packages
 just lint              # Lint all packages + examples (glinter)
 just lint-pkg <name>   # Lint a single package
 just docs              # Build documentation
-just ci                # Run all CI checks (format, check, test, build)
+just doctor            # Validate workspace invariants
+just ci                # Run all CI checks (doctor, format, check, lint, test, build)
 just pr                # Alias for ci (use before PR)
 just main              # Extended checks for main branch
 just clean             # Remove build artifacts
-just change            # Create changelog entry (interactive project selection)
-just change-pkg <name> # Create changelog entry for a specific package
-just changelog-preview <name>  # Preview unreleased changes for a package
+just change --package <name> --kind <kind> --body "<text>"   # Changelog entry
+just change-pkg <name> --kind <kind> --body "<text>"         # Same, package first
+just changelog-preview # Preview pending version bumps
 ```
 
 ## Architecture
@@ -92,32 +99,40 @@ just test-pkg <name>   # Single package
 
 ## Tool Versions
 
-Managed via `.tool-versions` (source of truth for CI):
-- Erlang 27.2.1
-- Gleam 1.16.0
-- just 1.38.0
+Managed via `.tool-versions` (erlang, gleam, just — exact pins) plus
+`.mise.toml` (node, trellis). CI installs everything with `jdx/mise-action`
+(cached) in `.github/actions/setup`, so local and CI toolchains come from the
+same two files; `mise install` sets up a dev machine.
 
 ## CI/CD
 
 ### Workflows
-- **ci.yml**: Per-package matrix checks via `gleam-workspace-ci.yml` reusable workflow + JavaScript target tests
-- **pr.yml**: PR title validation (commitlint) + changelog entry check (changie-check with workspace projects)
-- **release.yml**: Changie-based release PR automation — reads `workspace.toml` via `read-gleam-workspace`
-- **auto-tag.yml**: Creates per-package tags (e.g., `lattice_core-v1.1.0`) and GitHub Releases on release PR merge
-- **publish.yml**: Publishes to Hex.pm on per-package tags with path→version dependency rewriting, then creates lockfile update PR
+- **ci.yml**: `trellis doctor` + `trellis run format --check / check / lint / test / build --strict / docs` (Erlang + JavaScript targets)
+- **pr.yml**: PR title validation (commitlint) + changelog fragment check (`trellis changelog check`, sticky PR comment, non-blocking)
+- **release.yml**: `trellis release pr` — batches unreleased fragments into per-package version bumps on the `release/pending` branch and opens/updates the release PR
+- **release-publish.yml**: On release-PR merge (or manual dispatch): `trellis publish --all-untagged` → `trellis tag create --push --github-release` → per-package lockfile refresh + follow-up PR
 
-### Release Flow
+### Release Flow (tags-after-publish)
 
 ```
-Developer adds changelog → merge to main → changie-release batches
+Developer adds changelog fragment → merge to main → trellis release pr
 → single release PR with per-package version bumps → merge PR
-→ auto-tag creates per-package tags → publish.yml publishes each to Hex.pm
+→ trellis publishes all unpublished versions to Hex.pm in dependency order
+→ per-package tags (e.g., lattice_core-v1.1.0) + GitHub Releases created
 → lockfile update PR created automatically
 ```
 
+Publishing is idempotent — already-published versions are skipped — so a
+partially failed release is retried by re-dispatching the Publish workflow.
+
 ### Workspace Configuration
 
-`workspace.toml` is the single source of truth for package membership. All workflows read it via the `read-gleam-workspace` action to derive project lists, package paths, and version-file mappings dynamically.
+The `[tools.trellis]` table in the root `gleam.toml` is the single source of
+configured truth: member globs, `ignore-release` (examples), custom tasks
+(lint), publish and changelog settings. Everything derivable — package lists,
+dependency order, path-dep rewrite maps, tag mappings — is computed by
+trellis from the member manifests, and `trellis doctor` verifies the
+invariants in CI.
 
 ## Conventions
 

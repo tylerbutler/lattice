@@ -8,69 +8,84 @@ on:
   workflow_call:
 
 jobs:
-  format:
-    name: Format
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
-    with:
-      cache: true
-      format-check: true
-
-  check:
-    name: Check
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
-    with:
-      cache: true
-      check: true
-
-  lint:
-    name: Lint
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
-    with:
-      cache: true
-      run-deps: true
-      build-strict: false
-      custom-command: gleam run -m glinter
-
-  lint-examples:
-    name: Lint (examples)
+  dependencies:
+    name: Dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run deps --serial
 
-      - name: Setup environment
-        uses: tylerbutler/actions/setup-gleam@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/setup-gleam@main
+  doctor:
+    name: Doctor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
         with:
-          working-directory: examples
+          cache: "false"
+      - run: trellis doctor
 
-      - name: Lint examples (glinter)
-        run: cd examples && gleam run -m glinter
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+      - run: trellis run format --check
+
+  check:
+    name: Check
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run check
+
+  lint:
+    name: Lint
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run lint
 
   build:
     name: Build
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
-    with:
-      cache: true
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run build --strict --target all
 
   test:
     name: Test
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
-    with:
-      cache: true
-      run-deps: true
-      test: true
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run test
 
   test-js:
     name: Test (JavaScript)
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
-    with:
-      cache: true
-      run-deps: true
-      test-js: true
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run test --target javascript
 
   docs:
     name: Docs
-    uses: tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/.github/workflows/gleam-workspace-ci.yml@main
-    with:
-      cache: true
-      build-strict: false
-      docs: true
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: trellis run docs --serial $(trellis list --releasable)

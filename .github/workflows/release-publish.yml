@@ -1,0 +1,104 @@
+name: Publish
+
+# Tags-after-publish flow: when the release PR (branch `release/pending`,
+# created by the Release PR workflow) merges, publish every package whose
+# version isn't on Hex yet — idempotent and in dependency order — then create
+# the per-package tags and GitHub Releases to record what shipped.
+# workflow_dispatch allows re-running a partially failed release safely:
+# already-published versions are skipped.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       github.event.pull_request.head.ref == 'release/pending')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # ratchet:actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Capture the release set before tagging so the lockfile refresh below
+      # knows which packages shipped.
+      - name: Plan release set
+        id: plan
+        run: |
+          trellis tag plan --json > plan.json
+          echo "Release set:"
+          jq -r '.[] | "\(.name) \(.version)"' plan.json
+
+      - name: Publish to Hex.pm
+        env:
+          HEXPM_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+        run: trellis publish --all-untagged
+
+      - name: Create tags and GitHub Releases
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: trellis tag create --push --github-release
+
+      # Refresh manifest.toml lockfiles for the packages that just shipped so
+      # the repo reflects the published versions. Scoped per package: sibling
+      # packages reference each other via path deps, and refreshing the whole
+      # workspace would issue redundant Hex API requests and trip rate limits.
+      - name: Refresh lockfiles
+        continue-on-error: true
+        run: |
+          for pkg in $(jq -r '.[].name' plan.json); do
+            trellis lockfile refresh --package "$pkg"
+          done
+          rm plan.json
+
+      - name: Check for lockfile changes
+        id: changes
+        run: |
+          if git diff --quiet -- '*.toml'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No lockfile changes detected."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Lockfile changes detected:"
+            git diff --stat -- '*.toml'
+          fi
+
+      - name: Create lockfile update PR
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          BRANCH="chore/update-lockfiles-${RUN_ID}"
+          git checkout -b "$BRANCH"
+          git add -A '*.toml'
+          git commit -m "chore: update lockfiles after publish"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "chore: update lockfiles after publish" \
+            --body "Auto-generated PR to refresh \`manifest.toml\` lockfiles after publishing (run ${RUN_ID})." \
+            --base main \
+            --head "$BRANCH"
