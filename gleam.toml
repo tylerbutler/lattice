@@ -1,0 +1,44 @@
+# Workspace root — config-only manifest marking the trellis workspace.
+# Membership, the dependency graph, topological order, and release wiring are
+# all derived from packages/*/gleam.toml by trellis; nothing is listed twice.
+# See https://github.com/tylerbutler/trellis
+
+[tools.trellis]
+members = ["packages/lattice_*", "examples"]
+# examples participates in task fan-out (format/lint/build/test) but is
+# excluded from changelog, versioning, tagging, and publishing.
+ignore-release = ["examples"]
+
+[tools.trellis.tasks.lint]
+command = "gleam run -m glinter"
+needs-deps = true
+
+[tools.trellis.publish]
+tag-format = "{name}-v{version}"
+path-dep-requirement = "caret"
+retry = { attempts = 5, initial-delay = "30s", multiplier = 2 }
+
+[tools.trellis.changelog]
+header-format = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."""
+change-format = "#### {{ body }}"
+# Bump semantics carried over from the retired .changie.yaml: Changed and
+# Removed are patch bumps here, unlike trellis's defaults.
+kinds = [
+  { label = "MajorRelease", bump = "major" },
+  { label = "Breaking", bump = "major" },
+  { label = "Added", bump = "minor" },
+  { label = "Changed", bump = "patch" },
+  { label = "Deprecated", bump = "patch" },
+  { label = "Fixed", bump = "patch" },
+  { label = "Performance", bump = "patch" },
+  { label = "Removed", bump = "patch" },
+  { label = "Reverted", bump = "patch" },
+  { label = "Dependencies", bump = "patch" },
+  { label = "Security", bump = "patch" },
+]

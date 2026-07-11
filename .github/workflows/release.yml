@@ -1,4 +1,4 @@
-name: Changie Release
+name: Release PR
 
 on:
   push:
@@ -20,65 +20,19 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Read workspace
-        id: ws
-        uses: tylerbutler/actions/read-gleam-workspace@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/read-gleam-workspace@main
+      - name: Install trellis
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tylerbutler/trellis/releases/download/v0.1.0/trellis-installer.sh | sh
 
-      - name: Setup environment
-        uses: ./.github/actions/setup
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - uses: tylerbutler/actions/changie-release@c3de10f5c576265f4910698528d949179081f25b # ratchet:tylerbutler/actions/changie-release@main
-        id: release
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          pr-title-template: 'chore(release): {version}'
-          projects: ${{ steps.ws.outputs.projects }}
-          version-files: |
-            ${{ steps.ws.outputs.version-files }}
-          post-batch-command: |
-            echo "Refreshing lockfiles after version bumps..."
-
-            # Patch the locked version of each bumped local package directly in every
-            # manifest.toml that references it, instead of running `gleam update`.
-            # `gleam update` re-resolves the *entire* dependency graph against Hex even
-            # for a purely local path-dependency bump, and one such call per package
-            # reliably trips Hex's per-IP rate limit on shared GitHub runners once a
-            # release batches more than a couple of packages. A local path package's
-            # "version" in manifest.toml is just recorded metadata — writing it
-            # directly produces the exact same result with zero network calls, so this
-            # scales to any batch size.
-            changed_projects=$(git diff --name-only -- 'packages/*/gleam.toml' \
-              | sed -E 's#^packages/(lattice_[a-z_]+)/gleam\.toml$#\1#')
-            echo "Bumped projects: $(echo "$changed_projects" | tr '\n' ' ')"
-
-            for dep in $changed_projects; do
-              new_version=$(grep -m1 '^version = ' "packages/$dep/gleam.toml" | cut -d'"' -f2)
-              for manifest in packages/*/manifest.toml examples/manifest.toml; do
-                [ -f "$manifest" ] || continue
-                grep -q "{ name = \"$dep\", version = " "$manifest" || continue
-                sed -i -E "s/(\{ name = \"$dep\", version = \")[^\"]*(\")/\1${new_version}\2/" "$manifest"
-                echo "Updated $manifest: $dep -> $new_version"
-              done
-            done
-
-      - name: Summary
-        if: steps.release.outputs.skipped != 'true'
+      # Batches unreleased changelog fragments into per-package version bumps
+      # (gleam.toml + CHANGELOG.md + lockfile patches, zero Hex calls), pushes
+      # the release/pending branch, and creates or updates the release PR.
+      # A no-op when there are no unreleased fragments.
+      - name: Create or update release PR
         env:
-          VERSION: ${{ steps.release.outputs.version }}
-          PR_URL: ${{ steps.release.outputs.pr-url }}
-          PR_OP: ${{ steps.release.outputs.pr-operation }}
-          BATCHED: ${{ steps.release.outputs.batched-projects }}
-        run: |
-          echo "### Release PR Created" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Versions:** $VERSION" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Batched projects:** $BATCHED" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **PR:** $PR_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Operation:** $PR_OP" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Skipped
-        if: steps.release.outputs.skipped == 'true'
-        run: |
-          echo "### Release Skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "No unreleased change fragments found." >> "$GITHUB_STEP_SUMMARY"
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: trellis release pr --base main

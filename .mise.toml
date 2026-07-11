@@ -1,8 +1,8 @@
 [tools]
-changie = "latest"
 erlang = "27"
 gleam = "latest"
 just = "latest"
+"github:tylerbutler/trellis" = "0.1.0"
 
 [env]
 LC_ALL = "en_US.UTF-8"

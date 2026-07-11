@@ -29,3 +29,8 @@ runs:
         # adds, removes, or changes a dependency.
         key: gleam-${{ runner.os }}-${{ hashFiles('packages/*/gleam.toml', 'packages/*/manifest.toml') }}
         restore-keys: gleam-${{ runner.os }}-
+
+    - name: Install trellis
+      shell: bash
+      # Pinned release; the cargo-dist installer adds the binary to GITHUB_PATH.
+      run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/tylerbutler/trellis/releases/download/v0.1.0/trellis-installer.sh | sh
