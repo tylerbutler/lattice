@@ -5,9 +5,8 @@
 
 [tools.trellis]
 members = ["packages/lattice_*", "examples"]
-# examples participates in task fan-out (format/lint/build/test) but is
-# excluded from changelog, versioning, tagging, and publishing.
-ignore-release = ["examples"]
+# examples participates in format/lint/build/test, but not docs or releases.
+exclude = { docs = ["examples"], release = ["examples"] }
 
 [tools.trellis.tasks.lint]
 command = "gleam run -m glinter"

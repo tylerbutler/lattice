@@ -98,7 +98,7 @@ doctor:
 
 # Build documentation for published packages without bursting the Hex API
 docs:
-    trellis run docs --serial $(trellis list --releasable)
+    trellis run docs --serial
 
 # === CHANGELOG ===
 

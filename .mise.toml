@@ -2,8 +2,8 @@
 # read by trellis doctor). This file adds the tools .tool-versions can't
 # express: backend-prefixed installs and env.
 [tools]
-node = "22"
-"github:tylerbutler/trellis" = "0.1.0"
+node = "24"
+"github:tylerbutler/trellis" = "0.2.0"
 
 [env]
 LC_ALL = "en_US.UTF-8"
