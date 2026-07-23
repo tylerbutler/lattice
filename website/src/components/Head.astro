@@ -1,6 +1,38 @@
 ---
 import Default from "@astrojs/starlight/components/Head.astro";
+import atkinsonRegular from "@fontsource/atkinson-hyperlegible/files/atkinson-hyperlegible-latin-400-normal.woff2?url";
+import atkinsonBold from "@fontsource/atkinson-hyperlegible/files/atkinson-hyperlegible-latin-700-normal.woff2?url";
+import bricolageSemibold from "@fontsource/bricolage-grotesque/files/bricolage-grotesque-latin-600-normal.woff2?url";
+import bricolageBold from "@fontsource/bricolage-grotesque/files/bricolage-grotesque-latin-700-normal.woff2?url";
 import { Script } from "astro-tinylytics";
 ---
+<link
+	rel="preload"
+	href={atkinsonRegular}
+	as="font"
+	type="font/woff2"
+	crossorigin="anonymous"
+/>
+<link
+	rel="preload"
+	href={atkinsonBold}
+	as="font"
+	type="font/woff2"
+	crossorigin="anonymous"
+/>
+<link
+	rel="preload"
+	href={bricolageSemibold}
+	as="font"
+	type="font/woff2"
+	crossorigin="anonymous"
+/>
+<link
+	rel="preload"
+	href={bricolageBold}
+	as="font"
+	type="font/woff2"
+	crossorigin="anonymous"
+/>
 <Default><slot /></Default>
 <Script embedCode="Paa4zWGQsDwpbtea8HP3" min hits events beacon />

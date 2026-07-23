@@ -9,9 +9,7 @@ import DefaultMobileTableOfContents from "@astrojs/starlight/components/MobileTa
 <style>
 	.mobile-reading-path :global(nav) {
 		border-block: 1px solid var(--lattice-rule);
-		background:
-			linear-gradient(90deg, color-mix(in oklab, var(--sl-color-accent-low), transparent 24%), transparent),
-			var(--lattice-panel);
+		background: var(--lattice-panel);
 	}
 
 	.mobile-reading-path :global(summary) {
@@ -19,10 +17,10 @@ import DefaultMobileTableOfContents from "@astrojs/starlight/components/MobileTa
 	}
 
 	.mobile-reading-path :global(.toggle) {
-		border-color: color-mix(in oklab, var(--sl-color-accent), transparent 52%);
+		border-color: var(--lattice-rule);
 		border-radius: 999rem;
 		background: var(--lattice-panel-raised);
-		color: var(--sl-color-accent-high);
+		color: var(--sl-color-gray-1);
 		font-family: var(--sl-font-headings);
 		font-size: 0;
 		font-weight: 700;

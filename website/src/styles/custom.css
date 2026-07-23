@@ -4,19 +4,19 @@
 	--sl-color-accent: #f54780;
 	--sl-color-accent-high: #f9b0cb;
 	--sl-color-white: #ffffff;
-	--sl-color-gray-1: #ffe7ee;
-	--sl-color-gray-2: #f5a8c0;
-	--sl-color-gray-3: #e8729a;
-	--sl-color-gray-4: #a8345e;
-	--sl-color-gray-5: #6e1f3d;
-	--sl-color-gray-6: #4d1029;
-	--sl-color-black: #2a0818;
-	--lattice-page-bg: #2a0818;
-	--lattice-page-veil: color-mix(in oklab, var(--sl-color-accent-low), transparent 58%);
-	--lattice-panel: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 18%);
-	--lattice-panel-raised: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 34%);
-	--lattice-rule: color-mix(in oklab, var(--sl-color-gray-5), transparent 28%);
-	--lattice-rule-quiet: color-mix(in oklab, var(--sl-color-gray-5), transparent 52%);
+	--sl-color-gray-1: #f6edf0;
+	--sl-color-gray-2: #ddced4;
+	--sl-color-gray-3: #b7a3ab;
+	--sl-color-gray-4: #89747d;
+	--sl-color-gray-5: #5c4851;
+	--sl-color-gray-6: #3a2931;
+	--sl-color-black: #21161b;
+	--lattice-page-bg: #21161b;
+	--lattice-page-veil: #291a21;
+	--lattice-panel: #261a20;
+	--lattice-panel-raised: #302229;
+	--lattice-rule: #5a4650;
+	--lattice-rule-quiet: #3e2d35;
 	--lattice-text-muted: var(--sl-color-gray-2);
 	--lattice-focus: color-mix(in oklab, var(--sl-color-accent), white 12%);
 }
@@ -25,43 +25,31 @@
 	--sl-color-accent-low: #fce0ea;
 	--sl-color-accent: #c72e62;
 	--sl-color-accent-high: #5e1a33;
-	--sl-color-white: #2a0818;
-	--sl-color-gray-1: #4d1029;
-	--sl-color-gray-2: #6e1f3d;
-	--sl-color-gray-3: #a8345e;
-	--sl-color-gray-4: #e05a8a;
-	--sl-color-gray-5: #f5a8c0;
-	--sl-color-gray-6: #ffe7ee;
-	--sl-color-gray-7: #fff3f7;
-	--sl-color-black: #ffffff;
-	--lattice-page-bg: #fff7fa;
-	--lattice-page-veil: color-mix(in oklab, var(--sl-color-accent-low), white 34%);
-	--lattice-panel: #ffffff;
-	--lattice-panel-raised: color-mix(in oklab, white, var(--sl-color-accent-low) 34%);
-	--lattice-rule: color-mix(in oklab, var(--sl-color-gray-5), var(--sl-color-gray-3) 12%);
-	--lattice-rule-quiet: color-mix(in oklab, var(--sl-color-gray-5), transparent 16%);
-	--lattice-text-muted: color-mix(in oklab, var(--sl-color-gray-2), var(--sl-color-gray-1) 20%);
+	--sl-color-white: #281a20;
+	--sl-color-gray-1: #3b2d33;
+	--sl-color-gray-2: #62525a;
+	--sl-color-gray-3: #76636b;
+	--sl-color-gray-4: #b5a5ab;
+	--sl-color-gray-5: #d7ccd0;
+	--sl-color-gray-6: #eee8ea;
+	--sl-color-gray-7: #faf7f8;
+	--sl-color-black: #fffdfd;
+	--lattice-page-bg: #faf7f8;
+	--lattice-page-veil: #f4eef0;
+	--lattice-panel: #fffdfd;
+	--lattice-panel-raised: #f6f1f3;
+	--lattice-rule: #d2c5ca;
+	--lattice-rule-quiet: #e7dfe2;
+	--lattice-text-muted: var(--sl-color-gray-2);
 	--lattice-focus: var(--sl-color-accent);
 }
 
 body {
-	background:
-		radial-gradient(circle at 82% 4rem, color-mix(in oklab, var(--sl-color-accent), transparent 84%), transparent 18rem),
-		linear-gradient(180deg, var(--lattice-page-veil), transparent 22rem),
-		var(--lattice-page-bg);
+	background: linear-gradient(180deg, var(--lattice-page-veil), transparent 20rem), var(--lattice-page-bg);
 }
 
 body::before {
-	content: "";
-	position: fixed;
-	inset: 0;
-	z-index: -1;
-	background-image:
-		linear-gradient(var(--lattice-rule-quiet) 1px, transparent 1px),
-		linear-gradient(90deg, var(--lattice-rule-quiet) 1px, transparent 1px);
-	background-size: 2.75rem 2.75rem;
-	mask-image: linear-gradient(180deg, black, transparent 44rem);
-	pointer-events: none;
+	content: none;
 }
 
 :where(.header) {
@@ -82,9 +70,7 @@ body::before {
 
 :where(.sidebar-pane) {
 	border-inline-end: 1px solid var(--lattice-rule);
-	background:
-		linear-gradient(180deg, color-mix(in oklab, var(--lattice-panel-raised), transparent 12%), transparent 22rem),
-		var(--lattice-panel);
+	background: var(--lattice-panel);
 }
 
 :where(.right-sidebar) {
@@ -99,7 +85,7 @@ body::before {
 }
 
 :where(.sidebar-content a:hover, .right-sidebar a:hover) {
-	background: color-mix(in oklab, var(--sl-color-accent-low), transparent 38%);
+	background: var(--lattice-panel-raised);
 	color: var(--sl-color-white);
 }
 
@@ -112,9 +98,7 @@ body::before {
 
 :where(.content-panel) {
 	border-inline: 1px solid var(--lattice-rule);
-	background:
-		radial-gradient(circle at 100% 0, color-mix(in oklab, var(--sl-color-accent), transparent 91%), transparent 18rem),
-		var(--lattice-panel);
+	background: var(--lattice-panel);
 }
 
 :where(.main-pane) {
@@ -136,12 +120,20 @@ body::before {
 }
 
 :where(.sl-markdown-content h2) {
+	position: relative;
 	margin-top: clamp(2.75rem, 7vw, 4.5rem);
-	padding-top: 0.8rem;
-	border-top: 1px solid var(--lattice-rule);
+	padding-top: 1.15rem;
 	font-size: clamp(1.65rem, 3.4vw, 2.75rem);
-	line-height: 1.03;
+	line-height: 1.1;
 	letter-spacing: -0.03em;
+	overflow-wrap: anywhere;
+}
+
+:where(.sl-markdown-content h2)::before {
+	content: "";
+	position: absolute;
+	inset: 0 0 auto;
+	border-top: 1px solid var(--lattice-rule);
 }
 
 :where(.sl-markdown-content h3) {
@@ -170,10 +162,10 @@ body::before {
 }
 
 :where(.sl-markdown-content code:not(pre code)) {
-	border: 1px solid color-mix(in oklab, var(--sl-color-accent), transparent 70%);
+	border: 1px solid var(--lattice-rule);
 	border-radius: 0.42rem;
-	background: color-mix(in oklab, var(--sl-color-accent-low), transparent 22%);
-	color: var(--sl-color-accent-high);
+	background: var(--lattice-panel-raised);
+	color: var(--sl-color-gray-1);
 	font-size: 0.88em;
 }
 
@@ -181,12 +173,16 @@ body::before {
 	margin-block: 1.4rem;
 	border: 1px solid var(--lattice-rule);
 	border-radius: 1rem;
-	background: color-mix(in oklab, var(--sl-color-black), var(--sl-color-accent-low) 20%);
+	background: var(--lattice-panel-raised);
 	overflow: hidden;
 }
 
 :where(.expressive-code .frame) {
 	box-shadow: none;
+}
+
+.code-scroll-hint {
+	display: none;
 }
 
 :where(.sl-markdown-content table) {
@@ -200,8 +196,20 @@ body::before {
 	overflow: hidden;
 }
 
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
 :where(.sl-markdown-content th) {
-	background: color-mix(in oklab, var(--sl-color-accent-low), transparent 18%);
+	background: var(--lattice-panel-raised);
 	color: var(--sl-color-gray-1);
 	font-family: var(--sl-font-headings);
 	letter-spacing: -0.01em;
@@ -212,11 +220,9 @@ body::before {
 }
 
 :where(.starlight-aside) {
-	border: 1px solid color-mix(in oklab, var(--sl-color-accent), transparent 54%);
+	border: 1px solid var(--lattice-rule);
 	border-radius: 1rem;
-	background:
-		radial-gradient(circle at 100% 0, color-mix(in oklab, var(--sl-color-accent), transparent 84%), transparent 14rem),
-		color-mix(in oklab, var(--sl-color-accent-low), var(--lattice-panel) 72%);
+	background: var(--lattice-panel-raised);
 	box-shadow: none;
 }
 
@@ -242,7 +248,7 @@ body::before {
 	transform: translateY(-2px);
 }
 
-:where(a, button, summary, [tabindex]):focus-visible {
+:where(a, button, select, summary, [tabindex]):focus-visible {
 	outline: 3px solid var(--lattice-focus);
 	outline-offset: 3px;
 }
@@ -252,6 +258,36 @@ body::before {
 		border-inline: 0;
 	}
 
+	:where(.mermaid) {
+		max-width: 100%;
+		padding-block-end: 0.75rem;
+		justify-content: flex-start !important;
+		overflow-x: auto;
+		overscroll-behavior-inline: contain;
+		scrollbar-color: var(--sl-color-gray-4) var(--lattice-panel-raised);
+		scrollbar-width: auto;
+	}
+
+	:where(.sl-markdown-content .mermaid) > svg {
+		width: 42rem !important;
+		min-width: 42rem;
+		max-width: none !important;
+	}
+
+	:where(.expressive-code pre) {
+		overflow-x: auto;
+		scrollbar-color: var(--sl-color-gray-4) var(--lattice-panel-raised);
+		scrollbar-width: auto;
+	}
+}
+
+@media (max-width: 30rem) {
+	.code-scroll-hint {
+		display: block;
+		margin-block: -0.25rem 0.75rem;
+		color: var(--lattice-text-muted);
+		font-size: 0.9rem;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {

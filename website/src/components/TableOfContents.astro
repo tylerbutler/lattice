@@ -23,9 +23,7 @@ const itemCount = toc?.items.length ?? 0;
 		padding: 0.85rem;
 		border: 1px solid var(--lattice-rule);
 		border-radius: 1rem;
-		background:
-			radial-gradient(circle at 100% 0, color-mix(in oklab, var(--sl-color-accent), transparent 88%), transparent 9rem),
-			var(--lattice-panel-raised);
+		background: var(--lattice-panel-raised);
 	}
 
 	.reading-path__label,
@@ -34,7 +32,7 @@ const itemCount = toc?.items.length ?? 0;
 	}
 
 	.reading-path__label {
-		color: var(--sl-color-accent-high);
+		color: var(--sl-color-gray-1);
 		font-family: var(--sl-font-headings);
 		font-size: 0.96rem;
 		font-weight: 700;
@@ -82,7 +80,7 @@ const itemCount = toc?.items.length ?? 0;
 	}
 
 	.reading-path :global(a:hover) {
-		background: color-mix(in oklab, var(--sl-color-accent-low), transparent 36%);
+		background: var(--lattice-panel);
 		color: var(--sl-color-white);
 	}
 
