@@ -1,0 +1,442 @@
+---
+type PackageContent =
+	| { kind: "text"; value: string }
+	| { kind: "code"; value: string };
+
+interface Package {
+	name: string;
+	provides: PackageContent[];
+	releaseStatus?: "unreleased";
+}
+
+const packages: Package[] = [
+	{
+		name: "lattice_crdt",
+		provides: [
+			{
+				kind: "text",
+				value:
+					"Umbrella for core, counters, registers, sets, maps, sequence, and text",
+			},
+		],
+	},
+	{
+		name: "lattice_core",
+		provides: [
+			{ kind: "code", value: "ReplicaId" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "VersionVector" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "DotContext" },
+			{ kind: "text", value: " — shared causal infrastructure" },
+		],
+	},
+	{
+		name: "lattice_counters",
+		provides: [
+			{ kind: "code", value: "GCounter" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "PNCounter" },
+		],
+	},
+	{
+		name: "lattice_registers",
+		provides: [
+			{ kind: "code", value: "LWWRegister" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "MVRegister" },
+		],
+	},
+	{
+		name: "lattice_sets",
+		provides: [
+			{ kind: "code", value: "GSet" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "TwoPSet" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "ORSet" },
+		],
+	},
+	{
+		name: "lattice_maps",
+		provides: [
+			{ kind: "code", value: "LWWMap" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "ORMap" },
+			{ kind: "text", value: ", " },
+			{ kind: "code", value: "Crdt" },
+			{ kind: "text", value: " dispatch" },
+		],
+	},
+	{
+		name: "lattice_sequence",
+		provides: [
+			{
+				kind: "text",
+				value: "Generic ordered-list CRDT with move support",
+			},
+		],
+	},
+	{
+		name: "lattice_fugue",
+		releaseStatus: "unreleased",
+		provides: [
+			{
+				kind: "text",
+				value: "Non-interleaving sequence CRDT implementing Fugue",
+			},
+		],
+	},
+	{
+		name: "lattice_text_core",
+		provides: [
+			{
+				kind: "text",
+				value: "Shared grapheme and range helpers for text CRDTs",
+			},
+		],
+	},
+	{
+		name: "lattice_text",
+		provides: [
+			{ kind: "text", value: "Plain-text CRDT backed by " },
+			{ kind: "code", value: "lattice_sequence" },
+		],
+	},
+	{
+		name: "lattice_text_fugue",
+		releaseStatus: "unreleased",
+		provides: [
+			{ kind: "text", value: "Non-interleaving text CRDT backed by " },
+			{ kind: "code", value: "lattice_fugue" },
+		],
+	},
+	{
+		name: "lattice_presence",
+		provides: [
+			{
+				kind: "text",
+				value: "Distributed presence CRDT with topic/key/pid/meta tracking",
+			},
+		],
+	},
+];
+
+const hexUrl = (name: string) => `https://hex.pm/packages/${name}`;
+const docsUrl = (name: string) => `https://hexdocs.pm/${name}/`;
+const badgeUrl = (name: string) => `https://img.shields.io/hexpm/v/${name}`;
+---
+
+<div class="package-catalog">
+	<table class="package-table">
+		<caption class="visually-hidden">lattice packages, versions, documentation, and contents</caption>
+		<thead>
+			<tr>
+				<th scope="col">Package</th>
+				<th scope="col">Version</th>
+				<th scope="col">Docs</th>
+				<th scope="col">What it provides</th>
+			</tr>
+		</thead>
+		<tbody>
+			{
+				packages.map((pkg) => {
+					const isReleased = pkg.releaseStatus !== "unreleased";
+					return (
+						<tr>
+							<th scope="row">
+								<code>{pkg.name}</code>
+							</th>
+							<td>
+								{isReleased ? (
+									<a
+										href={hexUrl(pkg.name)}
+										aria-label={`${pkg.name} on Hex`}
+									>
+										<img
+											src={badgeUrl(pkg.name)}
+											alt=""
+											width="76"
+											height="20"
+											decoding="async"
+										/>
+										<span>on Hex</span>
+									</a>
+								) : (
+									<span
+										class="package-status"
+										aria-label={`${pkg.name} version status: unreleased`}
+									>
+										Unreleased
+									</span>
+								)}
+							</td>
+							<td>
+								{isReleased ? (
+									<a
+										href={docsUrl(pkg.name)}
+										aria-label={`${pkg.name} API docs`}
+									>
+										API docs
+									</a>
+								) : (
+									<span class="package-unavailable">Not published yet</span>
+								)}
+							</td>
+							<td>
+								{pkg.provides.map((part) =>
+									part.kind === "code" ? (
+										<code>{part.value}</code>
+									) : (
+										part.value
+									),
+								)}
+							</td>
+						</tr>
+					);
+				})
+			}
+		</tbody>
+	</table>
+
+	<ul class="package-list" aria-label="lattice packages">
+		{
+			packages.map((pkg) => {
+				const isReleased = pkg.releaseStatus !== "unreleased";
+				const labelId = `package-${pkg.name}`;
+				return (
+					<li class="package-card">
+						<article aria-labelledby={labelId}>
+							<div class="package-name" id={labelId}>
+								<code>{pkg.name}</code>
+							</div>
+							<dl class="package-details">
+								<div class="package-detail">
+									<dt>Version</dt>
+									<dd>
+										{isReleased ? (
+											<a href={hexUrl(pkg.name)}>
+												<img
+													src={badgeUrl(pkg.name)}
+													alt=""
+													width="76"
+													height="20"
+													decoding="async"
+												/>
+												<span>
+													View <code>{pkg.name}</code> on Hex
+												</span>
+											</a>
+										) : (
+											<span
+												class="package-status"
+												aria-label={`${pkg.name} version status: unreleased`}
+											>
+												Unreleased
+											</span>
+										)}
+									</dd>
+								</div>
+								<div class="package-detail">
+									<dt>Docs</dt>
+									<dd>
+										{isReleased ? (
+											<a href={docsUrl(pkg.name)}>
+												Read <code>{pkg.name}</code> API docs
+											</a>
+										) : (
+											<span class="package-unavailable">
+												Available after the first release
+											</span>
+										)}
+									</dd>
+								</div>
+								<div class="package-detail">
+									<dt>Provides</dt>
+									<dd class="package-provides">
+										{pkg.provides.map((part) =>
+											part.kind === "code" ? (
+												<code>{part.value}</code>
+											) : (
+												part.value
+											),
+										)}
+									</dd>
+								</div>
+							</dl>
+						</article>
+					</li>
+				);
+			})
+		}
+	</ul>
+</div>
+
+<style>
+	.package-catalog {
+		container-type: inline-size;
+		max-width: none;
+	}
+
+	.package-table {
+		display: none;
+	}
+
+	.package-list {
+		display: grid;
+		max-width: none;
+		margin-block: 1.5rem;
+		padding: 0;
+		gap: 0.85rem;
+		list-style: none;
+	}
+
+	.package-card {
+		padding: 0.45rem 1rem;
+		border: 1px solid var(--lattice-rule);
+		border-radius: 0.9rem;
+		background: var(--lattice-panel-raised);
+	}
+
+	.package-name {
+		padding-block: 0.75rem;
+		color: var(--sl-color-gray-1);
+		font-family: var(--sl-font-headings);
+		font-weight: 600;
+	}
+
+	.package-name code {
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.package-details {
+		margin: 0;
+	}
+
+	.package-detail {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		border-top: 1px solid var(--lattice-rule-quiet);
+	}
+
+	.package-detail dt {
+		padding-block: 0.7rem 0.1rem;
+		color: var(--sl-color-gray-3);
+		font-size: 0.82rem;
+		font-weight: 700;
+		line-height: 1.4;
+	}
+
+	.package-detail dd {
+		min-width: 0;
+		margin: 0;
+	}
+
+	.package-detail a {
+		display: block;
+		width: 100%;
+		max-width: 100%;
+		min-height: 44px;
+		padding-block: 0.55rem;
+		overflow-wrap: anywhere;
+	}
+
+	.package-detail img {
+		display: inline-block;
+		width: auto;
+		max-width: 5.5rem;
+		margin-inline-end: 0.35rem;
+		vertical-align: middle;
+	}
+
+	.package-detail a code {
+		white-space: normal;
+	}
+
+	.package-provides {
+		padding-block: 0.45rem 0.8rem;
+		overflow-wrap: anywhere;
+	}
+
+	.package-status,
+	.package-unavailable {
+		display: block;
+		padding-block: 0.65rem;
+		line-height: 1.35;
+		overflow-wrap: anywhere;
+	}
+
+	.package-status {
+		color: var(--sl-color-gray-1);
+		font-weight: 700;
+	}
+
+	.package-unavailable {
+		color: var(--lattice-text-muted);
+		font-size: 0.9rem;
+	}
+
+	@media (min-width: 24rem) {
+		.package-detail {
+			grid-template-columns: 4.75rem minmax(0, 1fr);
+			column-gap: 0.75rem;
+		}
+
+		.package-detail dt {
+			padding-block: 0.8rem;
+		}
+
+		.package-provides {
+			padding-block: 0.8rem;
+		}
+	}
+
+	@container (min-width: 42rem) {
+		.package-list {
+			display: none;
+		}
+
+		.package-table {
+			display: table;
+			table-layout: fixed;
+		}
+
+		.package-table th:nth-child(1) {
+			width: 28%;
+		}
+
+		.package-table th:nth-child(2) {
+			width: 19%;
+		}
+
+		.package-table th:nth-child(3) {
+			width: 17%;
+		}
+
+		.package-table th:nth-child(4) {
+			width: 36%;
+		}
+
+		.package-table th,
+		.package-table td,
+		.package-table a {
+			overflow-wrap: anywhere;
+		}
+
+		.package-table a {
+			white-space: normal;
+		}
+
+		.package-table th[scope="row"] code {
+			white-space: normal;
+			overflow-wrap: anywhere;
+		}
+
+		.package-table .package-status,
+		.package-table .package-unavailable {
+			display: inline;
+			padding: 0;
+		}
+	}
+</style>
