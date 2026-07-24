@@ -65,19 +65,22 @@ pub fn new() -> VersionVector {
 ///
 /// Returns a new version vector with `replica_id`'s clock increased by one.
 /// This is the standard way to record a new event at `replica_id`.
-pub fn increment(vv: VersionVector, replica_id: ReplicaId) -> VersionVector {
-  let VersionVector(dict) = vv
-  let current = result.unwrap(dict.get(dict, replica_id), 0)
-  VersionVector(dict.insert(dict, replica_id, current + 1))
+pub fn increment(
+  vector: VersionVector,
+  replica_id: ReplicaId,
+) -> VersionVector {
+  let VersionVector(clocks) = vector
+  let current = result.unwrap(dict.get(clocks, replica_id), 0)
+  VersionVector(dict.insert(clocks, replica_id, current + 1))
 }
 
 /// Get the clock value for a specific replica.
 ///
 /// Returns `0` if `replica_id` has not been seen (missing entries default
 /// to zero, consistent with the version vector semantics).
-pub fn get(vv: VersionVector, replica_id: ReplicaId) -> Int {
-  let VersionVector(dict) = vv
-  result.unwrap(dict.get(dict, replica_id), 0)
+pub fn get(vector: VersionVector, replica_id: ReplicaId) -> Int {
+  let VersionVector(clocks) = vector
+  result.unwrap(dict.get(clocks, replica_id), 0)
 }
 
 /// Compare two version vectors and return their causal ordering.
@@ -86,25 +89,25 @@ pub fn get(vv: VersionVector, replica_id: ReplicaId) -> Int {
 /// by `b`, `After` if `a` strictly dominates `b`, or `Concurrent` if neither
 /// dominates the other.
 pub fn compare(a: VersionVector, b: VersionVector) -> Order {
-  let VersionVector(da) = a
-  let VersionVector(db) = b
+  let VersionVector(a_clocks) = a
+  let VersionVector(b_clocks) = b
 
   // Pass 1: Check keys in A against B
   let #(greater, less) =
-    dict.fold(da, #(False, False), fn(acc, k, v_a) {
-      let #(g, l) = acc
-      let v_b = result.unwrap(dict.get(db, k), 0)
-      #(g || v_a > v_b, l || v_a < v_b)
+    dict.fold(a_clocks, #(False, False), fn(acc, key, a_clock) {
+      let #(greater, less) = acc
+      let b_clock = result.unwrap(dict.get(b_clocks, key), 0)
+      #(greater || a_clock > b_clock, less || a_clock < b_clock)
     })
 
-  // Pass 2: Check keys in B that are NOT in A
-  // If k is in B but not A, then v_b > 0 (implicitly v_a=0), so A < B => less=True
+  // Pass 2: Check keys in B that are NOT in A. If a key is in B but not A,
+  // then its B clock is > 0 (implicitly 0 in A), so A < B => less=True
   let #(greater, less) =
-    dict.fold(db, #(greater, less), fn(acc, k, _v_b) {
-      let #(g, _) = acc
-      case dict.has_key(da, k) {
+    dict.fold(b_clocks, #(greater, less), fn(acc, key, _b_clock) {
+      let #(greater, _) = acc
+      case dict.has_key(a_clocks, key) {
         True -> acc
-        False -> #(g, True)
+        False -> #(greater, True)
       }
     })
 
@@ -129,9 +132,9 @@ pub fn dominates(a: VersionVector, b: VersionVector) -> Bool {
 }
 
 /// Check whether a version vector is empty (has no clock entries).
-pub fn is_empty(vv: VersionVector) -> Bool {
-  let VersionVector(d) = vv
-  dict.is_empty(d)
+pub fn is_empty(vector: VersionVector) -> Bool {
+  let VersionVector(clocks) = vector
+  dict.is_empty(clocks)
 }
 
 /// Set the clock for a replica to the maximum of the current value and `value`.
@@ -143,10 +146,10 @@ pub fn set_max(
   replica_id replica_id: ReplicaId,
   value value: Int,
 ) -> VersionVector {
-  let VersionVector(d) = vv
-  let current = result.unwrap(dict.get(d, replica_id), 0)
+  let VersionVector(clocks) = vv
+  let current = result.unwrap(dict.get(clocks, replica_id), 0)
   case value > current {
-    True -> VersionVector(dict.insert(d, replica_id, value))
+    True -> VersionVector(dict.insert(clocks, replica_id, value))
     False -> vv
   }
 }
@@ -156,14 +159,14 @@ pub fn set_max(
 /// For each replica, the merged clock is the maximum of the two inputs.
 /// This operation is commutative, associative, and idempotent.
 pub fn merge(a: VersionVector, b: VersionVector) -> VersionVector {
-  let VersionVector(da) = a
-  let VersionVector(db) = b
+  let VersionVector(a_clocks) = a
+  let VersionVector(b_clocks) = b
 
   let merged =
-    dict.fold(db, da, fn(acc, k, v_b) {
-      case dict.get(acc, k) {
-        Ok(v_a) -> dict.insert(acc, k, int.max(v_a, v_b))
-        Error(Nil) -> dict.insert(acc, k, v_b)
+    dict.fold(b_clocks, a_clocks, fn(acc, key, b_clock) {
+      case dict.get(acc, key) {
+        Ok(a_clock) -> dict.insert(acc, key, int.max(a_clock, b_clock))
+        Error(Nil) -> dict.insert(acc, key, b_clock)
       }
     })
 
@@ -176,15 +179,18 @@ pub fn merge(a: VersionVector, b: VersionVector) -> VersionVector {
 /// Format: `{"type": "version_vector", "v": 1, "state": {"clocks": {...}}}`
 ///
 /// Use `from_json` to decode the result back into a `VersionVector`.
-pub fn to_json(vv: VersionVector) -> json.Json {
-  let VersionVector(d) = vv
+pub fn to_json(vector: VersionVector) -> json.Json {
+  let VersionVector(clocks) = vector
   json.object([
     #("type", json.string("version_vector")),
     #("v", json.int(1)),
     #(
       "state",
       json.object([
-        #("clocks", json.dict(d, fn(k) { replica_id.to_string(k) }, json.int)),
+        #(
+          "clocks",
+          json.dict(clocks, fn(key) { replica_id.to_string(key) }, json.int),
+        ),
       ]),
     ),
   ])
@@ -255,9 +261,9 @@ pub fn decoder() -> decode.Decoder(VersionVector) {
 /// Useful for serialization or when you need direct access to the raw clock
 /// data. Prefer the higher-level API (`get`, `compare`, `merge`) for most
 /// use cases.
-pub fn to_dict(vv: VersionVector) -> dict.Dict(ReplicaId, Int) {
-  let VersionVector(d) = vv
-  d
+pub fn to_dict(vector: VersionVector) -> dict.Dict(ReplicaId, Int) {
+  let VersionVector(clocks) = vector
+  clocks
 }
 
 /// Construct a VersionVector from a raw clock dictionary.
@@ -266,6 +272,6 @@ pub fn to_dict(vv: VersionVector) -> dict.Dict(ReplicaId, Int) {
 /// to clock values. Useful for deserialization or constructing a version
 /// vector from external data. Prefer `new` and `increment` for most use
 /// cases.
-pub fn from_dict(d: dict.Dict(ReplicaId, Int)) -> VersionVector {
-  VersionVector(d)
+pub fn from_dict(clocks: dict.Dict(ReplicaId, Int)) -> VersionVector {
+  VersionVector(clocks)
 }

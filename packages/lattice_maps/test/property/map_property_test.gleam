@@ -1,3 +1,4 @@
+import gleam/json
 import gleam/set
 import lattice_core/replica_id
 import lattice_counters/g_counter
@@ -311,7 +312,7 @@ pub fn or_map_delta_json_round_trip__test() {
     let s0 = or_map.new(rid("A"), crdt.GCounterSpec)
     let assert Ok(#(_, delta)) =
       or_map.update_with_delta(s0, "k", inc_with_delta(n))
-    let encoded = or_map.delta_to_json(delta) |> gleam_json_to_string
+    let encoded = or_map.delta_to_json(delta) |> json.to_string
     let assert Ok(decoded) = or_map.delta_from_json(encoded)
     let fresh = or_map.new(rid("B"), crdt.GCounterSpec)
     let assert Ok(applied_orig) = or_map.apply_delta(fresh, delta)
@@ -321,9 +322,3 @@ pub fn or_map_delta_json_round_trip__test() {
     Nil
   })
 }
-
-fn gleam_json_to_string(j: gleam_json.Json) -> String {
-  gleam_json.to_string(j)
-}
-
-import gleam/json as gleam_json

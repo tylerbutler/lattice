@@ -18,32 +18,11 @@ pub fn main() {
   let map_b = or_map.new(replica_id.new("node-b"), crdt.GCounterSpec)
 
   // Map A: increment "page-views" by 5
-  let map_a =
-    or_map.update(map_a, "page-views", fn(crdt_val) {
-      case crdt_val {
-        crdt.CrdtGCounter(counter) ->
-          crdt.CrdtGCounter(g_counter.increment(counter, 5))
-        other -> other
-      }
-    })
+  let map_a = or_map.update(map_a, "page-views", increment_by(_, 5))
 
   // Map B: increment "page-views" by 3, "api-calls" by 10
-  let map_b =
-    or_map.update(map_b, "page-views", fn(crdt_val) {
-      case crdt_val {
-        crdt.CrdtGCounter(counter) ->
-          crdt.CrdtGCounter(g_counter.increment(counter, 3))
-        other -> other
-      }
-    })
-  let map_b =
-    or_map.update(map_b, "api-calls", fn(crdt_val) {
-      case crdt_val {
-        crdt.CrdtGCounter(counter) ->
-          crdt.CrdtGCounter(g_counter.increment(counter, 10))
-        other -> other
-      }
-    })
+  let map_b = or_map.update(map_b, "page-views", increment_by(_, 3))
+  let map_b = or_map.update(map_b, "api-calls", increment_by(_, 10))
 
   // Print keys of each map
   io.println("Map A (node-a):")
@@ -105,10 +84,33 @@ pub fn main() {
   io.println("ORMap example complete!")
 }
 
+/// Increment a GCounter value; the map is created with `crdt.GCounterSpec`,
+/// so every other variant is left untouched.
+fn increment_by(value: crdt.Crdt, amount: Int) -> crdt.Crdt {
+  case value {
+    crdt.CrdtGCounter(counter) ->
+      crdt.CrdtGCounter(g_counter.increment(counter, amount))
+    crdt.CrdtPnCounter(_)
+    | crdt.CrdtLwwRegister(_)
+    | crdt.CrdtMvRegister(_)
+    | crdt.CrdtGSet(_)
+    | crdt.CrdtTwoPSet(_)
+    | crdt.CrdtOrSet(_)
+    | crdt.CrdtVersionVector(_) -> value
+  }
+}
+
 fn get_counter_value(map: or_map.ORMap, key: String) -> Int {
   case or_map.get(map, key) {
     Ok(crdt.CrdtGCounter(counter)) -> g_counter.value(counter)
-    _ -> 0
+    Ok(crdt.CrdtPnCounter(_))
+    | Ok(crdt.CrdtLwwRegister(_))
+    | Ok(crdt.CrdtMvRegister(_))
+    | Ok(crdt.CrdtGSet(_))
+    | Ok(crdt.CrdtTwoPSet(_))
+    | Ok(crdt.CrdtOrSet(_))
+    | Ok(crdt.CrdtVersionVector(_))
+    | Error(Nil) -> 0
   }
 }
 

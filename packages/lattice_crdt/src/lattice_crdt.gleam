@@ -1,5 +1,7 @@
-//// lattice_crdt is an umbrella package that re-exports all lattice CRDT
-//// sub-packages for convenient dependency management.
+//// lattice_crdt is an umbrella package that re-exports the core lattice
+//// CRDT sub-packages for convenient dependency management. Not every
+//// lattice package is included: `lattice_fugue`, `lattice_text_fugue`,
+//// `lattice_text_core`, and `lattice_presence` are separate dependencies.
 ////
 //// ## Sub-packages
 ////

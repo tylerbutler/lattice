@@ -1,0 +1,6 @@
+project = "lattice_maps"
+kind = "Fixed"
+body = """
+Remove internal panic branches from LWWMap and ORMap merge
+
+The merge implementations no longer contain an unreachable panic when resolving keys present on only one side; they now fold over each side's entries directly. Also corrects the LWWMap type documentation, which wrongly described the timestamp tie-break as first-argument-wins (the actual rule: tombstones win, otherwise the lexicographically greater value)."""
