@@ -1,3 +1,4 @@
+import gleam/set as gleam_set
 import lattice_core/replica_id
 import lattice_sets/g_set
 import lattice_sets/or_set
@@ -144,8 +145,6 @@ pub fn or_set_idempotency__test() {
     Nil
   })
 }
-
-import gleam/set as gleam_set
 
 // ---------------------------------------------------------------------------
 // Delta-state property tests.

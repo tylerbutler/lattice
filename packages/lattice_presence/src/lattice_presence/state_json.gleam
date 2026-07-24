@@ -16,8 +16,9 @@ import lattice_presence/presence_state.{
 const max_meta_depth = 64
 
 /// Encode a CRDT State to JSON
-pub fn to_json(s: State) -> json.Json {
-  let #(replica, context, clouds, values) = presence_state.replicated_parts(s)
+pub fn to_json(state: State) -> json.Json {
+  let #(replica, context, clouds, values) =
+    presence_state.replicated_parts(state)
   json.object([
     #("replica", json.string(replica)),
     #("context", encode_context(context)),
@@ -27,8 +28,8 @@ pub fn to_json(s: State) -> json.Json {
 }
 
 /// Encode a State to a JSON string
-pub fn to_json_string(s: State) -> String {
-  to_json(s) |> json.to_string
+pub fn to_json_string(state: State) -> String {
+  to_json(state) |> json.to_string
 }
 
 /// Decode a JSON string into a State

@@ -28,7 +28,6 @@ import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
-import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order.{Eq, Gt, Lt}
 import gleam/string
@@ -37,8 +36,8 @@ import gleam/string
 ///
 /// Internally stores each key with an `Option(String)` value and an `Int`
 /// timestamp. A `None` value represents a tombstone (removed key). On merge,
-/// the entry with the higher timestamp wins for each key; on ties, the first
-/// argument's entry is kept as a consistent tiebreak.
+/// the entry with the higher timestamp wins for each key; on ties, tombstones
+/// win over active values, otherwise the lexicographically greater value wins.
 ///
 /// Tombstones accumulate until pruned. Use `prune` with a stable timestamp to
 /// remove them. The embedded `pruned_timestamp` enables automatic zombie
@@ -220,23 +219,27 @@ pub fn values(map: LWWMap) -> List(String) {
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
   let merged_pruned = int.max(a.pruned_timestamp, b.pruned_timestamp)
-  let all_keys =
-    list.unique(list.append(dict.keys(a.entries), dict.keys(b.entries)))
-  let merged =
-    list.fold(all_keys, dict.new(), fn(acc, key) {
-      let entry = case dict.get(a.entries, key), dict.get(b.entries, key) {
-        Ok(ea), Ok(eb) -> Ok(choose_winner(ea, eb))
-        Ok(ea), Error(Nil) -> keep_if_not_zombie(ea, b.pruned_timestamp)
-        Error(Nil), Ok(eb) -> keep_if_not_zombie(eb, a.pruned_timestamp)
-        Error(Nil), Error(Nil) ->
-          // all_keys is the union of both dicts' keys, so a key absent from
-          // both cannot occur.
-          // nolint: avoid_panic
-          panic as "unreachable: key in all_keys but not in either dict"
+  let merged_from_a =
+    dict.fold(a.entries, dict.new(), fn(acc, key, entry_a) {
+      let entry = case dict.get(b.entries, key) {
+        Ok(entry_b) -> Ok(choose_winner(entry_a, entry_b))
+        Error(Nil) -> keep_if_not_zombie(entry_a, b.pruned_timestamp)
       }
       case entry {
         Ok(winner) -> dict.insert(acc, key, winner)
         Error(Nil) -> acc
+      }
+    })
+  let merged =
+    dict.fold(b.entries, merged_from_a, fn(acc, key, entry_b) {
+      case dict.has_key(a.entries, key) {
+        // Already resolved by choose_winner in the first fold.
+        True -> acc
+        False ->
+          case keep_if_not_zombie(entry_b, a.pruned_timestamp) {
+            Ok(winner) -> dict.insert(acc, key, winner)
+            Error(Nil) -> acc
+          }
       }
     })
   LWWMap(entries: merged, pruned_timestamp: merged_pruned)

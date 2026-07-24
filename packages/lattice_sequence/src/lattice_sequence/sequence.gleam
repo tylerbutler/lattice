@@ -894,9 +894,9 @@ pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
     version_vector.Concurrent ->
       case frontier_tiebreak(a.frontier, b.frontier) {
         order.Gt -> b_elements
-        _ -> a_elements
+        order.Lt | order.Eq -> a_elements
       }
-    _ -> a_elements
+    version_vector.After | version_vector.Equal -> a_elements
   }
   let #(other_lives, other_stables) = case covered_source == a_elements {
     True -> #(b_lives, b_stables)
@@ -1040,8 +1040,8 @@ fn frontier_tiebreak(a: VersionVector, b: VersionVector) -> order.Order {
   compare_clock_lists(canonical_clocks(a), canonical_clocks(b))
 }
 
-fn canonical_clocks(vv: VersionVector) -> List(#(ReplicaId, Int)) {
-  version_vector.to_dict(vv)
+fn canonical_clocks(vector: VersionVector) -> List(#(ReplicaId, Int)) {
+  version_vector.to_dict(vector)
   |> dict.to_list()
   |> list.sort(fn(x, y) { replica_id.compare(x.0, y.0) })
 }
@@ -1244,7 +1244,9 @@ pub fn compact(
     False ->
       case version_vector.compare(stable, sequence.frontier) {
         version_vector.After -> do_compact(sequence, stable)
-        _ -> #(sequence, ForwardingMap(dict.new()))
+        version_vector.Before
+        | version_vector.Concurrent
+        | version_vector.Equal -> #(sequence, ForwardingMap(dict.new()))
       }
   }
 }
@@ -2313,7 +2315,7 @@ fn scan_step(
     True ->
       case replica_id.compare(replica_of(entry.id), item_replica) {
         order.Lt -> TakeAsLeft
-        _ ->
+        order.Eq | order.Gt ->
           case entry.right == item_right {
             True -> StopScan
             False -> AdvancePast
@@ -2436,7 +2438,7 @@ fn pick_origins(a: Item(a), b: Item(a)) -> #(Option(ItemId), Option(ItemId)) {
     ))
   {
     order.Gt -> #(b.origin_left, b.origin_right)
-    _ -> #(a.origin_left, a.origin_right)
+    order.Lt | order.Eq -> #(a.origin_left, a.origin_right)
   }
 }
 
@@ -2469,7 +2471,7 @@ fn merge_deleted(a: Option(OpId), b: Option(OpId)) -> Option(OpId) {
     Some(a_op), Some(b_op) ->
       case compare_op_ids(a_op, b_op) {
         order.Gt -> Some(b_op)
-        _ -> Some(a_op)
+        order.Lt | order.Eq -> Some(a_op)
       }
   }
 }
@@ -2534,7 +2536,7 @@ fn merge_forwarding_entries(
 fn pick_forwarding(a: Forwarding, b: Forwarding) -> Forwarding {
   case compare_origin_pair(#(a.left, a.right), #(b.left, b.right)) {
     order.Gt -> b
-    _ -> a
+    order.Lt | order.Eq -> a
   }
 }
 

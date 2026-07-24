@@ -1,0 +1,6 @@
+project = "lattice_fugue"
+kind = "Fixed"
+body = """
+try_delete_with_delta no longer uses an internal assertion
+
+The node lookup on the non-panicking delete path is now handled by returning DeleteIndexOutOfBounds instead of a let assert, so the try_ variant can never crash."""

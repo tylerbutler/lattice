@@ -97,13 +97,13 @@ pub fn main() {
 }
 
 fn print_map(map: lww_map.LWWMap) {
-  let ks = lww_map.keys(map)
+  let keys = lww_map.keys(map)
   io.println(
-    "  keys: [" <> string.join(list.sort(ks, string.compare), ", ") <> "]",
+    "  keys: [" <> string.join(list.sort(keys, string.compare), ", ") <> "]",
   )
-  list.sort(ks, string.compare)
-  |> list.each(fn(k) {
-    let v = result.unwrap(lww_map.get(map, k), "")
-    io.println("  " <> k <> " = " <> v)
+  list.sort(keys, string.compare)
+  |> list.each(fn(key) {
+    let value = result.unwrap(lww_map.get(map, key), "")
+    io.println("  " <> key <> " = " <> value)
   })
 }

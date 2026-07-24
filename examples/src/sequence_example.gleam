@@ -1,5 +1,7 @@
 import gleam/int
 import gleam/io
+import gleam/list
+import gleam/string
 import lattice_core/replica_id
 import lattice_sequence/sequence
 
@@ -17,20 +19,7 @@ pub fn main() {
 
   sequence.merge(alice, bob)
   |> sequence.values()
-  |> list_to_string()
+  |> list.map(int.to_string)
+  |> string.join(",")
   |> io.println()
-}
-
-fn list_to_string(values: List(Int)) -> String {
-  values
-  |> list_to_string_loop("")
-}
-
-fn list_to_string_loop(values: List(Int), output: String) -> String {
-  case values {
-    [] -> output
-    [first] -> output <> int.to_string(first)
-    [first, ..rest] ->
-      list_to_string_loop(rest, output <> int.to_string(first) <> ",")
-  }
 }

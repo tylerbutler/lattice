@@ -30,48 +30,50 @@ pub fn main() {
   let node_a = replica_id.new("node-a")
   let node_b = replica_id.new("node-b")
 
-  let vv_a =
+  let vector_a =
     version_vector.new()
     |> version_vector.increment(node_a)
     |> version_vector.increment(node_a)
     |> version_vector.increment(node_a)
     |> version_vector.increment(node_b)
 
-  let vv_b =
+  let vector_b =
     version_vector.new()
     |> version_vector.increment(node_a)
     |> version_vector.increment(node_b)
     |> version_vector.increment(node_b)
 
   io.println(
-    "vv_a: node-a="
-    <> int.to_string(version_vector.get(vv_a, node_a))
+    "vector_a: node-a="
+    <> int.to_string(version_vector.get(vector_a, node_a))
     <> ", node-b="
-    <> int.to_string(version_vector.get(vv_a, node_b)),
+    <> int.to_string(version_vector.get(vector_a, node_b)),
   )
   io.println(
-    "vv_b: node-a="
-    <> int.to_string(version_vector.get(vv_b, node_a))
+    "vector_b: node-a="
+    <> int.to_string(version_vector.get(vector_b, node_a))
     <> ", node-b="
-    <> int.to_string(version_vector.get(vv_b, node_b)),
+    <> int.to_string(version_vector.get(vector_b, node_b)),
   )
   io.println("")
 
   // Compare — should be Concurrent (neither dominates)
   io.println("--- Comparison ---")
-  let order_str = case version_vector.compare(vv_a, vv_b) {
+  let order_str = case version_vector.compare(vector_a, vector_b) {
     version_vector.Before -> "Before"
     version_vector.After -> "After"
     version_vector.Concurrent -> "Concurrent"
     version_vector.Equal -> "Equal"
   }
-  io.println("compare(vv_a, vv_b) = " <> order_str)
-  io.println("(vv_a has higher node-a, vv_b has higher node-b → Concurrent)")
+  io.println("compare(vector_a, vector_b) = " <> order_str)
+  io.println(
+    "(vector_a has higher node-a, vector_b has higher node-b → Concurrent)",
+  )
   io.println("")
 
-  // Create a third vector that strictly dominates vv_a
+  // Create a third vector that strictly dominates vector_a
   io.println("--- Strict ordering ---")
-  let vv_c =
+  let vector_c =
     version_vector.new()
     |> version_vector.increment(node_a)
     |> version_vector.increment(node_a)
@@ -81,26 +83,26 @@ pub fn main() {
     |> version_vector.increment(node_b)
 
   io.println(
-    "vv_c: node-a="
-    <> int.to_string(version_vector.get(vv_c, node_a))
+    "vector_c: node-a="
+    <> int.to_string(version_vector.get(vector_c, node_a))
     <> ", node-b="
-    <> int.to_string(version_vector.get(vv_c, node_b)),
+    <> int.to_string(version_vector.get(vector_c, node_b)),
   )
-  let order_str_2 = case version_vector.compare(vv_a, vv_c) {
+  let order_str_2 = case version_vector.compare(vector_a, vector_c) {
     version_vector.Before -> "Before"
     version_vector.After -> "After"
     version_vector.Concurrent -> "Concurrent"
     version_vector.Equal -> "Equal"
   }
-  io.println("compare(vv_a, vv_c) = " <> order_str_2)
-  io.println("(vv_c dominates vv_a on all clocks → Before)")
+  io.println("compare(vector_a, vector_c) = " <> order_str_2)
+  io.println("(vector_c dominates vector_a on all clocks → Before)")
   io.println("")
 
   // Merge — pairwise maximum
   io.println("--- Merge (pairwise maximum) ---")
-  let merged = version_vector.merge(vv_a, vv_b)
+  let merged = version_vector.merge(vector_a, vector_b)
   io.println(
-    "merge(vv_a, vv_b): node-a="
+    "merge(vector_a, vector_b): node-a="
     <> int.to_string(version_vector.get(merged, node_a))
     <> ", node-b="
     <> int.to_string(version_vector.get(merged, node_b)),
@@ -110,12 +112,13 @@ pub fn main() {
 
   // Dictionary conversion
   io.println("--- Dict Conversion ---")
-  let d = version_vector.to_dict(merged)
-  print_dict("to_dict: ", d)
-  let from_d = version_vector.from_dict(d)
-  let roundtrip_ok = case version_vector.compare(merged, from_d) {
+  let clocks = version_vector.to_dict(merged)
+  print_dict("to_dict: ", clocks)
+  let restored = version_vector.from_dict(clocks)
+  let roundtrip_ok = case version_vector.compare(merged, restored) {
     version_vector.Equal -> "true"
-    _ -> "false"
+    version_vector.Before | version_vector.After | version_vector.Concurrent ->
+      "false"
   }
   io.println("from_dict round-trip equal: " <> roundtrip_ok)
   io.println("")

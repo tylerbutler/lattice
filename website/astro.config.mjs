@@ -16,6 +16,7 @@ export default defineConfig({
 		mermaid(),
 		starlight({
 			title: "lattice",
+			favicon: "/favicon.png",
 			editLink: {
 				baseUrl:
 					"https://github.com/tylerbutler/lattice/edit/main/website/",
@@ -31,6 +32,7 @@ export default defineConfig({
 				Head: "./src/components/Head.astro",
 				MobileTableOfContents:
 					"./src/components/MobileTableOfContents.astro",
+				MobileMenuToggle: "./src/components/MobileMenuToggle.astro",
 				PageTitle: "./src/components/PageTitle.astro",
 				TableOfContents: "./src/components/TableOfContents.astro",
 			},

@@ -1,0 +1,6 @@
+project = "lattice_crdt"
+kind = "Fixed"
+body = """
+Clarify which sub-packages the umbrella re-exports
+
+The module documentation claimed all lattice CRDT sub-packages are re-exported; it now notes that lattice_fugue, lattice_text_fugue, lattice_text_core, and lattice_presence are separate dependencies."""

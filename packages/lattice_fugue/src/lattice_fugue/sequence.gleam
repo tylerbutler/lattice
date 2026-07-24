@@ -40,6 +40,7 @@ import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order
+import gleam/result
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
 
@@ -245,7 +246,7 @@ pub fn try_insert_with_delta(
       // None (the virtual root) when inserting at the front.
       let left_origin = case index {
         0 -> None
-        _ -> nth(visible, index - 1)
+        _ -> option.from_result(nth(visible, index - 1))
       }
 
       let node = case has_right_children(sequence.nodes, left_origin) {
@@ -341,12 +342,11 @@ pub fn try_delete_with_delta(
   case index < 0 || index >= size {
     True -> Error(DeleteIndexOutOfBounds(index: index, length: size))
     False ->
-      case nth(visible, index) {
-        None -> Error(DeleteIndexOutOfBounds(index: index, length: size))
-        Some(target_id) -> {
-          let assert Ok(target) = dict.get(sequence.nodes, target_id)
+      case result.try(nth(visible, index), dict.get(sequence.nodes, _)) {
+        Error(Nil) -> Error(DeleteIndexOutOfBounds(index: index, length: size))
+        Ok(target) -> {
           let tombstoned = Node(..target, value: None)
-          let nodes = dict.insert(sequence.nodes, target_id, tombstoned)
+          let nodes = dict.insert(sequence.nodes, target.id, tombstoned)
           let next_counter = sequence.counter + 1
           let updated =
             Sequence(..sequence, counter: next_counter, nodes: nodes)
@@ -423,13 +423,13 @@ pub fn try_anchor_at(
       case bias {
         Before ->
           case nth(visible, index) {
-            Some(id) -> Ok(AtNode(id: id, bias: Before))
-            None -> Ok(End)
+            Ok(id) -> Ok(AtNode(id: id, bias: Before))
+            Error(Nil) -> Ok(End)
           }
         After ->
           case nth(visible, index - 1) {
-            Some(id) -> Ok(AtNode(id: id, bias: After))
-            None -> Ok(Start)
+            Ok(id) -> Ok(AtNode(id: id, bias: After))
+            Error(Nil) -> Ok(Start)
           }
       }
   }
@@ -631,8 +631,8 @@ pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
 fn merge_node(a: Node(a), b: Node(a)) -> Node(a) {
   // parent/side are identical by invariant; tombstone wins on value.
   let value = case a.value, b.value {
-    Some(v), Some(_) -> Some(v)
-    _, _ -> None
+    Some(value), Some(_) -> Some(value)
+    Some(_), None | None, Some(_) | None, None -> None
   }
   Node(..a, value: value)
 }
@@ -804,7 +804,7 @@ fn compare_node_ids(a: NodeId, b: NodeId) -> order.Order {
   }
 }
 
-fn nth(items: List(a), index: Int) -> Option(a) {
-  use <- bool.guard(index < 0, None)
-  items |> list.drop(index) |> list.first() |> option.from_result()
+fn nth(items: List(a), index: Int) -> Result(a, Nil) {
+  use <- bool.guard(index < 0, Error(Nil))
+  items |> list.drop(index) |> list.first()
 }

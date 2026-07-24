@@ -46,8 +46,8 @@ pub fn new() -> TwoPSet(a) {
 ///
 /// See `add_with_delta` for the delta-state variant that also returns a
 /// small payload suitable for incremental sync (e.g. over websockets).
-pub fn add(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
-  let #(updated, _) = add_with_delta(tpset, element)
+pub fn add(two_p_set: TwoPSet(a), element: a) -> TwoPSet(a) {
+  let #(updated, _) = add_with_delta(two_p_set, element)
   updated
 }
 
@@ -58,11 +58,14 @@ pub fn add(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
 /// into a remote via `merge` (union of both halves) produces the same
 /// result as merging the full new state.
 pub fn add_with_delta(
-  tpset: TwoPSet(a),
+  two_p_set: TwoPSet(a),
   element: a,
 ) -> #(TwoPSet(a), TwoPSet(a)) {
   let updated =
-    TwoPSet(added: set.insert(tpset.added, element), removed: tpset.removed)
+    TwoPSet(
+      added: set.insert(two_p_set.added, element),
+      removed: two_p_set.removed,
+    )
   let delta = TwoPSet(added: set.from_list([element]), removed: set.new())
   #(updated, delta)
 }
@@ -73,8 +76,8 @@ pub fn add_with_delta(
 /// that was never added is also valid and creates a preemptive tombstone.
 ///
 /// See `remove_with_delta` for the delta-state variant.
-pub fn remove(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
-  let #(updated, _) = remove_with_delta(tpset, element)
+pub fn remove(two_p_set: TwoPSet(a), element: a) -> TwoPSet(a) {
+  let #(updated, _) = remove_with_delta(two_p_set, element)
   updated
 }
 
@@ -85,11 +88,14 @@ pub fn remove(tpset: TwoPSet(a), element: a) -> TwoPSet(a) {
 /// a remote via `merge` propagates the tombstone, deactivating the element
 /// in the remote replica regardless of its prior state.
 pub fn remove_with_delta(
-  tpset: TwoPSet(a),
+  two_p_set: TwoPSet(a),
   element: a,
 ) -> #(TwoPSet(a), TwoPSet(a)) {
   let updated =
-    TwoPSet(added: tpset.added, removed: set.insert(tpset.removed, element))
+    TwoPSet(
+      added: two_p_set.added,
+      removed: set.insert(two_p_set.removed, element),
+    )
   let delta = TwoPSet(added: set.new(), removed: set.from_list([element]))
   #(updated, delta)
 }
@@ -97,16 +103,19 @@ pub fn remove_with_delta(
 /// Check if the set currently contains the given element.
 ///
 /// Returns `True` only if `element` is in `added` and NOT in `removed`.
-pub fn contains(tpset: TwoPSet(a), element: a) -> Bool {
-  set.contains(tpset.added, element) && !set.contains(tpset.removed, element)
+pub fn contains(two_p_set: TwoPSet(a), element: a) -> Bool {
+  set.contains(two_p_set.added, element)
+  && !set.contains(two_p_set.removed, element)
 }
 
 /// Return the set of all currently active elements.
 ///
 /// Active elements are those in `added` that have not been tombstoned.
 /// Equivalent to `added ∖ removed`.
-pub fn value(tpset: TwoPSet(a)) -> set.Set(a) {
-  set.filter(tpset.added, fn(element) { !set.contains(tpset.removed, element) })
+pub fn value(two_p_set: TwoPSet(a)) -> set.Set(a) {
+  set.filter(two_p_set.added, fn(element) {
+    !set.contains(two_p_set.removed, element)
+  })
 }
 
 /// Merge two 2P-Sets by taking the union of both added sets and both removed sets.
@@ -125,15 +134,15 @@ pub fn merge(a: TwoPSet(el), b: TwoPSet(el)) -> TwoPSet(el) {
 /// Format: `{"type": "two_p_set", "v": 1, "state": {"added": [...], "removed": [...]}}`
 ///
 /// The encoded value can be restored with `from_json`.
-pub fn to_json(tpset: TwoPSet(String)) -> json.Json {
+pub fn to_json(two_p_set: TwoPSet(String)) -> json.Json {
   json.object([
     #("type", json.string("two_p_set")),
     #("v", json.int(1)),
     #(
       "state",
       json.object([
-        #("added", json.array(set.to_list(tpset.added), json.string)),
-        #("removed", json.array(set.to_list(tpset.removed), json.string)),
+        #("added", json.array(set.to_list(two_p_set.added), json.string)),
+        #("removed", json.array(set.to_list(two_p_set.removed), json.string)),
       ]),
     ),
   ])
