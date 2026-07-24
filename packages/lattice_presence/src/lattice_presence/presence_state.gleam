@@ -384,7 +384,7 @@ pub fn extract_full_state(state: State) -> State {
 
 // ── Introspection ───────────────────────────────────────────────────
 
-/// Get the current vector clock
+/// Get the replica name this state was created with.
 pub fn replica(state: State) -> Replica {
   state.replica
 }

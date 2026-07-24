@@ -289,8 +289,8 @@ pub fn merge_with_diff(
 }
 
 fn not_dominated(tag: Tag, pruned: VersionVector) -> Bool {
-  let Tag(rid, c) = tag
-  version_vector.get(pruned, rid) < c
+  let Tag(replica, counter) = tag
+  version_vector.get(pruned, replica) < counter
 }
 
 fn is_pruned_zombie(
@@ -309,8 +309,9 @@ fn pruned_on_side_without_live_tag(
   live_tags: set.Set(Tag),
   pruned: VersionVector,
 ) -> Bool {
-  let Tag(rid, c) = tag
-  version_vector.get(pruned, rid) >= c && !set.contains(live_tags, tag)
+  let Tag(replica, counter) = tag
+  version_vector.get(pruned, replica) >= counter
+  && !set.contains(live_tags, tag)
 }
 
 /// Remove an element and return a causal bound for the removed tags.
@@ -337,9 +338,9 @@ pub fn remove_with_bound(
 }
 
 fn tags_to_bound(tags: set.Set(Tag)) -> VersionVector {
-  set.fold(tags, version_vector.new(), fn(vv, tag) {
-    let Tag(rid, c) = tag
-    version_vector.set_max(vv, rid, c)
+  set.fold(tags, version_vector.new(), fn(bound, tag) {
+    let Tag(replica, counter) = tag
+    version_vector.set_max(bound, replica, counter)
   })
 }
 
@@ -497,9 +498,9 @@ pub fn from_json(
 }
 
 fn encode_tag(tag: Tag) -> json.Json {
-  let Tag(rid, c) = tag
+  let Tag(replica, counter) = tag
   json.object([
-    #("r", json.string(replica_id.to_string(rid))),
-    #("c", json.int(c)),
+    #("r", json.string(replica_id.to_string(replica))),
+    #("c", json.int(counter)),
   ])
 }

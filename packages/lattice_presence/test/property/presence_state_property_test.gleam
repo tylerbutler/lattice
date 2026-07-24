@@ -1,4 +1,4 @@
-import crdt_generators
+import crdt_generator
 import gleam/dict
 import gleam/json
 import gleam/list
@@ -17,17 +17,17 @@ import startest/expect
 /// merge(A, B) and merge(B, A) must produce the same online set
 pub fn prop_merge_commutativity_test() {
   use #(ops_a, ops_b) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
-    crdt_generators.gen_ops_for("r2"),
+    crdt_generator.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r2"),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
 
   let ab = state.merge(a, b)
   let ba = state.merge(b, a)
 
-  crdt_generators.online_ids(ab)
-  |> expect.to_equal(crdt_generators.online_ids(ba))
+  crdt_generator.online_ids(ab)
+  |> expect.to_equal(crdt_generator.online_ids(ba))
 }
 
 // ── Associativity ───────────────────────────────────────────────────
@@ -35,15 +35,15 @@ pub fn prop_merge_commutativity_test() {
 /// merge(merge(A, B), C) == merge(A, merge(B, C))
 pub fn prop_merge_associativity_test() {
   use #(ops_a, #(ops_b, ops_c)) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r1"),
     qcheck.tuple2(
-      crdt_generators.gen_ops_for("r2"),
-      crdt_generators.gen_ops_for("r3"),
+      crdt_generator.gen_ops_for("r2"),
+      crdt_generator.gen_ops_for("r3"),
     ),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
-  let c = crdt_generators.apply_ops(state.new("r3"), ops_c)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
+  let c = crdt_generator.apply_ops(state.new("r3"), ops_c)
 
   let ab = state.merge(a, b)
   let ab_c = state.merge(ab, c)
@@ -51,21 +51,21 @@ pub fn prop_merge_associativity_test() {
   let bc = state.merge(b, c)
   let a_bc = state.merge(a, bc)
 
-  crdt_generators.online_ids(ab_c)
-  |> expect.to_equal(crdt_generators.online_ids(a_bc))
+  crdt_generator.online_ids(ab_c)
+  |> expect.to_equal(crdt_generator.online_ids(a_bc))
 }
 
 // ── Idempotency ─────────────────────────────────────────────────────
 
 /// merge(A, A) == A
 pub fn prop_merge_idempotency_test() {
-  use ops <- qcheck.given(crdt_generators.gen_ops_for("r1"))
-  let s = crdt_generators.apply_ops(state.new("r1"), ops)
+  use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
+  let s = crdt_generator.apply_ops(state.new("r1"), ops)
 
   let merged = state.merge(s, s)
 
-  crdt_generators.online_ids(merged)
-  |> expect.to_equal(crdt_generators.online_ids(s))
+  crdt_generator.online_ids(merged)
+  |> expect.to_equal(crdt_generator.online_ids(s))
 }
 
 // ── Convergence ─────────────────────────────────────────────────────
@@ -73,15 +73,15 @@ pub fn prop_merge_idempotency_test() {
 /// All merge orderings of 3 replicas converge to the same state
 pub fn prop_merge_convergence_test() {
   use #(ops_a, #(ops_b, ops_c)) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r1"),
     qcheck.tuple2(
-      crdt_generators.gen_ops_for("r2"),
-      crdt_generators.gen_ops_for("r3"),
+      crdt_generator.gen_ops_for("r2"),
+      crdt_generator.gen_ops_for("r3"),
     ),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
-  let c = crdt_generators.apply_ops(state.new("r3"), ops_c)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
+  let c = crdt_generator.apply_ops(state.new("r3"), ops_c)
 
   // Order 1: A merges B, then C
   let r1 = state.merge(a, b)
@@ -95,9 +95,9 @@ pub fn prop_merge_convergence_test() {
   let r3 = state.merge(b, a)
   let r3 = state.merge(r3, c)
 
-  let ids1 = crdt_generators.online_ids(r1)
-  let ids2 = crdt_generators.online_ids(r2)
-  let ids3 = crdt_generators.online_ids(r3)
+  let ids1 = crdt_generator.online_ids(r1)
+  let ids2 = crdt_generator.online_ids(r2)
+  let ids3 = crdt_generator.online_ids(r3)
 
   ids1 |> expect.to_equal(ids2)
   ids2 |> expect.to_equal(ids3)
@@ -107,7 +107,7 @@ pub fn prop_merge_convergence_test() {
 
 /// A concurrent add and remove of the same entry must resolve to present
 pub fn prop_add_wins_test() {
-  use #(topic, key, pid) <- qcheck.given(crdt_generators.gen_entry())
+  use #(topic, key, pid) <- qcheck.given(crdt_generator.gen_entry())
 
   // A adds the entry
   let a = state.new("r1") |> state.join(pid, topic, key, json.null())
@@ -134,11 +134,11 @@ pub fn prop_add_wins_test() {
 /// After merge, the vector clock is >= both inputs (clocks never go backwards)
 pub fn prop_monotonic_clocks_test() {
   use #(ops_a, ops_b) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
-    crdt_generators.gen_ops_for("r2"),
+    crdt_generator.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r2"),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
 
   let a_clocks = state.compacted_clocks(a)
   let b_clocks = state.compacted_clocks(b)
@@ -168,11 +168,11 @@ pub fn prop_monotonic_clocks_test() {
 /// After merge, compact is a no-op (merge already compacts)
 pub fn prop_compaction_invariant_test() {
   use #(ops_a, ops_b) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
-    crdt_generators.gen_ops_for("r2"),
+    crdt_generator.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r2"),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
 
   let merged = state.merge(a, b)
   let double_compacted = state.compact(merged)
@@ -186,8 +186,8 @@ pub fn prop_compaction_invariant_test() {
   |> expect.to_equal(state.internal_clouds(double_compacted))
 
   // Online set should be identical
-  crdt_generators.online_ids(merged)
-  |> expect.to_equal(crdt_generators.online_ids(double_compacted))
+  crdt_generator.online_ids(merged)
+  |> expect.to_equal(crdt_generator.online_ids(double_compacted))
 }
 
 // ── Merge diff accuracy ─────────────────────────────────────────────
@@ -195,22 +195,22 @@ pub fn prop_compaction_invariant_test() {
 /// The diff returned by merge accurately reflects the actual state change
 pub fn prop_merge_diff_accuracy_test() {
   use #(ops_a, ops_b) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
-    crdt_generators.gen_ops_for("r2"),
+    crdt_generator.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r2"),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
 
   let #(merged, diff) = state.merge_with_diff(a, b)
-  let after_ids = crdt_generators.online_ids(merged)
+  let after_ids = crdt_generator.online_ids(merged)
 
   // All entries reported as joins must be present in the merged state
-  let join_ids = crdt_generators.diff_entry_ids(diff.joins)
+  let join_ids = crdt_generator.diff_entry_ids(diff.joins)
   let _ =
     set.each(join_ids, fn(id) { expect.to_be_true(set.contains(after_ids, id)) })
 
   // Entries reported as leaves (and not also as joins) must be absent
-  let leave_ids = crdt_generators.diff_entry_ids(diff.leaves)
+  let leave_ids = crdt_generator.diff_entry_ids(diff.leaves)
   let leave_only = set.difference(leave_ids, join_ids)
   set.each(leave_only, fn(id) {
     expect.to_be_false(set.contains(after_ids, id))
@@ -225,8 +225,8 @@ pub fn prop_merge_diff_accuracy_test() {
 
 /// decode(encode(S)) should merge identically with a third state as S does
 pub fn prop_serialization_roundtrip_test() {
-  use ops <- qcheck.given(crdt_generators.gen_ops_for("r1"))
-  let s = crdt_generators.apply_ops(state.new("r1"), ops)
+  use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
+  let s = crdt_generator.apply_ops(state.new("r1"), ops)
 
   let json_str = state_json.to_json_string(s)
   let assert Ok(decoded) = state_json.from_json(json_str)
@@ -237,16 +237,16 @@ pub fn prop_serialization_roundtrip_test() {
   let m1 = state.merge(s, other)
   let m2 = state.merge(decoded, other)
 
-  crdt_generators.online_ids(m1)
-  |> expect.to_equal(crdt_generators.online_ids(m2))
+  crdt_generator.online_ids(m1)
+  |> expect.to_equal(crdt_generator.online_ids(m2))
 }
 
 // ── Double roundtrip stability ──────────────────────────────────────
 
 /// encode(decode(encode(S))) == encode(S) — serialization is stable
 pub fn prop_double_roundtrip_stability_test() {
-  use ops <- qcheck.given(crdt_generators.gen_ops_for("r1"))
-  let s = crdt_generators.apply_ops(state.new("r1"), ops)
+  use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
+  let s = crdt_generator.apply_ops(state.new("r1"), ops)
 
   let encoded1 = state_json.to_json_string(s)
   let assert Ok(decoded) = state_json.from_json(encoded1)
@@ -267,13 +267,13 @@ pub fn prop_double_roundtrip_stability_test() {
 /// After netsplit and heal, merging should converge
 pub fn prop_netsplit_heal_convergence_test() {
   use #(ops_a, ops_b) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
-    crdt_generators.gen_ops_for("r2"),
+    crdt_generator.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r2"),
   ))
 
   // Initial sync
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
   let a = state.merge(a, b)
   let b = state.merge(b, a)
 
@@ -292,15 +292,15 @@ pub fn prop_netsplit_heal_convergence_test() {
   let b_final = state.merge(b, a)
 
   // Both sides should converge
-  crdt_generators.online_ids(a_final)
-  |> expect.to_equal(crdt_generators.online_ids(b_final))
+  crdt_generator.online_ids(a_final)
+  |> expect.to_equal(crdt_generator.online_ids(b_final))
 }
 
 // ── Rapid join/leave cycles ─────────────────────────────────────────
 
 /// Rapid join/leave cycles on the same key should converge after merge
 pub fn prop_rapid_join_leave_cycles_test() {
-  use #(topic, key, pid) <- qcheck.given(crdt_generators.gen_entry())
+  use #(topic, key, pid) <- qcheck.given(crdt_generator.gen_entry())
 
   // A does rapid join/leave/join/leave/join cycles
   let a = state.new("r1")
@@ -321,8 +321,8 @@ pub fn prop_rapid_join_leave_cycles_test() {
   let ab = state.merge(a, b)
   let ba = state.merge(b, a)
 
-  crdt_generators.online_ids(ab)
-  |> expect.to_equal(crdt_generators.online_ids(ba))
+  crdt_generator.online_ids(ab)
+  |> expect.to_equal(crdt_generator.online_ids(ba))
 
   // A's entry should survive (add-wins for concurrent add from A)
   state.get_by_topic(ab, topic) |> list.length |> expect.to_equal(1)
@@ -333,15 +333,15 @@ pub fn prop_rapid_join_leave_cycles_test() {
 /// After full gossip rounds, all 3 replicas converge
 pub fn prop_gossip_convergence_test() {
   use #(ops_a, #(ops_b, ops_c)) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r1"),
     qcheck.tuple2(
-      crdt_generators.gen_ops_for("r2"),
-      crdt_generators.gen_ops_for("r3"),
+      crdt_generator.gen_ops_for("r2"),
+      crdt_generator.gen_ops_for("r3"),
     ),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
-  let c = crdt_generators.apply_ops(state.new("r3"), ops_c)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
+  let c = crdt_generator.apply_ops(state.new("r3"), ops_c)
 
   // Round 1: each replica merges one other
   let a = state.merge(a, b)
@@ -354,9 +354,9 @@ pub fn prop_gossip_convergence_test() {
   let c = state.merge(c, b)
 
   // All three should have identical online sets
-  let ids_a = crdt_generators.online_ids(a)
-  let ids_b = crdt_generators.online_ids(b)
-  let ids_c = crdt_generators.online_ids(c)
+  let ids_a = crdt_generator.online_ids(a)
+  let ids_b = crdt_generator.online_ids(b)
+  let ids_c = crdt_generator.online_ids(c)
 
   ids_a |> expect.to_equal(ids_b)
   ids_b |> expect.to_equal(ids_c)
@@ -370,8 +370,8 @@ pub fn prop_gossip_convergence_test() {
 
 /// down hides entries, up reveals them, values dict is unchanged
 pub fn prop_replica_down_up_roundtrip_test() {
-  use ops <- qcheck.given(crdt_generators.gen_ops_for("r1"))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops)
+  use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
+  let a = crdt_generator.apply_ops(state.new("r1"), ops)
   let b = state.new("r2") |> state.join("p1", "t1", "k1", json.null())
 
   let a = state.merge(a, b)
@@ -379,7 +379,7 @@ pub fn prop_replica_down_up_roundtrip_test() {
 
   // Down hides r2's entries
   let #(a_down, _) = state.replica_down(a, "r2")
-  let down_ids = crdt_generators.online_ids(a_down)
+  let down_ids = crdt_generator.online_ids(a_down)
   expect.to_be_false(set.contains(down_ids, #("p1", "t1", "k1")))
 
   // Values dict is unchanged (entries still stored, just hidden)
@@ -387,16 +387,16 @@ pub fn prop_replica_down_up_roundtrip_test() {
 
   // Up restores visibility
   let #(a_up, _) = state.replica_up(a_down, "r2")
-  crdt_generators.online_ids(a_up)
-  |> expect.to_equal(crdt_generators.online_ids(a))
+  crdt_generator.online_ids(a_up)
+  |> expect.to_equal(crdt_generator.online_ids(a))
 }
 
 // ── Remove-down-replicas permanence ─────────────────────────────────
 
 /// After remove_down_replicas, re-merging can't bring entries back
 pub fn prop_remove_down_replicas_permanent_test() {
-  use ops <- qcheck.given(crdt_generators.gen_ops_for("r1"))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops)
+  use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
+  let a = crdt_generator.apply_ops(state.new("r1"), ops)
   let b = state.new("r2") |> state.join("p1", "t1", "k1", json.null())
 
   // Sync, then down + remove
@@ -424,10 +424,10 @@ pub fn prop_remove_down_replicas_permanent_test() {
 /// leave_by_pid removes all and only entries matching the pid
 pub fn prop_leave_by_pid_completeness_test() {
   use #(ops, pid) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
-    crdt_generators.gen_pid(),
+    crdt_generator.gen_ops_for("r1"),
+    crdt_generator.gen_pid(),
   ))
-  let s = crdt_generators.apply_ops(state.new("r1"), ops)
+  let s = crdt_generator.apply_ops(state.new("r1"), ops)
 
   // Record entries NOT matching pid
   let non_pid_entries =
@@ -455,16 +455,16 @@ pub fn prop_leave_by_pid_completeness_test() {
 /// merge(A, extract(B, ...)) produces the same online set as merge(A, B)
 pub fn prop_extract_merge_equivalence_test() {
   use #(ops_a, ops_b) <- qcheck.given(qcheck.tuple2(
-    crdt_generators.gen_ops_for("r1"),
-    crdt_generators.gen_ops_for("r2"),
+    crdt_generator.gen_ops_for("r1"),
+    crdt_generator.gen_ops_for("r2"),
   ))
-  let a = crdt_generators.apply_ops(state.new("r1"), ops_a)
-  let b = crdt_generators.apply_ops(state.new("r2"), ops_b)
+  let a = crdt_generator.apply_ops(state.new("r1"), ops_a)
+  let b = crdt_generator.apply_ops(state.new("r2"), ops_b)
 
   let direct = state.merge(a, b)
   let extracted = state.extract_full_state(b)
   let via_extract = state.merge(a, extracted)
 
-  crdt_generators.online_ids(direct)
-  |> expect.to_equal(crdt_generators.online_ids(via_extract))
+  crdt_generator.online_ids(direct)
+  |> expect.to_equal(crdt_generator.online_ids(via_extract))
 }

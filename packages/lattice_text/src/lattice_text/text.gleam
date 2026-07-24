@@ -16,7 +16,6 @@
 //// text.value(doc)  // -> ""
 //// ```
 
-import gleam/bool
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -464,11 +463,11 @@ fn validate_range(
   end: Int,
   length: Int,
 ) -> Result(Nil, RangeError) {
-  use <- bool.guard(
-    start < 0 || end > length || start > end,
-    Error(RangeOutOfBounds(start: start, end: end, length: length)),
-  )
-  Ok(Nil)
+  grapheme.validate_range(start, end, length)
+  |> result.map_error(fn(error) {
+    let grapheme.RangeOutOfBounds(start:, end:, length:) = error
+    RangeOutOfBounds(start:, end:, length:)
+  })
 }
 
 fn slice_values(text: Text, start: Int, end: Int) -> String {

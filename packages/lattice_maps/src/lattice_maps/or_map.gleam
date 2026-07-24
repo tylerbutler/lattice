@@ -103,7 +103,7 @@ pub fn new(replica_id: ReplicaId, crdt_spec: CrdtSpec) -> ORMap {
 pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
   let current = current_value(map, key)
   let new_value = f(current)
-  let safe_value = case matches_spec(new_value, map.crdt_spec) {
+  let safe_value = case crdt.matches_spec(new_value, map.crdt_spec) {
     True -> new_value
     False -> current
   }
@@ -176,31 +176,29 @@ pub fn merge(a: ORMap, b: ORMap) -> Result(ORMap, crdt.MergeError) {
   )
   let merged_key_set = or_set.merge(a.key_set, b.key_set)
   let active_keys = or_set.value(merged_key_set)
-  let all_value_keys =
-    set.to_list(set.union(
-      set.from_list(dict.keys(a.values)),
-      set.from_list(dict.keys(b.values)),
-    ))
-  let merged_values =
-    list.fold(all_value_keys, dict.new(), fn(acc, key) {
-      let merged_crdt = case valid_value(a, key), valid_value(b, key) {
-        Ok(ca), Ok(cb) ->
-          case crdt.merge(ca, cb) {
+  let values_from_a =
+    dict.fold(a.values, dict.new(), fn(acc, key, value_a) {
+      let value_a = validated(a, value_a)
+      let merged_crdt = case valid_value(b, key) {
+        Ok(value_b) ->
+          case crdt.merge(value_a, value_b) {
             Ok(merged) -> merged
             // Intentional fallback: a type mismatch between concurrently
             // created values resolves to a fresh default of the map's spec.
             // nolint: thrown_away_error
             Error(_) -> crdt.default_crdt(a.crdt_spec, a.replica_id)
           }
-        Ok(ca), Error(Nil) -> ca
-        Error(Nil), Ok(cb) -> cb
-        Error(Nil), Error(Nil) ->
-          // all_value_keys is the union of both maps' keys, so a key
-          // absent from both cannot occur.
-          // nolint: avoid_panic
-          panic as "unreachable: key must exist in at least one map"
+        Error(Nil) -> value_a
       }
       dict.insert(acc, key, merged_crdt)
+    })
+  let merged_values =
+    dict.fold(b.values, values_from_a, fn(acc, key, value_b) {
+      case dict.has_key(a.values, key) {
+        // Already resolved against the a-side value in the first fold.
+        True -> acc
+        False -> dict.insert(acc, key, validated(b, value_b))
+      }
     })
 
   // Merge remove_bounds: keep bounds for removed keys, clear for active keys
@@ -433,12 +431,12 @@ fn decode_or_map_state(
       let #(key, crdt_str) = pair
       use c <- result.try(crdt.from_json(crdt_str))
       use <- bool.guard(
-        !matches_spec(c, crdt_spec),
+        !crdt.matches_spec(c, crdt_spec),
         Error(
           json.UnableToDecode([
             decode.DecodeError(
               expected: spec_to_string(crdt_spec),
-              found: crdt_name(c),
+              found: crdt.type_name(c),
               path: ["state", "values"],
             ),
           ]),
@@ -456,40 +454,17 @@ fn decode_or_map_state(
   ))
 }
 
-fn matches_spec(value: Crdt, spec: CrdtSpec) -> Bool {
-  case value, spec {
-    crdt.CrdtGCounter(_), crdt.GCounterSpec -> True
-    crdt.CrdtPnCounter(_), crdt.PnCounterSpec -> True
-    crdt.CrdtLwwRegister(_), crdt.LwwRegisterSpec -> True
-    crdt.CrdtMvRegister(_), crdt.MvRegisterSpec -> True
-    crdt.CrdtGSet(_), crdt.GSetSpec -> True
-    crdt.CrdtTwoPSet(_), crdt.TwoPSetSpec -> True
-    crdt.CrdtOrSet(_), crdt.OrSetSpec -> True
-    _, _ -> False
-  }
+/// Return the value with any spec-mismatched entry replaced by a fresh
+/// default of the map's spec.
+fn validated(map: ORMap, value: Crdt) -> Crdt {
+  use <- bool.guard(crdt.matches_spec(value, map.crdt_spec), value)
+  crdt.default_crdt(map.crdt_spec, map.replica_id)
 }
 
 fn valid_value(map: ORMap, key: String) -> Result(Crdt, Nil) {
   case dict.get(map.values, key) {
-    Ok(value) ->
-      case matches_spec(value, map.crdt_spec) {
-        True -> Ok(value)
-        False -> Ok(crdt.default_crdt(map.crdt_spec, map.replica_id))
-      }
+    Ok(value) -> Ok(validated(map, value))
     Error(_) -> Error(Nil)
-  }
-}
-
-fn crdt_name(value: Crdt) -> String {
-  case value {
-    crdt.CrdtGCounter(_) -> "g_counter"
-    crdt.CrdtPnCounter(_) -> "pn_counter"
-    crdt.CrdtLwwRegister(_) -> "lww_register"
-    crdt.CrdtMvRegister(_) -> "mv_register"
-    crdt.CrdtGSet(_) -> "g_set"
-    crdt.CrdtTwoPSet(_) -> "two_p_set"
-    crdt.CrdtOrSet(_) -> "or_set"
-    crdt.CrdtVersionVector(_) -> "version_vector"
   }
 }
 
@@ -563,11 +538,11 @@ pub fn update_with_delta(
 ) -> Result(#(ORMap, ORMapDelta), crdt.MergeError) {
   let current = current_value(map, key)
   let new_value = f(current)
-  case matches_spec(new_value, map.crdt_spec) {
+  case crdt.matches_spec(new_value, map.crdt_spec) {
     False ->
       Error(crdt.TypeMismatch(
         expected: spec_to_string(map.crdt_spec),
-        found: crdt_name(new_value),
+        found: crdt.type_name(new_value),
       ))
     True -> {
       let #(updated, key_set_delta) = put_value(map, key, new_value)
@@ -884,12 +859,12 @@ fn decode_or_map_delta_state(
       let #(key, crdt_str) = pair
       use c <- result.try(crdt.from_json(crdt_str))
       use <- bool.guard(
-        !matches_spec(c, crdt_spec),
+        !crdt.matches_spec(c, crdt_spec),
         Error(
           json.UnableToDecode([
             decode.DecodeError(
               expected: spec_to_string(crdt_spec),
-              found: crdt_name(c),
+              found: crdt.type_name(c),
               path: ["state", "value_deltas"],
             ),
           ]),
