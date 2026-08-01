@@ -10,6 +10,17 @@ import gleam/set
 import lattice_presence/presence_state.{type State} as state
 import qcheck
 
+fn join_ok(
+  state_: state.State,
+  pid: String,
+  topic: String,
+  key: String,
+  meta: json.Json,
+) -> state.State {
+  let assert Ok(joined) = state.join(state_, pid, topic, key, meta)
+  joined
+}
+
 // ── Operation type ──────────────────────────────────────────────────
 
 pub type Op {
@@ -73,7 +84,7 @@ pub fn gen_entry() -> qcheck.Generator(#(String, String, String)) {
 pub fn apply_ops(s: State, ops: List(Op)) -> State {
   list.fold(ops, s, fn(acc, op) {
     case op {
-      Join(_, pid, topic, key) -> state.join(acc, pid, topic, key, json.null())
+      Join(_, pid, topic, key) -> join_ok(acc, pid, topic, key, json.null())
       Leave(_, pid, topic, key) -> state.leave(acc, pid, topic, key)
     }
   })

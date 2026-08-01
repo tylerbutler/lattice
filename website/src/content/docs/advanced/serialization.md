@@ -97,17 +97,19 @@ of the same type as the full state.
 
 ## Presence serialization
 
-`lattice_presence/state_json` serializes distributed presence state for
-cross-node replication:
+`lattice_presence/presence_state` serializes distributed presence state:
 
 ```gleam
-import lattice_presence/state_json
+import lattice_presence/presence_state
 
-let payload = state_json.to_json_string(state)
-let decoded = state_json.from_json(payload)
+let payload = presence_state.to_json_string(state)
+let decoded = presence_state.from_json(payload)
 ```
 
-Presence JSON contains only replicated CRDT data: replica name, causal context,
-clouds, and presence entries. Local replica visibility state from
-`replica_up`/`replica_down` is intentionally not encoded. Decoding validates
-clock values and limits nested metadata depth before returning `Ok(state)`.
+Presence JSON contains only replicated CRDT data. Replica identities are
+structured base/incarnation objects, while replica-keyed contexts and clouds are
+arrays of records. A `retired` array preserves grow-only incarnation tombstones;
+local liveness is intentionally not encoded. Decoding validates identity
+components, causal coverage, canonical context/cloud records, retired
+identities, and metadata depth. This breaking format does not accept version 1
+string replica keys.

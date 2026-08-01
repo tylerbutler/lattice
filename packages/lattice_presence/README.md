@@ -17,9 +17,11 @@ import gleam/json
 import lattice_presence/presence_state
 
 pub fn main() {
-  let state =
-    presence_state.new("node-a")
-    |> presence_state.join(
+  let assert Ok(replica) =
+    presence_state.new_replica("node-a", "process-incarnation-123")
+  let assert Ok(state) =
+    presence_state.join(
+      presence_state.new(replica),
       pid: "pid-1",
       topic: "room:lobby",
       key: "alice",
@@ -35,15 +37,22 @@ pub fn main() {
 
 | Module | Purpose |
 |--------|---------|
-| `lattice_presence/presence_state` | Presence CRDT state, joins/leaves, merges, diffs, liveness, and queries. |
-| `lattice_presence/state_json` | JSON encoding and decoding for presence state. |
+| `lattice_presence/presence_state` | Presence CRDT state, serialization, joins/leaves, checked merges, diffs, liveness, and queries. |
 
 ## Notes
 
-- `presence_state` exposes `new`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `online_list`, `get_by_topic`, and `get_by_key`.
-- `merge_with_diff` reports Phoenix-style joins and leaves while returning the merged state.
-- Replica liveness is local-only: `replica_down`, `replica_up`, and `remove_down_replica` affect local visibility and are not merged as replicated state.
-- Use `state_json.to_json_string` and `state_json.from_json` for persistence or transport.
+- `join`, `merge`, `merge_with_diff`, `replica_up`, and `supersede` return
+  `Result`; retired incarnations cannot create joins or be marked up.
+- `merge` and `merge_with_diff` return `Result`; divergent states claiming the
+  same full incarnation identity are rejected.
+- Callers must provide a fresh, unique incarnation token for every restart of a
+  stable replica base. Use `supersede` when replacing known older incarnations.
+- Replica liveness is local-only. `remove_down_replica` requires `Down` and adds
+  the identity to a replicated grow-only retired set that blocks stale replay,
+  including unseen higher clocks.
+- Use `presence_state.to_json_string` and `presence_state.from_json` for
+  persistence or transport. The structured replica JSON format is not
+  compatible with the version 1 wire format.
 
 ## Links
 

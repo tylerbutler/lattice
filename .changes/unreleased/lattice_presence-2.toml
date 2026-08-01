@@ -1,0 +1,7 @@
+project = "lattice_presence"
+kind = "Breaking"
+body = """
+Add structured replica incarnation identities and checked merges, a replicated grow-only retired-incarnation set, safe incarnation supersession, strict causal JSON validation, and consolidated structured JSON serialization in presence_state.
+
+This changes join, lifecycle, supersede, and merge return types and replaces the version 1 JSON wire format. Fixes #123, #124, #125, #126, and #127; coordinates #135.
+"""
