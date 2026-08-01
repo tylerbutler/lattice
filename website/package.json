@@ -17,6 +17,7 @@
 		"check:astro": "astro check",
 		"clean": "rimraf dist *.tsbuildinfo *.done.build.log .astro",
 		"dev": "astro dev",
+		"generate:og": "node scripts/generate-og-image.mjs",
 		"preview": "astro preview",
 		"start": "astro dev"
 	},
@@ -36,6 +37,7 @@
 	},
 	"devDependencies": {
 		"@fec/remark-a11y-emoji": "^4.0.2",
+		"playwright": "^1.62.1",
 		"rimraf": "^6.1.3"
 	}
 }

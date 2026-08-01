@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face {
+	font-family: "Bricolage Grotesque";
+	font-weight: 700;
+	src: url(data:font/woff2;base64,__BRICO__) format("woff2");
+}
+@font-face {
+	font-family: "Atkinson Hyperlegible";
+	font-weight: 400;
+	src: url(data:font/woff2;base64,__ATK__) format("woff2");
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1200px; height: 630px; overflow: hidden; }
+body {
+	position: relative;
+	background:
+		radial-gradient(1000px 700px at 88% 18%, rgba(199, 46, 98, 0.10), transparent 62%),
+		radial-gradient(900px 640px at -8% 110%, rgba(252, 224, 234, 0.85), transparent 65%),
+		#faf7f8;
+	font-family: "Atkinson Hyperlegible", sans-serif;
+	color: #3b2d33;
+}
+/* faint diamond lattice pattern echoing the mark */
+.grid {
+	position: absolute;
+	inset: 0;
+	background-image:
+		linear-gradient(45deg, rgba(40, 26, 32, 0.06) 1px, transparent 1px),
+		linear-gradient(-45deg, rgba(40, 26, 32, 0.06) 1px, transparent 1px);
+	background-size: 84px 84px;
+	-webkit-mask-image: radial-gradient(900px 600px at 78% 45%, black, transparent 75%);
+	mask-image: radial-gradient(900px 600px at 78% 45%, black, transparent 75%);
+}
+.frame {
+	position: absolute;
+	inset: 26px;
+	border: 1px solid rgba(210, 197, 202, 0.9);
+	border-radius: 24px;
+}
+.accent-bar {
+	position: absolute;
+	left: 82px;
+	top: 132px;
+	width: 64px;
+	height: 7px;
+	border-radius: 4px;
+	background: linear-gradient(90deg, #c72e62, #f54780);
+}
+.content {
+	position: absolute;
+	left: 82px;
+	top: 168px;
+	width: 660px;
+}
+h1 {
+	font-family: "Bricolage Grotesque", sans-serif;
+	font-weight: 700;
+	font-size: 128px;
+	line-height: 1;
+	letter-spacing: -0.04em;
+	color: #281a20;
+}
+h1 .dot { color: #c72e62; }
+.tagline {
+	margin-top: 30px;
+	font-size: 38px;
+	line-height: 1.4;
+	color: #62525a;
+	max-width: 580px;
+}
+.tagline strong { color: #c72e62; font-weight: 400; }
+.chips {
+	margin-top: 34px;
+	display: flex;
+	gap: 16px;
+}
+.chip {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 24px;
+	border: 1px solid #d2c5ca;
+	border-radius: 999px;
+	background: rgba(255, 253, 253, 0.9);
+	font-size: 26px;
+	color: #3b2d33;
+}
+.chip .tick {
+	width: 10px;
+	height: 10px;
+	background: #c72e62;
+	transform: rotate(45deg);
+	border-radius: 2px;
+}
+.logo {
+	position: absolute;
+	right: 62px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 430px;
+	filter: drop-shadow(0 18px 44px rgba(199, 46, 98, 0.22));
+}
+</style>
+</head>
+<body>
+	<div class="grid"></div>
+	<div class="frame"></div>
+	<div class="accent-bar"></div>
+	<div class="content">
+		<h1>lattice<span class="dot">.</span></h1>
+		<p class="tagline">Conflict-free replicated data types for <strong>Gleam</strong>.</p>
+		<div class="chips">
+			<div class="chip"><span class="tick"></span>Erlang / BEAM</div>
+			<div class="chip"><span class="tick"></span>JavaScript</div>
+		</div>
+	</div>
+	<img class="logo" src="data:image/png;base64,__LOGO__" alt="">
+</body>
+</html>
