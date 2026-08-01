@@ -5,7 +5,14 @@ import atkinsonBold from "@fontsource/atkinson-hyperlegible/files/atkinson-hyper
 import bricolageSemibold from "@fontsource/bricolage-grotesque/files/bricolage-grotesque-latin-600-normal.woff2?url";
 import bricolageBold from "@fontsource/bricolage-grotesque/files/bricolage-grotesque-latin-700-normal.woff2?url";
 import { Script } from "astro-tinylytics";
+
+const ogImage = new URL("/og-image.png", Astro.site);
 ---
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="lattice — conflict-free replicated data types for Gleam" />
+<meta name="twitter:image" content={ogImage} />
 <link
 	rel="preload"
 	href={atkinsonRegular}
