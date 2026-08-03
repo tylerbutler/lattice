@@ -1,0 +1,6 @@
+package = "lattice_text_core"
+kind = "Added"
+body = """
+Add neutral-delta support for empty grapheme deletions
+
+Use `delete_graphemes_with_empty_delta` to return a backend-neutral delta for empty ranges while preserving the existing `delete_graphemes` API."""

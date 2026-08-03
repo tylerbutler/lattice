@@ -285,7 +285,6 @@ pub fn try_replace_range_with_delta(
     |> result.map_error(insert_error_to_range_error),
   )
   let delta = case start == end, graphemes {
-    True, [] -> updated
     True, _ -> insert_delta
     False, [] -> delete_delta
     False, _ -> sequence.merge(delete_delta, insert_delta)
@@ -484,7 +483,22 @@ fn delete_graphemes_with_delta(
   start: Int,
   end: Int,
 ) -> Result(#(sequence.Sequence(String), sequence.Sequence(String)), RangeError) {
-  grapheme.delete_graphemes(seq, start, end, delete_grapheme, sequence.merge)
+  grapheme.delete_graphemes_with_empty_delta(
+    seq,
+    start,
+    end,
+    delete_grapheme,
+    sequence.merge,
+    empty_sequence_delta,
+  )
+}
+
+fn empty_sequence_delta(
+  seq: sequence.Sequence(String),
+) -> sequence.Sequence(String) {
+  let assert Ok(#(_state, delta)) =
+    sequence.try_insert_many_with_delta(seq, 0, [])
+  delta
 }
 
 fn delete_grapheme(

@@ -36,6 +36,10 @@ fn insert_merge(a: List(String), b: List(String)) -> List(String) {
   list.append(a, b)
 }
 
+fn empty_delta(_state: List(String)) -> List(String) {
+  []
+}
+
 fn delete(
   state: List(String),
   index: Int,
@@ -144,7 +148,7 @@ pub fn insert_empty_graphemes_is_noop_test() {
     insert_many,
     IndexOutOfBounds,
   )
-  |> expect.to_equal(Ok(#(["a", "b"], ["a", "b"])))
+  |> expect.to_equal(Ok(#(["a", "b"], [])))
 }
 
 pub fn insert_empty_graphemes_at_bad_index_errors_test() {
@@ -183,6 +187,18 @@ pub fn delete_graphemes_range_test() {
 pub fn delete_graphemes_empty_range_is_noop_test() {
   grapheme.delete_graphemes(["a", "b"], 1, 1, delete, insert_merge)
   |> expect.to_equal(Ok(#(["a", "b"], ["a", "b"])))
+}
+
+pub fn delete_graphemes_empty_range_can_return_empty_delta_test() {
+  grapheme.delete_graphemes_with_empty_delta(
+    ["a", "b"],
+    1,
+    1,
+    delete,
+    insert_merge,
+    empty_delta,
+  )
+  |> expect.to_equal(Ok(#(["a", "b"], [])))
 }
 
 pub fn delete_graphemes_all_test() {
