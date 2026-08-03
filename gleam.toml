@@ -4,25 +4,24 @@
 # See https://github.com/tylerbutler/trellis
 
 [tools.trellis]
-members = ["packages/lattice_*", "examples"]
-# examples participates in format/lint/build/test, but not docs or releases.
-exclude = { docs = ["examples"], release = ["examples"] }
+# examples participates in format/lint/build/test, but not docs.
+exclude = { docs = ["examples"] }
 
 [tools.trellis.tasks.lint]
 command = "gleam run -m glinter"
-needs-deps = true
+needs_deps = true
 
 [tools.trellis.publish]
-tag-format = "{name}-v{version}"
-path-dep-requirement = "minor"
-retry = { attempts = 5, initial-delay = "30s", multiplier = 2 }
+tag_format = "{name}-v{version}"
+path_dep_requirement = "minor"
+retry = { attempts = 5, initial_delay = "30s", multiplier = 2 }
+
+[tools.trellis.publish.lifecycle.packages]
+"packages/lattice_fugue" = "workspace"
+"packages/lattice_text_fugue" = "workspace"
+"examples" = "workspace"
 
 [tools.trellis.changelog]
-# Missing entries warn instead of failing `changelog check` (trellis >= 0.10
-# scopes the check to fragments the branch itself wrote, so PRs riding on a
-# base-branch fragment now report a missing entry). Invalid fragments still
-# fail at every strictness. Config, not a CI flag, so local runs answer the
-# way CI does.
 strictness = "warn"
 header-format = """
 # Changelog
@@ -31,7 +30,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."""
-change-format = "#### {{ body }}"
+change_format = "#### {{ body }}"
 # Bump semantics carried over from the retired .changie.yaml: Changed and
 # Removed are patch bumps here, unlike trellis's defaults.
 kinds = [
