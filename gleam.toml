@@ -4,7 +4,7 @@
 # See https://github.com/tylerbutler/trellis
 
 [tools.trellis]
-# examples participates in format/lint/build/test, but not docs or releases.
+# examples participates in format/lint/build/test, but not docs.
 exclude = { docs = ["examples"] }
 
 [tools.trellis.tasks.lint]
@@ -17,11 +17,12 @@ path_dep_requirement = "minor"
 retry = { attempts = 5, initial_delay = "30s", multiplier = 2 }
 
 [tools.trellis.publish.lifecycle.packages]
-"packages/lattice_fugue" = "git_only"
-"packages/lattice_text_fugue" = "git_only"
+"packages/lattice_fugue" = "workspace"
+"packages/lattice_text_fugue" = "workspace"
 "examples" = "workspace"
 
 [tools.trellis.changelog]
+strictness = "warn"
 header_format = """
 # Changelog
 

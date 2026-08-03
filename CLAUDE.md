@@ -108,7 +108,7 @@ same two files; `mise install` sets up a dev machine.
 
 ### Workflows
 - **ci.yml**: `trellis doctor` + `trellis run format --check / check / lint / test / build --strict / docs` (Erlang + JavaScript targets)
-- **pr.yml**: PR title validation (commitlint) + changelog fragment check (`trellis changelog check`, sticky PR comment, non-blocking)
+- **pr.yml**: PR title validation (commitlint) + changelog fragment check (`trellis changelog check --format github`, sticky PR comment; missing entries warn via `changelog.strictness = "warn"`, invalid fragments fail)
 - **release.yml**: `trellis release pr` — batches unreleased fragments into per-package version bumps on the `release/pending` branch and opens/updates the release PR
 - **release-publish.yml**: On release-PR merge (or manual dispatch): `trellis publish --all-untagged` → `trellis tag create --push --github-release` → per-package lockfile refresh + follow-up PR
 
