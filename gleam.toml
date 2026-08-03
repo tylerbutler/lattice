@@ -4,28 +4,32 @@
 # See https://github.com/tylerbutler/trellis
 
 [tools.trellis]
-members = ["packages/lattice_*", "examples"]
 # examples participates in format/lint/build/test, but not docs or releases.
-exclude = { docs = ["examples"], release = ["examples"] }
+exclude = { docs = ["examples"] }
 
 [tools.trellis.tasks.lint]
 command = "gleam run -m glinter"
-needs-deps = true
+needs_deps = true
 
 [tools.trellis.publish]
-tag-format = "{name}-v{version}"
-path-dep-requirement = "minor"
-retry = { attempts = 5, initial-delay = "30s", multiplier = 2 }
+tag_format = "{name}-v{version}"
+path_dep_requirement = "minor"
+retry = { attempts = 5, initial_delay = "30s", multiplier = 2 }
+
+[tools.trellis.publish.lifecycle.packages]
+"packages/lattice_fugue" = "git_only"
+"packages/lattice_text_fugue" = "git_only"
+"examples" = "workspace"
 
 [tools.trellis.changelog]
-header-format = """
+header_format = """
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."""
-change-format = "#### {{ body }}"
+change_format = "#### {{ body }}"
 # Bump semantics carried over from the retired .changie.yaml: Changed and
 # Removed are patch bumps here, unlike trellis's defaults.
 kinds = [
