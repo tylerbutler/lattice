@@ -168,6 +168,22 @@ pub fn merge_applies_multi_character_insert_delta_test() {
   |> expect.to_equal(updated)
 }
 
+pub fn empty_insert_returns_empty_delta_test() {
+  let base = text.new(rid("A")) |> text.insert(0, "abc")
+  let #(updated, delta) = text.insert_with_delta(base, 1, "")
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
+}
+
+pub fn empty_append_returns_empty_delta_test() {
+  let base = text.new(rid("A")) |> text.insert(0, "abc")
+  let #(updated, delta) = text.append_with_delta(base, "")
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
+}
+
 pub fn merge_applies_delete_delta_test() {
   let base = text.new(rid("A")) |> text.insert(0, "x")
   let #(updated, delta) = text.delete_with_delta(base, 0)
@@ -261,6 +277,14 @@ pub fn delete_range_empty_range_is_noop_test() {
   |> expect.to_equal("abc")
 }
 
+pub fn delete_range_empty_range_returns_empty_delta_test() {
+  let base = text.new(rid("A")) |> text.insert(0, "abc")
+  let #(updated, delta) = text.delete_range_with_delta(base, 1, 1)
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
+}
+
 pub fn delete_range_full_range_empties_text_test() {
   text.new(rid("A"))
   |> text.insert(0, "abc")
@@ -344,6 +368,14 @@ pub fn replace_range_empty_value_deletes_test() {
   |> text.replace_range(1, 3, "")
   |> text.value()
   |> expect.to_equal("ad")
+}
+
+pub fn replace_range_empty_edit_returns_empty_delta_test() {
+  let base = text.new(rid("A")) |> text.insert(0, "abc")
+  let #(updated, delta) = text.replace_range_with_delta(base, 1, 1, "")
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
 }
 
 pub fn try_replace_range_invalid_range_returns_error_test() {

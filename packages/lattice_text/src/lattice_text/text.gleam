@@ -16,6 +16,7 @@
 //// text.value(doc)  // -> ""
 //// ```
 
+import gleam/bool
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -285,7 +286,6 @@ pub fn try_replace_range_with_delta(
     |> result.map_error(insert_error_to_range_error),
   )
   let delta = case start == end, graphemes {
-    True, [] -> updated
     True, _ -> insert_delta
     False, [] -> delete_delta
     False, _ -> sequence.merge(delete_delta, insert_delta)
@@ -484,7 +484,14 @@ fn delete_graphemes_with_delta(
   start: Int,
   end: Int,
 ) -> Result(#(sequence.Sequence(String), sequence.Sequence(String)), RangeError) {
+  use <- bool.guard(start == end, Ok(#(seq, empty_sequence_delta(seq))))
   grapheme.delete_graphemes(seq, start, end, delete_grapheme, sequence.merge)
+}
+
+fn empty_sequence_delta(
+  seq: sequence.Sequence(String),
+) -> sequence.Sequence(String) {
+  sequence.insert_many_with_delta(seq, 0, []).1
 }
 
 fn delete_grapheme(

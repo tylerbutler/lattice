@@ -73,8 +73,8 @@ pub fn slice(graphemes: List(String), start: Int, end: Int) -> String {
 ///
 /// Returns `Error` (via `index_out_of_bounds`) when `index` is outside
 /// `[0, length]`, mirroring the backend's own bounds contract even when the
-/// grapheme list is empty. An empty grapheme list at a valid index is a no-op
-/// whose delta is the unchanged state, and never reaches `insert_many`.
+/// grapheme list is empty. An empty grapheme list at a valid index is passed
+/// to `insert_many`, allowing the backend to return its neutral delta.
 pub fn insert_graphemes(
   graphemes: List(String),
   state: s,
@@ -84,10 +84,9 @@ pub fn insert_graphemes(
   index_out_of_bounds: fn(Int, Int) -> e,
 ) -> Result(#(s, s), e) {
   let len = length(state)
-  case graphemes, index < 0 || index > len {
-    _, True -> Error(index_out_of_bounds(index, len))
-    [], False -> Ok(#(state, state))
-    _, False -> insert_many(state, index, graphemes)
+  case index < 0 || index > len {
+    True -> Error(index_out_of_bounds(index, len))
+    False -> insert_many(state, index, graphemes)
   }
 }
 

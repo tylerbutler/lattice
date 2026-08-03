@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Fixed"
+body = """
+Return empty deltas for no-op text edits
+
+Empty inserts, appends, ranges, and replacements no longer return the entire document as their delta."""
