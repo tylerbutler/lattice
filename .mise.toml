@@ -3,7 +3,7 @@
 # express: backend-prefixed installs and env.
 [tools]
 node = "24"
-"github:tylerbutler/trellis" = "latest"
+"github:tylerbutler/trellis" = "0.10.0"
 
 [env]
 LC_ALL = "en_US.UTF-8"
