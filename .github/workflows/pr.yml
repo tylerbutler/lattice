@@ -28,7 +28,9 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: echo "$PR_TITLE" | npx commitlint
 
-  # Changelog entry check (informational: comments on the PR, never fails it)
+  # Changelog entry check. Missing entries never fail it (strictness = "warn"
+  # in gleam.toml); unparseable fragments do, since they block the next
+  # release no matter who committed them.
   changelog:
     name: Changelog
     runs-on: ubuntu-latest
@@ -45,6 +47,8 @@ jobs:
 
       - name: Check changelog entries
         id: changelog
+        # Invalid fragments exit 1 at every strictness setting. Keep going so
+        # the sticky comment lands before the verdict step fails the job.
         continue-on-error: true
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -53,12 +57,12 @@ jobs:
           trellis changelog check \
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
-            --strictness warn \
             --format github >> "$GITHUB_OUTPUT"
 
+      # The preview is the whole comment: fragment counts, version bumps, and
+      # a collapsible render of the release each merge would cause.
       - name: Post changelog comment
         if: >-
-          always() &&
           steps.changelog.outputs.ok != '' &&
           (steps.changelog.outputs.has_entries == 'true' ||
            steps.changelog.outputs.needs_entry == 'true' ||
@@ -70,7 +74,6 @@ jobs:
 
       - name: Remove changelog comment
         if: >-
-          always() &&
           steps.changelog.outputs.ok != '' &&
           steps.changelog.outputs.has_entries == 'false' &&
           steps.changelog.outputs.needs_entry == 'false' &&
@@ -80,6 +83,8 @@ jobs:
           header: changelog
           delete: true
 
-      - name: Fail if changelog check did not run
-        if: always() && steps.changelog.outputs.ok == ''
+      # ok is 'true' unless a fragment failed to parse (strictness = warn) or
+      # the check itself never ran (outputs empty).
+      - name: Fail on invalid fragments
+        if: steps.changelog.outputs.ok != 'true'
         run: exit 1
