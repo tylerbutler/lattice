@@ -23,7 +23,7 @@ retry = { attempts = 5, initial_delay = "30s", multiplier = 2 }
 
 [tools.trellis.changelog]
 strictness = "warn"
-header-format = """
+header_format = """
 # Changelog
 
 All notable changes to this project will be documented in this file.
