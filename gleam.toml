@@ -18,6 +18,12 @@ path-dep-requirement = "minor"
 retry = { attempts = 5, initial-delay = "30s", multiplier = 2 }
 
 [tools.trellis.changelog]
+# Missing entries warn instead of failing `changelog check` (trellis >= 0.10
+# scopes the check to fragments the branch itself wrote, so PRs riding on a
+# base-branch fragment now report a missing entry). Invalid fragments still
+# fail at every strictness. Config, not a CI flag, so local runs answer the
+# way CI does.
+strictness = "warn"
 header-format = """
 # Changelog
 
