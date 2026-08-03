@@ -99,9 +99,8 @@ pub fn insert_graphemes(
 /// - `merge` joins two deltas.
 ///
 /// Repeatedly deletes at `start`, since each deletion shifts the following
-/// graphemes left. An empty range preserves the historical behavior of
-/// returning the unchanged state as its delta. Use
-/// `delete_graphemes_with_empty_delta` when the backend has a neutral delta.
+/// graphemes left. An empty range is a no-op whose delta is the unchanged
+/// state.
 pub fn delete_graphemes(
   state: s,
   start: Int,
@@ -109,26 +108,8 @@ pub fn delete_graphemes(
   delete: fn(s, Int) -> Result(#(s, s), e),
   merge: fn(s, s) -> s,
 ) -> Result(#(s, s), e) {
-  delete_graphemes_with_empty_delta(state, start, end, delete, merge, fn(state) {
-    state
-  })
-}
-
-/// Delete the graphemes in `[start, end)`, returning a neutral delta when the
-/// range is empty.
-///
-/// This is equivalent to `delete_graphemes` for non-empty ranges.
-/// `empty_delta` returns the backend's neutral delta for the current state.
-pub fn delete_graphemes_with_empty_delta(
-  state: s,
-  start: Int,
-  end: Int,
-  delete: fn(s, Int) -> Result(#(s, s), e),
-  merge: fn(s, s) -> s,
-  empty_delta: fn(s) -> s,
-) -> Result(#(s, s), e) {
   case end - start {
-    count if count <= 0 -> Ok(#(state, empty_delta(state)))
+    count if count <= 0 -> Ok(#(state, state))
     count -> {
       use #(first_state, first_delta) <- result.try(delete(state, start))
       list.repeat(Nil, count - 1)

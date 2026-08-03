@@ -483,22 +483,23 @@ fn delete_graphemes_with_delta(
   start: Int,
   end: Int,
 ) -> Result(#(sequence.Sequence(String), sequence.Sequence(String)), RangeError) {
-  grapheme.delete_graphemes_with_empty_delta(
-    seq,
-    start,
-    end,
-    delete_grapheme,
-    sequence.merge,
-    empty_sequence_delta,
-  )
+  case start == end {
+    True -> Ok(#(seq, empty_sequence_delta(seq)))
+    False ->
+      grapheme.delete_graphemes(
+        seq,
+        start,
+        end,
+        delete_grapheme,
+        sequence.merge,
+      )
+  }
 }
 
 fn empty_sequence_delta(
   seq: sequence.Sequence(String),
 ) -> sequence.Sequence(String) {
-  let assert Ok(#(_state, delta)) =
-    sequence.try_insert_many_with_delta(seq, 0, [])
-  delta
+  sequence.insert_many_with_delta(seq, 0, []).1
 }
 
 fn delete_grapheme(

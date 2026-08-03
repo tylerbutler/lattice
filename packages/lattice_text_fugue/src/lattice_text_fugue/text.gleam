@@ -409,14 +409,17 @@ fn delete_graphemes_with_delta(
   start: Int,
   end: Int,
 ) -> Result(#(sequence.Sequence(String), sequence.Sequence(String)), RangeError) {
-  grapheme.delete_graphemes_with_empty_delta(
-    seq,
-    start,
-    end,
-    delete_grapheme,
-    sequence.merge,
-    sequence.empty_delta,
-  )
+  case start == end {
+    True -> Ok(#(seq, sequence.empty_delta(seq)))
+    False ->
+      grapheme.delete_graphemes(
+        seq,
+        start,
+        end,
+        delete_grapheme,
+        sequence.merge,
+      )
+  }
 }
 
 fn delete_grapheme(

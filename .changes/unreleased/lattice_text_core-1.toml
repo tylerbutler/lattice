@@ -1,6 +1,6 @@
 package = "lattice_text_core"
-kind = "Added"
+kind = "Fixed"
 body = """
-Add neutral-delta support for empty grapheme deletions
+Return backend deltas for empty grapheme inserts
 
-Use `delete_graphemes_with_empty_delta` to return a backend-neutral delta for empty ranges while preserving the existing `delete_graphemes` API."""
+Empty grapheme inserts now call the backend insertion function so it can return a neutral delta."""
