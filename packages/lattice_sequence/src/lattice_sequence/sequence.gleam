@@ -10,6 +10,17 @@
 //// and converge with single-winner semantics for concurrent moves of the same
 //// item.
 ////
+//// ## Replica identity
+////
+//// A sequence carries the replica id it mints item IDs under. `merge` is
+//// order-independent in its item set, order, and counter, but not in that
+//// id: the result keeps the FIRST argument's. Always call it as
+//// `merge(self, other)`, or use `merge_as` to state the local identity
+//// explicitly. Deltas are ordinary `Sequence` values stamped with the
+//// minting replica, so passing an incoming delta first would hand the local
+//// state the sender's identity and make later local edits mint colliding
+//// item IDs.
+////
 //// ## Compaction
 ////
 //// Long-lived sequences never shrink on their own: every delete leaves a
@@ -213,6 +224,10 @@ pub fn insert_with_delta(
 
 /// Safely insert a value and return both the updated sequence and insertion
 /// delta.
+///
+/// The delta is a `Sequence` stamped with this replica's id. Apply it on a
+/// peer as `merge(peer_state, delta)` — local state first — or with
+/// `merge_as`; passing it first hands the peer this replica's identity.
 pub fn try_insert_with_delta(
   sequence: Sequence(a),
   index: Int,
@@ -262,6 +277,10 @@ pub fn insert_many_with_delta(
 /// every replica. When the state holds no live move record, stored order is
 /// already the canonical order, so the run is spliced directly in place rather
 /// than re-deriving the whole order; otherwise it falls back to a full rebuild.
+///
+/// The delta is a `Sequence` stamped with this replica's id. Apply it on a
+/// peer as `merge(peer_state, delta)` — local state first — or with
+/// `merge_as`; passing it first hands the peer this replica's identity.
 pub fn try_insert_many_with_delta(
   sequence: Sequence(a),
   index: Int,
@@ -430,6 +449,10 @@ pub fn delete_with_delta(
 ///
 /// Deletes mint an op ID (bumping this replica's counter) so a compaction
 /// frontier can distinguish acknowledged deletes from in-flight ones.
+///
+/// The delta is a `Sequence` stamped with this replica's id. Apply it on a
+/// peer as `merge(peer_state, delta)` — local state first — or with
+/// `merge_as`; passing it first hands the peer this replica's identity.
 pub fn try_delete_with_delta(
   sequence: Sequence(a),
   index: Int,
@@ -494,6 +517,10 @@ pub fn move_with_delta(
 
 /// Safely move a visible item and return both the updated sequence and move
 /// delta.
+///
+/// The delta is a `Sequence` stamped with this replica's id. Apply it on a
+/// peer as `merge(peer_state, delta)` — local state first — or with
+/// `merge_as`; passing it first hands the peer this replica's identity.
 pub fn try_move_with_delta(
   sequence: Sequence(a),
   from_index: Int,
@@ -864,6 +891,21 @@ pub fn remove_forwardings(
 /// dominates the other (with a global sequencer, floors are totally ordered
 /// so this always holds). An item absent from the further-compacted side and
 /// covered by its frontier is treated as compacted away and stays dropped.
+///
+/// ## Argument order matters
+///
+/// The merged item set, order, and counter are order-independent, but the
+/// replica identity is NOT: the result adopts `a`'s replica id. Call this as
+/// `merge(self, other)` — local state first — or the result takes the remote's
+/// identity and every later local edit mints item IDs under a replica id that
+/// is still minting its own. Those IDs collide silently and merge conflates
+/// two distinct items, dropping one.
+///
+/// Deltas returned by the `*_with_delta` functions are ordinary `Sequence`
+/// values stamped with the minting replica, so `merge(incoming_delta, state)`
+/// is the easy way to get this wrong. Use `merge_as` when the argument order
+/// is not statically obvious — it takes the local identity explicitly and is
+/// order-independent in every field.
 pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
   let forwardings =
     merge_forwarding_entries(a.forwardings, b.forwardings)
@@ -934,6 +976,25 @@ pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
     forwardings: forwardings,
     frontier: frontier,
   )
+}
+
+/// Merge two sequence CRDT states under an explicitly named replica identity.
+///
+/// Same as `merge`, except the merged state is stamped with `replica` instead
+/// of inheriting the first argument's id. That makes the call fully
+/// order-independent — `merge_as(a, b, replica)` equals
+/// `merge_as(b, a, replica)` in every field — so applying an incoming delta
+/// cannot re-mint local edits under the sender's replica id, whichever side
+/// it is passed on.
+///
+/// Pass the identity this replica edits under. The merged counter is the max
+/// of both sides, so it still dominates every ID `replica` has minted here.
+pub fn merge_as(
+  a: Sequence(a),
+  b: Sequence(a),
+  replica: ReplicaId,
+) -> Sequence(a) {
+  Sequence(..merge(a, b), replica_id: replica)
 }
 
 fn reconcile_element(
