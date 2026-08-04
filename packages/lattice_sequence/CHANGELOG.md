@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.1 - 2026-08-04
+
+### Changed
+
+#### Document that a move record permanently disables compact
+
+The compact docs previously suggested a replica holding a move could compact again after merging a peer that had already stabilized the item. It cannot: nothing clears a move record, so such a replica stops reclaiming tombstones and origins for good. The docs now state that plainly and record why the guard cannot be relaxed. The unreachable settled-move stabilization case is gone from the classifier.
+
+### Fixed
+
+#### Stack co-gap moves in op order regardless of how each resolved
+
+Concurrent moves landing in the same gap now stack left to right in op order even when some resolve against the gap's right boundary and others fall back to its left anchor. Previously a move that kept its right boundary was skipped by later movers in the same gap, so the visible mover order could disagree with the op order.
+
 ## v1.0.0 - 2026-07-07
 
 
@@ -39,5 +53,3 @@ Insert a run of values at consecutive indices in a single operation, reported as
 #### Splice local inserts into the stored order instead of rebuilding it
 
 When the state holds no live move record, stored order is already the canonical order, so a local insert is spliced directly in place (O(n)) rather than re-deriving the whole canonical order twice (O(n^2)). States holding a live move fall back to the previous rebuild path. The emitted delta is unchanged, so convergence is unaffected.
-
-

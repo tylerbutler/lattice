@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.1.1 - 2026-08-04
+
+### Fixed
+
+#### Remove internal panic branches from LWWMap and ORMap merge
+
+The merge implementations no longer contain an unreachable panic when resolving keys present on only one side; they now fold over each side's entries directly. Also corrects the LWWMap type documentation, which wrongly described the timestamp tie-break as first-argument-wins (the actual rule: tombstones win, otherwise the lexicographically greater value).
+
 ## v1.1.0 - 2026-05-16
 
 
@@ -13,7 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Add delta-state API to ORMap
 
 New opaque `ORMapDelta` type plus `or_map.update_with_delta`, `remove_with_delta`, `apply_delta`, `merge_deltas`, `empty_delta`, `delta_to_json`, and `delta_from_json`. Mutations return a small delta carrying only the touched keys, the OR-Set key-set delta, and sparse per-key CRDT values — much smaller than full-state messages for sync over unreliable transports such as websockets. `update_with_delta` validates value types with `Result`, and `apply_delta` validates `crdt_spec` while applying deltas idempotently and commutatively. Also adds `crdt.default_delta` and `crdt.is_empty_delta` helpers in the dispatch module.
-
 
 ## v1.0.0 - 2026-04-11
 
@@ -69,5 +76,3 @@ All types include JSON serialization via `to_json`/`from_json`. See the [maps gu
 #### LWWMap `prune` now prevents deleted keys from reappearing after merge
 
 Previously, pruning tombstones from one replica could cause deleted keys to reappear when merging with a stale replica that still had the old entry. `prune` now records a `pruned_timestamp` so that `merge` automatically discards entries at or below the pruned threshold. JSON serialization is bumped to v2 to persist the pruned timestamp; `from_json` still accepts v1.
-
-
