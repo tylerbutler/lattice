@@ -9,8 +9,14 @@ fn rid(id: String) {
   replica_id.new(id)
 }
 
+/// Compaction properties guard the convergence rules that are easiest to get
+/// wrong, so they run the widest sweep in the workspace. This is not a round
+/// number: a change that reordered documents under compaction passed the whole
+/// suite at `test_count: 100` and was only caught by raising this. Treat 100 as
+/// known-insufficient, and raise this further when touching the interaction
+/// between moves and compaction.
 fn small_test_config() -> qcheck.Config {
-  qcheck.config(test_count: 100, max_retries: 3, seed: qcheck.seed(11))
+  qcheck.config(test_count: 2000, max_retries: 3, seed: qcheck.seed(11))
 }
 
 fn seed_pair_generator() {
