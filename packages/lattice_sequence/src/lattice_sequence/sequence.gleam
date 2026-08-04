@@ -1218,17 +1218,32 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// Compacting at the current frontier, at an older one, or at one concurrent
 /// with it is a no-op — frontiers only advance.
 ///
-/// A state holding ANY move record is left unchanged, even when the move op is
-/// already covered by `stable`. This guard is load-bearing for convergence, not
-/// just conservatism: baking a settled move into the compact skeleton fixes its
-/// position from only the compacting replica's items, but a peer's still-live
-/// concurrent inserts above the frontier integrate against the moved item's
-/// origins — which stabilization strips. The two then order those inserts
-/// differently and `merge` stops commuting (see the property test
-/// `merge_commutes_with_compaction_for_deltas_above_frontier`). Because move
-/// records are never cleared locally, a replica that uses `move` cannot compact
-/// until it merges a peer that has already stabilized the item into a block; a
-/// safe stabilization path for moves is future work (see issue #98).
+/// ## Moves disable the pass entirely
+///
+/// A state holding ANY move record is left unchanged, even when every move op
+/// is already covered by `stable`. The guard is load-bearing for convergence,
+/// not conservatism, and it has to be this blunt:
+///
+/// A mover is stripped and re-placed on every rebuild, so it re-integrates
+/// from its INSERT origins, which sit below the frontier. Its conflict window
+/// therefore spans the settled region — unlike a volatile item's, whose
+/// canonical-adjacent origins bound it to other volatile items, which is the
+/// invariant that lets compaction strip settled origins at all. Change
+/// anything that window covers and replicas at different compaction levels
+/// place the mover differently: stabilizing the mover itself strips the
+/// origins a peer's above-frontier inserts integrate against, stabilizing a
+/// neighbor strips what the mover integrates against, and reclaiming a
+/// neighboring tombstone changes the window's contents. Each of those on its
+/// own falsifies the property test
+/// `merge_commutes_with_compaction_for_deltas_above_frontier`.
+///
+/// Nothing clears a move record — not a local op, and not merging a peer that
+/// stabilized the item before it heard about the move, because
+/// `stable_or_live` keeps a moved item live and supersedes the block slot. So
+/// a replica that performs or receives a move stops reclaiming for good, and
+/// its tombstones and origins grow without bound. Representing a settled move
+/// without discarding the geometry concurrent inserts rely on needs a
+/// redesign; tracked in issue #98.
 pub fn compact(
   sequence: Sequence(a),
   stable: VersionVector,
@@ -1316,23 +1331,25 @@ type Stability {
   KeepLive
 }
 
+/// A settled tombstone is reclaimed and a settled plain item is baked into the
+/// skeleton; anything above the frontier or holding an unacknowledged delete
+/// stays live.
+///
+/// A mover never reaches this function — `compact` bails before `do_compact`
+/// when any move record exists — so there is no covered-move case to decide.
+/// The classification is written to reject one anyway rather than encode an
+/// unreachable "settled move stabilizes" intent, which is not safe at any
+/// frontier; see `compact`.
 fn item_stability(item: Item(a), stable: VersionVector) -> Stability {
   use <- bool.guard(!frontier_covers(stable, item.id), KeepLive)
-  case item.deleted {
-    Some(op) ->
+  case item.deleted, item.move {
+    Some(op), _ ->
       case frontier_covers_op(stable, op) {
         True -> DropTombstone
         False -> KeepLive
       }
-    None ->
-      case item.move {
-        None -> ToStable
-        Some(Move(op, _, _)) ->
-          case frontier_covers_op(stable, op) {
-            True -> ToStable
-            False -> KeepLive
-          }
-      }
+    None, Some(_) -> KeepLive
+    None, None -> ToStable
   }
 }
 
