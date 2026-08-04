@@ -1129,8 +1129,9 @@ fn compare_clock_lists(
 
 /// Where a move's target gap resolves in the current element order.
 type MoveTarget {
-  /// Directly before this element; successive moves to the same target
-  /// stack left-to-right in op order naturally.
+  /// Directly before this element, i.e. at the right end of the gap this
+  /// element closes. `apply_moves` records the landing under that gap's
+  /// anchor so later movers resolving `AfterGap` stack after it.
   BeforeElement(ItemId)
   /// The gap after this element (`None` = document start). Successive moves
   /// into the same gap must also stack left-to-right in op order, which
@@ -1164,6 +1165,7 @@ fn apply_moves(
     list.fold(movers, dict.new(), fn(acc, item) {
       dict.insert(acc, item.id, Nil)
     })
+  let gap_anchors = base_gap_anchors(stripped)
   let #(result, _) =
     list.fold(movers, #(stripped, dict.new()), fn(acc, item) {
       let #(current, last_in_gap) = acc
@@ -1181,7 +1183,7 @@ fn apply_moves(
           {
             BeforeElement(right_id) -> #(
               insert_element_before_id(current, right_id, LiveEl(item)),
-              last_in_gap,
+              record_in_gap(last_in_gap, gap_anchors, right_id, item.id),
             )
             AtEnd -> #(list.append(current, [LiveEl(item)]), last_in_gap)
             AfterGap(anchor) -> #(
@@ -1197,6 +1199,46 @@ fn apply_moves(
       }
     })
   result
+}
+
+/// Map every element of the move-free base to the gap it closes: the id of
+/// the element immediately to its left, or `None` for the document start.
+///
+/// Movers are spliced into the gaps of this base, so `BeforeElement(right)`
+/// and `AfterGap(left)` name the same gap exactly when `left` is `right`'s
+/// base predecessor. Keying both on that anchor is what lets co-gap movers
+/// stack in op order no matter which path each one resolved through.
+fn base_gap_anchors(
+  elements: List(Element(a)),
+) -> Dict(ItemId, Option(ItemId)) {
+  let #(anchors, _) =
+    list.fold(elements, #(dict.new(), None), fn(acc, el) {
+      let #(anchors, previous) = acc
+      let id = element_id(el)
+      #(dict.insert(anchors, id, previous), Some(id))
+    })
+  anchors
+}
+
+/// Record a `BeforeElement` landing as the gap's rightmost mover so far.
+///
+/// Inserting before `right_id` always lands at the right end of that gap —
+/// every mover already placed there sits to its left — so the entry stays
+/// the correct splice point for the next mover in op order.
+///
+/// A `right_id` absent from the base is a mover placed earlier in this pass.
+/// Landing before it is not the gap's right end, so there is nothing to
+/// record and the previous entry stands.
+fn record_in_gap(
+  last_in_gap: Dict(Option(ItemId), ItemId),
+  gap_anchors: Dict(ItemId, Option(ItemId)),
+  right_id: ItemId,
+  mover: ItemId,
+) -> Dict(Option(ItemId), ItemId) {
+  case dict.get(gap_anchors, right_id) {
+    Ok(anchor) -> dict.insert(last_in_gap, anchor, mover)
+    Error(Nil) -> last_in_gap
+  }
 }
 
 fn splice_into_gap(
@@ -1279,17 +1321,34 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// Compacting at the current frontier, at an older one, or at one concurrent
 /// with it is a no-op — frontiers only advance.
 ///
-/// A state holding ANY move record is left unchanged, even when the move op is
-/// already covered by `stable`. This guard is load-bearing for convergence, not
-/// just conservatism: baking a settled move into the compact skeleton fixes its
-/// position from only the compacting replica's items, but a peer's still-live
-/// concurrent inserts above the frontier integrate against the moved item's
-/// origins — which stabilization strips. The two then order those inserts
-/// differently and `merge` stops commuting (see the property test
-/// `merge_commutes_with_compaction_for_deltas_above_frontier`). Because move
-/// records are never cleared locally, a replica that uses `move` cannot compact
-/// until it merges a peer that has already stabilized the item into a block; a
-/// safe stabilization path for moves is future work (see issue #98).
+/// ## Moves disable the pass entirely
+///
+/// A state holding ANY move record is left unchanged, even when every move op
+/// is already covered by `stable`. The guard is load-bearing for convergence,
+/// not conservatism, and it has to be this blunt:
+///
+/// Compaction is safe only because `rebuild` is frontier-invariant: a covered
+/// element is pinned at its stored position, and pinning it agrees with
+/// integrating it from origins, so raising the frontier cannot reorder
+/// anything. A mover is the one element that breaks this. It is never pinned —
+/// its stored position is post-move, but re-integrating it from its INSERT
+/// origins yields its PRE-move position — so the two disagree, and raising the
+/// frontier changes which elements are pinned around it and therefore where it
+/// lands.
+///
+/// That makes the frontier advance itself unsafe, not the element rewriting:
+/// a `compact` that changes NO element and only advances `frontier` already
+/// falsifies `merge_commutes_with_compaction_for_deltas_above_frontier` when a
+/// move record exists. So there is nothing to relax here — no subset of the
+/// pass is safe while a mover is present.
+///
+/// Nothing clears a move record — not a local op, and not merging a peer that
+/// stabilized the item before it heard about the move, because
+/// `stable_or_live` keeps a moved item live and supersedes the block slot. So
+/// a replica that performs or receives a move stops reclaiming for good, and
+/// its tombstones and origins grow without bound. Representing a settled move
+/// without discarding the geometry concurrent inserts rely on needs a
+/// redesign; tracked in issue #98.
 pub fn compact(
   sequence: Sequence(a),
   stable: VersionVector,
@@ -1377,23 +1436,25 @@ type Stability {
   KeepLive
 }
 
+/// A settled tombstone is reclaimed and a settled plain item is baked into the
+/// skeleton; anything above the frontier or holding an unacknowledged delete
+/// stays live.
+///
+/// A mover never reaches this function — `compact` bails before `do_compact`
+/// when any move record exists — so there is no covered-move case to decide.
+/// The classification is written to reject one anyway rather than encode an
+/// unreachable "settled move stabilizes" intent, which is not safe at any
+/// frontier; see `compact`.
 fn item_stability(item: Item(a), stable: VersionVector) -> Stability {
   use <- bool.guard(!frontier_covers(stable, item.id), KeepLive)
-  case item.deleted {
-    Some(op) ->
+  case item.deleted, item.move {
+    Some(op), _ ->
       case frontier_covers_op(stable, op) {
         True -> DropTombstone
         False -> KeepLive
       }
-    None ->
-      case item.move {
-        None -> ToStable
-        Some(Move(op, _, _)) ->
-          case frontier_covers_op(stable, op) {
-            True -> ToStable
-            False -> KeepLive
-          }
-      }
+    None, Some(_) -> KeepLive
+    None, None -> ToStable
   }
 }
 
