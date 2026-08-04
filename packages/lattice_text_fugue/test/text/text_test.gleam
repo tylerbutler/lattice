@@ -147,6 +147,14 @@ pub fn delete_range_empty_is_noop_test() {
   |> expect.to_equal("abc")
 }
 
+pub fn delete_range_empty_returns_empty_delta_test() {
+  let base = doc() |> text.insert(0, "abc")
+  let #(updated, delta) = text.delete_range_with_delta(base, 1, 1)
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
+}
+
 pub fn replace_range_test() {
   doc()
   |> text.insert(0, "abcd")
@@ -179,6 +187,14 @@ pub fn try_replace_range_out_of_bounds_test() {
   |> expect.to_be_true()
 }
 
+pub fn replace_range_empty_edit_returns_empty_delta_test() {
+  let base = doc() |> text.insert(0, "abc")
+  let #(updated, delta) = text.replace_range_with_delta(base, 1, 1, "")
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
+}
+
 // ---------------------------------------------------------------------------
 // deltas and merge
 // ---------------------------------------------------------------------------
@@ -189,6 +205,22 @@ pub fn insert_delta_merges_into_peer_test() {
   text.merge(base, delta)
   |> text.value()
   |> expect.to_equal("hi!")
+}
+
+pub fn empty_insert_returns_empty_delta_test() {
+  let base = doc() |> text.insert(0, "abc")
+  let #(updated, delta) = text.insert_with_delta(base, 1, "")
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
+}
+
+pub fn empty_append_returns_empty_delta_test() {
+  let base = doc() |> text.insert(0, "abc")
+  let #(updated, delta) = text.append_with_delta(base, "")
+
+  expect.to_equal(updated, base)
+  text.value(delta) |> expect.to_equal("")
 }
 
 pub fn concurrent_edits_converge_test() {

@@ -29,6 +29,7 @@
 //// text.value(doc)  // -> "hello world"
 //// ```
 
+import gleam/bool
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -250,7 +251,6 @@ pub fn try_replace_range_with_delta(
     |> result.map_error(insert_error_to_range_error),
   )
   let delta = case start == end, graphemes {
-    True, [] -> updated
     True, _ -> insert_delta
     False, [] -> delete_delta
     False, _ -> sequence.merge(delete_delta, insert_delta)
@@ -410,6 +410,7 @@ fn delete_graphemes_with_delta(
   start: Int,
   end: Int,
 ) -> Result(#(sequence.Sequence(String), sequence.Sequence(String)), RangeError) {
+  use <- bool.guard(start == end, Ok(#(seq, sequence.empty_delta(seq))))
   grapheme.delete_graphemes(seq, start, end, delete_grapheme, sequence.merge)
 }
 
@@ -444,7 +445,7 @@ fn insert_graphemes_with_delta(
 
 /// Insert a grapheme run into the Fugue backend, one node at a time, threading
 /// a merged delta. The Fugue backend has no batch primitive yet, so this folds
-/// the single-node insert; `insert_graphemes` never calls it with an empty run.
+/// the single-node insert.
 fn fugue_insert_many(
   seq: sequence.Sequence(String),
   index: Int,
@@ -454,7 +455,7 @@ fn fugue_insert_many(
   sequence.InsertError,
 ) {
   case graphemes {
-    [] -> Ok(#(seq, seq))
+    [] -> Ok(#(seq, sequence.empty_delta(seq)))
     [first, ..rest] -> {
       use #(first_state, first_delta) <- result.try(
         sequence.try_insert_with_delta(seq, index, first),

@@ -120,14 +120,20 @@ pub fn compact_does_not_merge_blocks_across_counter_gaps_test() {
 pub fn compact_is_noop_while_move_records_exist_test() {
   // A state holding a move record is left unchanged EVEN when the move op is
   // covered by the frontier (here frontier_a(4) covers the move's counter 4).
-  // This is load-bearing for convergence, not mere conservatism: baking the
-  // moved position into the skeleton strips the moved item's origins, so a
-  // peer's concurrent above-frontier inserts would integrate against the
-  // baked item differently depending on merge order and `merge` would stop
-  // commuting. See the property test
-  // `merge_commutes_with_compaction_for_deltas_above_frontier`, and issue #98
-  // for a safe move-stabilization path. Do not relax this to "in-flight moves
-  // only" without first making stabilized moves converge.
+  // This is load-bearing for convergence, not mere conservatism, and the
+  // guard has to stay this blunt. Compaction is safe only because `rebuild`
+  // is frontier-invariant: pinning a covered element at its stored position
+  // agrees with integrating it from origins. A mover breaks that — it is
+  // never pinned, its stored position is post-move, and re-integrating it
+  // yields its PRE-move position, so raising the frontier moves it.
+  //
+  // The frontier advance ALONE is therefore unsafe: a `compact` that changes
+  // no element and only advances `frontier` already falsifies
+  // `merge_commutes_with_compaction_for_deltas_above_frontier`. No subset of
+  // the pass is safe while a mover is present, so do not relax this to
+  // "in-flight moves only" and do not try to compact around a mover. The fix
+  // is to make the stored order the pre-move base order, applying moves as a
+  // view — see issue #98.
   let seq = abc() |> sequence.move(0, 2)
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(4))
 
@@ -135,6 +141,24 @@ pub fn compact_is_noop_while_move_records_exist_test() {
   sequence.values(compacted) |> expect.to_equal(["b", "c", "a"])
   sequence.forwarding_size(forwardings) |> expect.to_equal(0)
   count_kind(compacted, "block") |> expect.to_equal(0)
+}
+
+pub fn merging_a_stabilized_peer_does_not_clear_a_move_record_test() {
+  // The one escape hatch a replica might hope for does not exist: merging a
+  // peer that compacted the item into a block BEFORE it heard about the move
+  // does not clear the move. `stable_or_live` keeps a moved item live and
+  // supersedes the block slot, so the record survives and compaction stays
+  // disabled. Move records are permanent for the item's lifetime.
+  let base = abc()
+  // The peer stabilizes a, b, c into a block, never having seen the move.
+  let #(peer, _) = sequence.compact(base, frontier_a(3))
+  let moved = base |> sequence.move(0, 2)
+  let merged = sequence.merge(moved, peer)
+  let #(compacted, forwardings) = sequence.compact(merged, frontier_a(4))
+
+  compacted |> expect.to_equal(merged)
+  sequence.forwarding_size(forwardings) |> expect.to_equal(0)
+  sequence.values(compacted) |> expect.to_equal(["b", "c", "a"])
 }
 
 // --- idempotence and frontier regression ----------------------------------

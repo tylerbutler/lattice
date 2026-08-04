@@ -115,6 +115,14 @@ pub fn new(replica_id: ReplicaId) -> Sequence(a) {
   Sequence(replica_id: replica_id, counter: 0, nodes: dict.new())
 }
 
+/// Return an empty delta carrying this sequence's replica identity.
+///
+/// The result is the neutral element when merged into `sequence`, and is
+/// useful when a valid operation makes no change.
+pub fn empty_delta(sequence: Sequence(a)) -> Sequence(a) {
+  new(sequence.replica_id)
+}
+
 // ---------------------------------------------------------------------------
 // Traversal
 // ---------------------------------------------------------------------------
