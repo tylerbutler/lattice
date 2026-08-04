@@ -117,24 +117,57 @@ pub fn compact_does_not_merge_blocks_across_counter_gaps_test() {
   count_kind(compacted, "block") |> expect.to_equal(2)
 }
 
-pub fn compact_is_noop_while_move_records_exist_test() {
-  // A state holding a move record is left unchanged EVEN when the move op is
-  // covered by the frontier (here frontier_a(4) covers the move's counter 4).
-  // This is load-bearing for convergence, not mere conservatism: baking the
-  // moved position into the skeleton strips the moved item's origins, so a
-  // peer's concurrent above-frontier inserts would integrate against the
-  // baked item differently depending on merge order and `merge` would stop
-  // commuting. See the property test
-  // `merge_commutes_with_compaction_for_deltas_above_frontier`, and issue #98
-  // for a safe move-stabilization path. Do not relax this to "in-flight moves
-  // only" without first making stabilized moves converge.
+pub fn compact_reclaims_alongside_a_moved_item_test() {
+  // Regression for #98: `compact` used to bail on ANY move record, and
+  // nothing ever cleared one, so a replica that performed or received a
+  // single move could never reclaim anything again. Moves are now an overlay
+  // on the stored base rather than baked into it, so the pass runs normally.
   let seq = abc() |> sequence.move(0, 2)
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(4))
 
-  compacted |> expect.to_equal(seq)
   sequence.values(compacted) |> expect.to_equal(["b", "c", "a"])
   sequence.forwarding_size(forwardings) |> expect.to_equal(0)
-  count_kind(compacted, "block") |> expect.to_equal(0)
+  // "a" stays live as the mover and "c" as the move's target anchor; only
+  // "b" is free to stabilize.
+  count_kind(compacted, "block") |> expect.to_equal(1)
+  count_kind(compacted, "item") |> expect.to_equal(2)
+}
+
+pub fn compact_reclaims_tombstones_with_a_move_live_test() {
+  let seq =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.insert(2, "c")
+    |> sequence.insert(3, "d")
+    // tombstones "b" with op counter 5
+    |> sequence.delete(1)
+    // moves "a" after "d" with op counter 6
+    |> sequence.move(0, 2)
+  let #(compacted, forwardings) = sequence.compact(seq, frontier_a(6))
+
+  sequence.values(compacted) |> expect.to_equal(["c", "d", "a"])
+  // The stable tombstone is reclaimed even though a move record is live.
+  sequence.forwarding_size(forwardings) |> expect.to_equal(1)
+}
+
+pub fn compact_retains_a_live_moves_target_anchors_test() {
+  // A move splices at an exact position, so reclaiming one of its target-gap
+  // boundaries would leave a compacted replica and an uncompacted one
+  // splicing the mover differently. Anchors are retained until the move is.
+  let seq =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.insert(2, "c")
+    // "b" becomes the move's right anchor, then is tombstoned
+    |> sequence.move(2, 1)
+    |> sequence.delete(2)
+  let #(compacted, forwardings) = sequence.compact(seq, frontier_a(5))
+
+  // The tombstoned anchor is NOT reclaimed while the move is live.
+  sequence.forwarding_size(forwardings) |> expect.to_equal(0)
+  sequence.values(compacted) |> expect.to_equal(sequence.values(seq))
 }
 
 // --- idempotence and frontier regression ----------------------------------
