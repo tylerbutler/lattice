@@ -1224,18 +1224,20 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// is already covered by `stable`. The guard is load-bearing for convergence,
 /// not conservatism, and it has to be this blunt:
 ///
-/// A mover is stripped and re-placed on every rebuild, so it re-integrates
-/// from its INSERT origins, which sit below the frontier. Its conflict window
-/// therefore spans the settled region — unlike a volatile item's, whose
-/// canonical-adjacent origins bound it to other volatile items, which is the
-/// invariant that lets compaction strip settled origins at all. Change
-/// anything that window covers and replicas at different compaction levels
-/// place the mover differently: stabilizing the mover itself strips the
-/// origins a peer's above-frontier inserts integrate against, stabilizing a
-/// neighbor strips what the mover integrates against, and reclaiming a
-/// neighboring tombstone changes the window's contents. Each of those on its
-/// own falsifies the property test
-/// `merge_commutes_with_compaction_for_deltas_above_frontier`.
+/// Compaction is safe only because `rebuild` is frontier-invariant: a covered
+/// element is pinned at its stored position, and pinning it agrees with
+/// integrating it from origins, so raising the frontier cannot reorder
+/// anything. A mover is the one element that breaks this. It is never pinned —
+/// its stored position is post-move, but re-integrating it from its INSERT
+/// origins yields its PRE-move position — so the two disagree, and raising the
+/// frontier changes which elements are pinned around it and therefore where it
+/// lands.
+///
+/// That makes the frontier advance itself unsafe, not the element rewriting:
+/// a `compact` that changes NO element and only advances `frontier` already
+/// falsifies `merge_commutes_with_compaction_for_deltas_above_frontier` when a
+/// move record exists. So there is nothing to relax here — no subset of the
+/// pass is safe while a mover is present.
 ///
 /// Nothing clears a move record — not a local op, and not merging a peer that
 /// stabilized the item before it heard about the move, because

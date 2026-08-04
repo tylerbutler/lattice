@@ -121,20 +121,19 @@ pub fn compact_is_noop_while_move_records_exist_test() {
   // A state holding a move record is left unchanged EVEN when the move op is
   // covered by the frontier (here frontier_a(4) covers the move's counter 4).
   // This is load-bearing for convergence, not mere conservatism, and the
-  // guard has to stay this blunt. A mover re-integrates from its INSERT
-  // origins, which sit below the frontier, so its conflict window spans the
-  // settled region — unlike a volatile item's, which is what lets compaction
-  // strip settled origins at all. Each of these on its own falsifies
-  // `merge_commutes_with_compaction_for_deltas_above_frontier`:
+  // guard has to stay this blunt. Compaction is safe only because `rebuild`
+  // is frontier-invariant: pinning a covered element at its stored position
+  // agrees with integrating it from origins. A mover breaks that — it is
+  // never pinned, its stored position is post-move, and re-integrating it
+  // yields its PRE-move position, so raising the frontier moves it.
   //
-  //   - stabilizing the mover (strips the origins a peer's above-frontier
-  //     inserts integrate against)
-  //   - stabilizing a neighbor (strips what the mover integrates against)
-  //   - reclaiming a neighboring tombstone (changes the window's contents)
-  //
-  // Do not relax this to "in-flight moves only", and do not try to compact
-  // around a mover, without first making a settled move representable
-  // without that geometry. See issue #98.
+  // The frontier advance ALONE is therefore unsafe: a `compact` that changes
+  // no element and only advances `frontier` already falsifies
+  // `merge_commutes_with_compaction_for_deltas_above_frontier`. No subset of
+  // the pass is safe while a mover is present, so do not relax this to
+  // "in-flight moves only" and do not try to compact around a mover. The fix
+  // is to make the stored order the pre-move base order, applying moves as a
+  // view — see issue #98.
   let seq = abc() |> sequence.move(0, 2)
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(4))
 
