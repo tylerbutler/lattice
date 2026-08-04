@@ -8,8 +8,11 @@ fn rid(id: String) {
   replica_id.new(id)
 }
 
+/// Lower than the rest of the workspace because each case builds and merges
+/// whole random sequences — the per-case cost is an order of magnitude above
+/// the other CRDTs, and the JavaScript target is ~10x slower again.
 fn small_test_config() -> qcheck.Config {
-  qcheck.config(test_count: 10, max_retries: 3, seed: qcheck.seed(42))
+  qcheck.config(test_count: 200, max_retries: 3, seed: qcheck.seed(42))
 }
 
 fn doc(id: String, value: Int) {
