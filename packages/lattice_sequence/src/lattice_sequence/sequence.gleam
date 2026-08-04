@@ -2119,13 +2119,6 @@ fn remove_element_by_id(
 /// Tombstone the element sitting at visible index `target`, updating the
 /// CANONICAL base. A stable block member is extracted with its base
 /// neighbours as origins, not the neighbours the move overlay gave it.
-fn is_mover(el: Element(a)) -> Bool {
-  case el {
-    Stable(_, _) -> False
-    LiveEl(item) -> has_move(item)
-  }
-}
-
 fn tombstone_in_base(
   elements: List(Element(a)),
   visible: List(Element(a)),
