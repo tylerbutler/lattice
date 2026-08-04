@@ -151,6 +151,34 @@ pub fn compact_reclaims_tombstones_with_a_move_live_test() {
   sequence.forwarding_size(forwardings) |> expect.to_equal(1)
 }
 
+pub fn compact_preserves_co_gap_move_order_across_a_tombstone_test() {
+  // "c" falls back to AfterGap("L") when "e" is moved, while "b" still
+  // resolves BeforeElement("R"). The unrelated tombstone between L and R
+  // must neither split that visible gap nor change its mover order when it is
+  // reclaimed.
+  let base =
+    sequence.new(rid("Z"))
+    |> sequence.insert(0, "L")
+    |> sequence.insert(1, "tombstone")
+    |> sequence.insert(2, "e")
+    |> sequence.insert(3, "R")
+    |> sequence.insert(4, "c")
+    |> sequence.insert(5, "b")
+    |> sequence.delete(1)
+  let a = sequence.merge(sequence.new(rid("A")), base) |> sequence.move(3, 1)
+  let b = sequence.merge(sequence.new(rid("B")), base) |> sequence.move(4, 2)
+  let merged =
+    sequence.merge(a, b)
+    // Moving "e" strips the shared boundary during move resolution.
+    |> sequence.move(2, 4)
+  let frontier = version_vector.new() |> version_vector.set_max(rid("Z"), 7)
+  let #(compacted, forwardings) = sequence.compact(merged, frontier)
+
+  sequence.values(merged) |> expect.to_equal(["L", "c", "b", "R", "e"])
+  sequence.values(compacted) |> expect.to_equal(sequence.values(merged))
+  sequence.forwarding_size(forwardings) |> expect.to_equal(1)
+}
+
 pub fn compact_retains_a_live_moves_target_anchors_test() {
   // A move splices at an exact position, so reclaiming one of its target-gap
   // boundaries would leave a compacted replica and an uncompacted one

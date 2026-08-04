@@ -8,8 +8,10 @@ fn rid(id: String) {
   replica_id.new(id)
 }
 
+/// The workspace default. These ran at 10 cases, which is not enough sweep to
+/// exercise the convergence laws they assert.
 fn small_test_config() -> qcheck.Config {
-  qcheck.config(test_count: 10, max_retries: 3, seed: qcheck.seed(42))
+  qcheck.config(test_count: 1000, max_retries: 3, seed: qcheck.seed(42))
 }
 
 fn doc(id: String, value: Int) {

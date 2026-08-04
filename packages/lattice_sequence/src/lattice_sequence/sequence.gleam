@@ -1061,8 +1061,9 @@ fn compare_clock_lists(
 
 /// Where a move's target gap resolves in the current element order.
 type MoveTarget {
-  /// Directly before this element; successive moves to the same target
-  /// stack left-to-right in op order naturally.
+  /// Directly before this element, i.e. at the right end of the gap this
+  /// element closes. `apply_moves` records the landing under that gap's
+  /// anchor so later movers resolving `AfterGap` stack after it.
   BeforeElement(ItemId)
   /// The gap after this element (`None` = document start). Successive moves
   /// into the same gap must also stack left-to-right in op order, which
@@ -1096,6 +1097,7 @@ fn apply_moves(
     list.fold(movers, dict.new(), fn(acc, item) {
       dict.insert(acc, item.id, Nil)
     })
+  let #(before_gap_anchors, after_gap_anchors) = base_gap_anchors(stripped)
   let #(result, _) =
     list.fold(movers, #(stripped, dict.new()), fn(acc, item) {
       let #(current, last_in_gap) = acc
@@ -1111,24 +1113,108 @@ fn apply_moves(
               mover_ids,
             )
           {
-            BeforeElement(right_id) -> #(
-              insert_element_before_id(current, right_id, LiveEl(item)),
-              last_in_gap,
-            )
-            AtEnd -> #(list.append(current, [LiveEl(item)]), last_in_gap)
-            AfterGap(anchor) -> #(
-              splice_into_gap(
+            BeforeElement(right_id) ->
+              splice_before_and_record(
                 current,
-                dict.get(last_in_gap, anchor),
-                anchor,
+                last_in_gap,
+                before_gap_anchors,
+                right_id,
                 LiveEl(item),
-              ),
-              dict.insert(last_in_gap, anchor, item.id),
-            )
+              )
+            AtEnd -> #(list.append(current, [LiveEl(item)]), last_in_gap)
+            AfterGap(anchor) -> {
+              let gap = canonical_after_gap(anchor, after_gap_anchors)
+              #(
+                splice_into_gap(
+                  current,
+                  dict.get(last_in_gap, gap),
+                  anchor,
+                  LiveEl(item),
+                ),
+                dict.insert(last_in_gap, gap, item.id),
+              )
+            }
           }
       }
     })
   result
+}
+
+/// Index the visible gaps on both sides of every element in the move-free base.
+///
+/// Movers are spliced into the gaps of this base, so `BeforeElement(right)`
+/// and `AfterGap(left)` name the same gap exactly when `left` is `right`'s
+/// base predecessor. Keying both on that anchor is what lets co-gap movers
+/// stack in op order no matter which path each one resolved through.
+///
+/// Tombstones do not split visible gaps and may disappear during compaction,
+/// so they keep the preceding visible anchor on both sides. This makes the
+/// gap key invariant when an unreferenced tombstone is reclaimed.
+fn base_gap_anchors(
+  elements: List(Element(a)),
+) -> #(Dict(ItemId, Option(ItemId)), Dict(ItemId, Option(ItemId))) {
+  let #(before, after, _) =
+    list.fold(elements, #(dict.new(), dict.new(), None), fn(acc, el) {
+      let #(before, after, previous) = acc
+      let id = element_id(el)
+      let next = case element_is_visible(el) {
+        True -> Some(id)
+        False -> previous
+      }
+      #(dict.insert(before, id, previous), dict.insert(after, id, next), next)
+    })
+  #(before, after)
+}
+
+/// Canonicalize an `AfterGap` key without changing its physical splice anchor.
+///
+/// Base tombstones map to their preceding visible neighbour. An absent ID is
+/// a mover already placed in this pass, so it remains its own gap anchor.
+fn canonical_after_gap(
+  anchor: Option(ItemId),
+  after_gap_anchors: Dict(ItemId, Option(ItemId)),
+) -> Option(ItemId) {
+  case anchor {
+    None -> None
+    Some(id) ->
+      case dict.get(after_gap_anchors, id) {
+        Ok(anchor) -> anchor
+        Error(Nil) -> Some(id)
+      }
+  }
+}
+
+/// Splice a `BeforeElement` landing after any earlier mover in the same gap,
+/// then record it as the gap's rightmost mover.
+///
+/// Usually inserting immediately before `right_id` lands at the right end of
+/// its gap. Tombstones can put an earlier co-gap mover physically after that
+/// boundary while remaining in the same visible gap, though, so the tracked
+/// mover is authoritative when present.
+///
+/// A `right_id` absent from the base is a mover placed earlier in this pass.
+/// Landing before it is not the gap's right end, so there is nothing to
+/// record and the previous entry stands.
+fn splice_before_and_record(
+  elements: List(Element(a)),
+  last_in_gap: Dict(Option(ItemId), ItemId),
+  gap_anchors: Dict(ItemId, Option(ItemId)),
+  right_id: ItemId,
+  el: Element(a),
+) -> #(List(Element(a)), Dict(Option(ItemId), ItemId)) {
+  case dict.get(gap_anchors, right_id) {
+    Ok(anchor) -> #(
+      case dict.get(last_in_gap, anchor) {
+        Ok(previous) -> insert_element_after_id(elements, previous, el)
+        Error(Nil) -> insert_element_before_id(elements, right_id, el)
+      },
+      dict.insert(last_in_gap, anchor, element_id(el)),
+    )
+    Error(Nil) -> #(
+      insert_element_before_id(elements, right_id, el),
+      last_in_gap,
+    )
+  }
 }
 
 fn splice_into_gap(
@@ -1260,17 +1346,9 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// Compacting at the current frontier, at an older one, or at one concurrent
 /// with it is a no-op — frontiers only advance.
 ///
-/// A state holding ANY move record is left unchanged, even when the move op is
-/// already covered by `stable`. This guard is load-bearing for convergence, not
-/// just conservatism: baking a settled move into the compact skeleton fixes its
-/// position from only the compacting replica's items, but a peer's still-live
-/// concurrent inserts above the frontier integrate against the moved item's
-/// origins — which stabilization strips. The two then order those inserts
-/// differently and `merge` stops commuting (see the property test
-/// `merge_commutes_with_compaction_for_deltas_above_frontier`). Because move
-/// records are never cleared locally, a replica that uses `move` cannot compact
-/// until it merges a peer that has already stabilized the item into a block; a
-/// safe stabilization path for moves is future work (see issue #98).
+/// Moved items remain live so their move records and insertion origins survive.
+/// The pass can still stabilize unrelated items and reclaim tombstones, while
+/// retaining any target-gap boundaries referenced by a live move.
 pub fn compact(
   sequence: Sequence(a),
   stable: VersionVector,
@@ -1386,21 +1464,21 @@ type Stability {
   KeepLive
 }
 
+/// A settled tombstone is reclaimed and a settled plain item is baked into the
+/// skeleton; anything above the frontier or holding an unacknowledged delete
+/// stays live.
 fn item_stability(item: Item(a), stable: VersionVector) -> Stability {
   use <- bool.guard(!frontier_covers(stable, item.id), KeepLive)
-  case item.deleted {
-    Some(op) ->
+  case item.deleted, item.move {
+    Some(op), _ ->
       case frontier_covers_op(stable, op) {
         True -> DropTombstone
         False -> KeepLive
       }
-    None ->
-      case item.move {
-        None -> ToStable
-        // A mover keeps its record and the origins naming its target gap:
-        // the overlay is re-applied on every read, so both stay live data.
-        Some(_) -> KeepLive
-      }
+    None, None -> ToStable
+    // A mover keeps its record and the origins naming its target gap:
+    // the overlay is re-applied on every read, so both stay live data.
+    None, Some(_) -> KeepLive
   }
 }
 
