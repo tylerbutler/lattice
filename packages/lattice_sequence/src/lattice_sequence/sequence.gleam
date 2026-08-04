@@ -1068,8 +1068,9 @@ fn compare_clock_lists(
 
 /// Where a move's target gap resolves in the current element order.
 type MoveTarget {
-  /// Directly before this element; successive moves to the same target
-  /// stack left-to-right in op order naturally.
+  /// Directly before this element, i.e. at the right end of the gap this
+  /// element closes. `apply_moves` records the landing under that gap's
+  /// anchor so later movers resolving `AfterGap` stack after it.
   BeforeElement(ItemId)
   /// The gap after this element (`None` = document start). Successive moves
   /// into the same gap must also stack left-to-right in op order, which
@@ -1103,6 +1104,7 @@ fn apply_moves(
     list.fold(movers, dict.new(), fn(acc, item) {
       dict.insert(acc, item.id, Nil)
     })
+  let gap_anchors = base_gap_anchors(stripped)
   let #(result, _) =
     list.fold(movers, #(stripped, dict.new()), fn(acc, item) {
       let #(current, last_in_gap) = acc
@@ -1120,7 +1122,7 @@ fn apply_moves(
           {
             BeforeElement(right_id) -> #(
               insert_element_before_id(current, right_id, LiveEl(item)),
-              last_in_gap,
+              record_in_gap(last_in_gap, gap_anchors, right_id, item.id),
             )
             AtEnd -> #(list.append(current, [LiveEl(item)]), last_in_gap)
             AfterGap(anchor) -> #(
@@ -1136,6 +1138,46 @@ fn apply_moves(
       }
     })
   result
+}
+
+/// Map every element of the move-free base to the gap it closes: the id of
+/// the element immediately to its left, or `None` for the document start.
+///
+/// Movers are spliced into the gaps of this base, so `BeforeElement(right)`
+/// and `AfterGap(left)` name the same gap exactly when `left` is `right`'s
+/// base predecessor. Keying both on that anchor is what lets co-gap movers
+/// stack in op order no matter which path each one resolved through.
+fn base_gap_anchors(
+  elements: List(Element(a)),
+) -> Dict(ItemId, Option(ItemId)) {
+  let #(anchors, _) =
+    list.fold(elements, #(dict.new(), None), fn(acc, el) {
+      let #(anchors, previous) = acc
+      let id = element_id(el)
+      #(dict.insert(anchors, id, previous), Some(id))
+    })
+  anchors
+}
+
+/// Record a `BeforeElement` landing as the gap's rightmost mover so far.
+///
+/// Inserting before `right_id` always lands at the right end of that gap —
+/// every mover already placed there sits to its left — so the entry stays
+/// the correct splice point for the next mover in op order.
+///
+/// A `right_id` absent from the base is a mover placed earlier in this pass.
+/// Landing before it is not the gap's right end, so there is nothing to
+/// record and the previous entry stands.
+fn record_in_gap(
+  last_in_gap: Dict(Option(ItemId), ItemId),
+  gap_anchors: Dict(ItemId, Option(ItemId)),
+  right_id: ItemId,
+  mover: ItemId,
+) -> Dict(Option(ItemId), ItemId) {
+  case dict.get(gap_anchors, right_id) {
+    Ok(anchor) -> dict.insert(last_in_gap, anchor, mover)
+    Error(Nil) -> last_in_gap
+  }
 }
 
 fn splice_into_gap(

@@ -402,3 +402,33 @@ pub fn move_after_descendant_does_not_drop_items_test() {
   |> expect.to_equal(["b", "a", "c"])
   sequence.length(moved) |> expect.to_equal(3)
 }
+
+pub fn co_gap_movers_stack_in_op_order_across_resolution_paths_test() {
+  // Three concurrent moves land in the same gap (between "L" and "R") but
+  // resolve differently: the ones anchored on the later-moved "e" lose their
+  // right boundary (it is itself a mover, stripped for this pass) and fall
+  // back to the gap's left anchor, while the one anchored on "R" keeps its
+  // right boundary. Whichever path each takes, they must stack left to right
+  // in op order.
+  let base =
+    sequence.new(rid("Z"))
+    |> sequence.insert(0, "L")
+    |> sequence.insert(1, "e")
+    |> sequence.insert(2, "R")
+    |> sequence.insert(3, "c")
+    |> sequence.insert(4, "d")
+    |> sequence.insert(5, "b")
+
+  // All three moves get the same counter, so replica id breaks the tie:
+  // A ("c") < B ("d") < C ("b").
+  let a = sequence.merge(sequence.new(rid("A")), base) |> sequence.move(3, 1)
+  let b = sequence.merge(sequence.new(rid("B")), base) |> sequence.move(4, 2)
+  let c = sequence.merge(sequence.new(rid("C")), base) |> sequence.move(5, 1)
+
+  // Moving "e" last turns it into a mover, so it is no longer a usable right
+  // boundary for the moves that anchored on it.
+  sequence.merge(sequence.merge(a, b), c)
+  |> sequence.move(3, 5)
+  |> sequence.values()
+  |> expect.to_equal(["L", "c", "d", "b", "R", "e"])
+}
