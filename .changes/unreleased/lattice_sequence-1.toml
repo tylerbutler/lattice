@@ -1,6 +1,0 @@
-package = "lattice_sequence"
-kind = "Fixed"
-body = """
-Stack co-gap moves in op order regardless of how each resolved
-
-Concurrent moves landing in the same gap now stack left to right in op order even when some resolve against the gap's right boundary and others fall back to its left anchor. Previously a move that kept its right boundary was skipped by later movers in the same gap, so the visible mover order could disagree with the op order."""

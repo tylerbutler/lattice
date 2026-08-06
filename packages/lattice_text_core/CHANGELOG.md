@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.1 - 2026-08-04
+
+### Fixed
+
+#### Return backend deltas for empty grapheme inserts
+
+Empty grapheme inserts now call the backend insertion function so it can return a neutral delta.
+
 ## v1.0.0 - 2026-07-07
 
 
@@ -27,5 +35,3 @@ Introduces `lattice_text_core/grapheme` with `RangeError`/`validate_range`, `val
 #### `insert_graphemes` now takes a batched `insert_many` backend closure
 
 The generic helper accepts a single `insert_many(state, index, graphemes)` callback instead of a per-grapheme `insert` plus a `merge`, so backends splice a whole run in one operation.
-
-

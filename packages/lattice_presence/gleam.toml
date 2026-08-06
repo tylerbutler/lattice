@@ -1,5 +1,5 @@
 name = "lattice_presence"
-version = "1.0.0"
+version = "1.0.1"
 description = "Distributed presence CRDT with topic/key/pid/meta tracking, add-wins merge semantics, replica visibility, and Phoenix-style diff reporting"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }

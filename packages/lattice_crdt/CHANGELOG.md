@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v3.0.1 - 2026-08-04
+
+### Fixed
+
+#### Clarify which sub-packages the umbrella re-exports
+
+The module documentation claimed all lattice CRDT sub-packages are re-exported; it now notes that lattice_fugue, lattice_text_fugue, lattice_text_core, and lattice_presence are separate dependencies.
+
+### Dependencies
+
+#### Updated lattice_maps to 1.1.1
+#### Updated lattice_sequence to 1.0.1
+#### Updated lattice_text to 1.0.1
+
 ## v3.0.0 - 2026-07-07
 
 
@@ -21,7 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The umbrella package now depends on the generic sequence CRDT package so users can import `lattice_sequence/sequence` alongside the existing CRDT modules.
 
-
 ## v2.1.0 - 2026-05-16
 
 
@@ -37,7 +50,6 @@ Pulls in `lattice_counters`, `lattice_sets`, `lattice_registers`, and `lattice_m
 #### Document delta-state replication in the umbrella module
 
 Module documentation now describes the `*_with_delta` convention shared by every leaf CRDT, the `ORMapDelta` type for composite maps, and the role of delta-state CRDTs as the foundation for websocket-based replication. References Almeida, Shoker, Baquero — *Delta State Replicated Data Types*.
-
 
 ## v2.0.0 - 2026-04-11
 
@@ -62,7 +74,6 @@ All import paths change from `import lattice/<module>` to the appropriate sub-pa
 #### Add opaque `ReplicaId` type for type-safe replica identification
 
 Functions that previously accepted raw `String` replica identifiers now require a `ReplicaId` value. Create one with `replica_id.new("node-a")`. This affects `g_counter.new`, `pn_counter.new`, `lww_register.new`, `or_set.new`, `mv_register.new`, and `or_map.new`. See the [replica IDs guide](https://lattice.tylerbutler.com/guides/replica-ids/) for details.
-
 
 ## v1.0.0 - 2026-03-06
 
@@ -135,4 +146,3 @@ All types include `to_json` and `from_json` functions for persisting state and t
 let json_str = g_counter.to_json(counter) |> json.to_string
 let assert Ok(restored) = g_counter.from_json(json_str)
 ```
-
