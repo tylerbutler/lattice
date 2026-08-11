@@ -1,6 +1,0 @@
-project = "lattice_presence"
-kind = "Fixed"
-body = """
-Correct the doc comment on replica()
-
-The doc comment said "Get the current vector clock"; it now describes the returned replica name."""

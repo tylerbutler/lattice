@@ -1,3 +1,4 @@
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/string
@@ -46,13 +47,53 @@ pub fn lww_register_from_json_wrong_version_rejected_test() {
   }
 }
 
+pub fn lww_register_round_trip_preserves_metadata_test() {
+  let reg = lww_register.new("hello", 42, rid("test-replica"))
+  let json_str = json.to_string(lww_register.to_json(reg))
+  case lww_register.from_json(json_str) {
+    Ok(decoded) -> {
+      expect.to_equal(lww_register.timestamp(decoded), 42)
+      expect.to_equal(lww_register.replica_id(decoded), rid("test-replica"))
+    }
+    Error(_) -> expect.to_be_true(False)
+  }
+}
+
+/// The bootstrap case from issue #154: a client joining against a checkpoint
+/// written by a replica whose clock ran ahead seeds its own clock from the
+/// decoded register, so its first write to the key is not lost.
+pub fn lww_register_snapshot_seeds_a_logical_clock_test() {
+  // A peer checkpointed this at a wall-clock time ahead of ours.
+  let checkpoint =
+    json.to_string(
+      lww_register.to_json(lww_register.new("painted", 5000, rid("peer"))),
+    )
+
+  case lww_register.from_json(checkpoint) {
+    Ok(loaded) -> {
+      // Our wall clock is behind the checkpoint, so stamping from it alone
+      // would drop the write.
+      let our_clock = 4000
+      let stamped = int.max(our_clock, lww_register.timestamp(loaded) + 1)
+
+      let erased = lww_register.set(loaded, "erased", stamped)
+
+      expect.to_equal(lww_register.value(erased), "erased")
+      expect.to_equal(lww_register.timestamp(erased), 5001)
+    }
+    Error(_) -> expect.to_be_true(False)
+  }
+}
+
 pub fn lww_register_from_json_v1_compat_test() {
   let payload =
     "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
   case lww_register.from_json(payload) {
     Ok(reg) -> {
-      lww_register.value(reg)
-      |> expect.to_equal("hello")
+      expect.to_equal(lww_register.value(reg), "hello")
+      expect.to_equal(lww_register.timestamp(reg), 42)
+      // v1 envelopes carry no replica_id; it decodes to the empty id.
+      expect.to_equal(lww_register.replica_id(reg), rid(""))
     }
     Error(_) -> expect.to_be_true(False)
   }

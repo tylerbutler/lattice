@@ -1,5 +1,5 @@
 name = "lattice_text_core"
-version = "1.0.0"
+version = "1.0.1"
 description = "Backend-agnostic grapheme and range helpers shared by lattice text CRDTs"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
