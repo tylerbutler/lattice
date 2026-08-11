@@ -57,6 +57,44 @@ pub fn main() {
 This keeps merges deterministic and replica-order independent even when clocks
 collide.
 
+### Stamping writes from a wall clock
+
+The strict comparison in `set` is what keeps `merge` commutative, but it makes a
+wall clock an unsafe timestamp source on its own. A millisecond clock stands
+still for a millisecond at a time, so two writes inside the same tick carry the
+same timestamp, and the second one is dropped — even though both came from the
+same replica and their order is not in doubt. Paint a cell and erase it in the
+same millisecond, and the erase vanishes.
+
+Only the writer knows its two writes are ordered, so the fix belongs on the
+stamping side: keep the wall clock, but never let it fall behind the timestamp
+already held. `lww_register.timestamp` reads that back.
+
+```gleam
+import gleam/int
+import lattice_registers/lww_register.{type LWWRegister}
+
+/// `now` is your own millisecond wall clock.
+pub fn stamp(register: LWWRegister(String), now: Int) -> Int {
+  int.max(now, lww_register.timestamp(register) + 1)
+}
+```
+
+That is the logical half of a [hybrid logical
+clock](https://cse.buffalo.edu/tech-reports/2014-04.pdf): the wall clock still
+drives the value forward, and the `+ 1` fallback keeps successive local writes
+strictly ordered when it does not move.
+
+The same applies across a restart. A client that loads a snapshot must seed its
+clock from what the snapshot holds, or its first write to a key can lose to a
+checkpoint written by a replica whose clock ran ahead. Fold `timestamp` over the
+decoded registers to recover that starting point — no JSON round trip needed.
+
+`lww_register.replica_id` reads back the other half of the metadata: the replica
+that wrote the value currently held. After a merge that is the replica whose
+write won, which makes it useful for provenance and for tie-breaking
+consistently with `merge` in your own code.
+
 ## MVRegister (Multi-Value Register)
 
 `MVRegister` keeps all concurrent values instead of picking one winner.

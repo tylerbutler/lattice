@@ -37,7 +37,7 @@ pub fn main() {
 
 ## Notes
 
-- `LWWRegister` exposes `new`, `set`, `set_with_delta`, `merge`, `value`, `to_json`, and `from_json`.
+- `LWWRegister` exposes `new`, `set`, `set_with_delta`, `merge`, `value`, `timestamp`, `replica_id`, `to_json`, and `from_json`.
 - `MVRegister` exposes `new`, `set`, `set_with_delta`, `merge`, `value`, `to_json`, and `from_json`.
 - Use `LWWRegister` when a deterministic winner is acceptable.
 - Use `MVRegister` when application code should resolve concurrent writes.
