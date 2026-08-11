@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.1 - 2026-08-04
+
+### Fixed
+
+#### Correct the doc comment on replica()
+
+The doc comment said "Get the current vector clock"; it now describes the returned replica name.
+
 ## v1.0.0 - 2026-05-16
 
 
@@ -18,5 +26,3 @@ visibility, pure `merge`, `merge_with_diff` for Phoenix-style join/leave
 diffs, and `lattice_presence/state_json` for validated cross-node
 serialization. Implementation and acceptance test suite ported from Beryl's
 custom presence CRDT (#62).
-
-

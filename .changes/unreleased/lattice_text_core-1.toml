@@ -1,6 +1,0 @@
-package = "lattice_text_core"
-kind = "Fixed"
-body = """
-Return backend deltas for empty grapheme inserts
-
-Empty grapheme inserts now call the backend insertion function so it can return a neutral delta."""

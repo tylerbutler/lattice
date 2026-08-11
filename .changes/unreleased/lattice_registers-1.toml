@@ -1,0 +1,3 @@
+package = "lattice_registers"
+kind = "Added"
+body = "Expose `lww_register.timestamp` and `lww_register.replica_id`, two pure accessors mirroring `value`. Because `set` accepts only strictly greater timestamps, a caller stamping writes from a wall clock has to stay ahead of the timestamp already held — otherwise two writes inside the same clock tick are unordered and the second is silently dropped. Reading the timestamp back makes that possible, including seeding a logical clock from a decoded snapshot without paying a JSON encode per key. `replica_id` returns the replica that wrote the value currently held, which after a merge is the replica whose write won. Neither accessor exposes the constructor, so the opacity that keeps the merge rule enforceable is unchanged."

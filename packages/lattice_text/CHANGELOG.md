@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.0.1 - 2026-08-04
+
+### Fixed
+
+#### Return empty deltas for no-op text edits
+
+Empty inserts, appends, ranges, and replacements no longer return the entire document as their delta.
+
+### Dependencies
+
+#### Updated lattice_sequence to 1.0.1
+#### Updated lattice_text_core to 1.0.1
+
 ## v1.0.0 - 2026-07-07
 
 
@@ -46,5 +59,3 @@ Internal-only change: the multi-grapheme insert/delete fold loops and the substr
 #### Batch multi-grapheme inserts into a single sequence operation
 
 Inserting or pasting a string now issues one batched backend insert covering every grapheme instead of one insert (and one delta merge) per grapheme, removing a large multiplier from building or pasting text.
-
-

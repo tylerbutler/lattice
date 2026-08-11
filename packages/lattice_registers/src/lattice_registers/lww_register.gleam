@@ -22,7 +22,9 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/order
-import lattice_core/replica_id.{type ReplicaId}
+
+// Aliased so the `replica_id` accessor below can take the obvious name.
+import lattice_core/replica_id.{type ReplicaId} as replica
 
 /// A register holding a single value alongside its write timestamp and
 /// replica identifier.
@@ -55,6 +57,13 @@ pub fn new(
 /// timestamp with the new ones. Otherwise returns the register unchanged.
 /// This ensures only strictly newer writes are accepted.
 /// The `replica_id` is preserved from the original register.
+///
+/// Note that the comparison is *strict*, so a wall clock is not a safe source
+/// on its own: it stalls for a millisecond at a time, and a second write
+/// inside the same tick is silently dropped even when it came from this same
+/// replica. Callers that write faster than their clock ticks should stamp
+/// `int.max(wall_clock, timestamp(register) + 1)`, which keeps every local
+/// write ordered while leaving `merge` commutative.
 ///
 /// See `set_with_delta` for the delta-state variant that also returns a
 /// small payload suitable for incremental sync (e.g. over websockets).
@@ -99,6 +108,37 @@ pub fn value(register: LWWRegister(a)) -> a {
   register.value
 }
 
+/// Return the timestamp of the write the register currently holds.
+///
+/// Because `set` accepts only strictly greater timestamps, a caller stamping
+/// writes from a wall clock needs to know the timestamp already held in order
+/// to stay ahead of it — two writes inside the same clock tick are otherwise
+/// unordered and the second is dropped. Reading this back from a decoded
+/// snapshot lets such a caller seed its logical clock before its first write.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let register = lww_register.new("hello", 42, replica_id.new("node-a"))
+/// lww_register.timestamp(register)  // -> 42
+///
+/// // Stamp the next write so it cannot collide with the one held.
+/// let next = int.max(wall_clock_ms(), lww_register.timestamp(register) + 1)
+/// ```
+pub fn timestamp(register: LWWRegister(a)) -> Int {
+  register.timestamp
+}
+
+/// Return the replica that owns the value the register currently holds.
+///
+/// `set` preserves the original replica, so for a locally written register
+/// this is the replica that created it. After `merge` it is the replica whose
+/// write won, which makes it useful for provenance and for tie-breaking
+/// consistently with `merge` in downstream code.
+pub fn replica_id(register: LWWRegister(a)) -> ReplicaId {
+  register.replica_id
+}
+
 /// Merge two LWW-Registers by returning the one with the higher timestamp.
 ///
 /// When `a.timestamp > b.timestamp`, returns `a`. When `b.timestamp >
@@ -109,7 +149,7 @@ pub fn merge(a: LWWRegister(a), b: LWWRegister(a)) -> LWWRegister(a) {
   use <- bool.guard(a.timestamp > b.timestamp, a)
   use <- bool.guard(a.timestamp < b.timestamp, b)
   // Equal timestamps: use replica_id as deterministic tie-breaker
-  case replica_id.compare(a.replica_id, b.replica_id) {
+  case replica.compare(a.replica_id, b.replica_id) {
     order.Gt -> a
     order.Lt -> b
     order.Eq -> a
@@ -131,7 +171,7 @@ pub fn to_json(register: LWWRegister(String)) -> json.Json {
       json.object([
         #("value", json.string(register.value)),
         #("timestamp", json.int(register.timestamp)),
-        #("replica_id", json.string(replica_id.to_string(register.replica_id))),
+        #("replica_id", json.string(replica.to_string(register.replica_id))),
       ]),
     ),
   ])
@@ -158,7 +198,7 @@ pub fn from_json(
       decode.success(LWWRegister(
         value: value,
         timestamp: timestamp,
-        replica_id: replica_id.new(replica_id_str),
+        replica_id: replica.new(replica_id_str),
       ))
     })
     decode.success(state)
