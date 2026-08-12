@@ -22,7 +22,7 @@ packages = [
   { name = "glinter", version = "2.19.1", build_tools = ["gleam"], requirements = ["argv", "glance", "gleam_json", "gleam_stdlib", "simplifile", "tom"], otp_app = "glinter", source = "hex", outer_checksum = "F5A7C94BC703F5781441A282AF514864F831F49F444B6E1ED72CF8A81A83ED1F" },
   { name = "interior", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_otp", "gleam_stdlib"], otp_app = "interior", source = "hex", outer_checksum = "EE2728791E34400CB3CD986B6AD0E02A2F970F50B5ED59896E2820702C7DDD29" },
   { name = "lattice_core", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], source = "local", path = "../lattice_core" },
-  { name = "lattice_sequence", version = "1.0.1", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../lattice_sequence" },
+  { name = "lattice_sequence", version = "1.1.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../lattice_sequence" },
   { name = "lattice_text_core", version = "1.0.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], source = "local", path = "../lattice_text_core" },
   { name = "prng", version = "5.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "prng", source = "hex", outer_checksum = "29DA88BCFB54D06DD1472951DF101E9524878056D139DA2616B04350B403CE10" },
   { name = "qcheck", version = "1.0.4", build_tools = ["gleam"], requirements = ["exception", "gleam_regexp", "gleam_stdlib", "gleam_yielder", "prng"], otp_app = "qcheck", source = "hex", outer_checksum = "BD9B18C1602FBC667E3E139ED270458F8C743ED791F892CC90989CE10478C4FA" },
