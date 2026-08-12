@@ -18,6 +18,17 @@
 //// The public editing API exposes index-based insert and delete while
 //// resolving internal node identifiers, so callers never construct node IDs.
 ////
+//// ## Replica identity
+////
+//// A sequence carries the replica id it mints node IDs under. `merge` is
+//// order-independent in its node set, order, and counter, but not in that
+//// id: the result keeps the FIRST argument's. Always call it as
+//// `merge(self, other)`, or use `merge_as` to state the local identity
+//// explicitly. Deltas are ordinary `Sequence` values stamped with the
+//// minting replica, so passing an incoming delta first would hand the local
+//// state the sender's identity and make later local edits mint colliding
+//// node IDs.
+////
 //// ## Example
 ////
 //// ```gleam
@@ -236,6 +247,10 @@ pub fn insert_with_delta(
 ///
 /// A Fugue delta is always exactly one node, since parent/side never change
 /// after creation.
+///
+/// The delta is a `Sequence` stamped with this replica's id. Apply it on a
+/// peer as `merge(peer_state, delta)` — local state first — or with
+/// `merge_as`; passing it first hands the peer this replica's identity.
 pub fn try_insert_with_delta(
   sequence: Sequence(a),
   index: Int,
@@ -340,6 +355,10 @@ pub fn delete_with_delta(
 /// identity/parent/side are retained because it may be an ancestor of live
 /// (including concurrently-inserted) nodes. The local counter is bumped for
 /// parity with the rest of the library's delete-dot convention.
+///
+/// The delta is a `Sequence` stamped with this replica's id. Apply it on a
+/// peer as `merge(peer_state, delta)` — local state first — or with
+/// `merge_as`; passing it first hands the peer this replica's identity.
 pub fn try_delete_with_delta(
   sequence: Sequence(a),
   index: Int,
@@ -621,6 +640,21 @@ fn bias_decoder() -> decode.Decoder(Bias) {
 ///
 /// Sibling order and traversal order are pure functions of the resulting node
 /// set, so no re-integration pass is needed and convergence is immediate.
+///
+/// ## Argument order matters
+///
+/// The merged node set, order, and counter are order-independent, but the
+/// replica identity is NOT: the result adopts `a`'s replica id. Call this as
+/// `merge(self, other)` — local state first — or the result takes the remote's
+/// identity and every later local edit mints node IDs under a replica id that
+/// is still minting its own. Those IDs collide silently and merge conflates
+/// two distinct nodes.
+///
+/// Deltas returned by the `*_with_delta` functions are ordinary `Sequence`
+/// values stamped with the minting replica, so `merge(incoming_delta, state)`
+/// is the easy way to get this wrong. Use `merge_as` when the argument order
+/// is not statically obvious — it takes the local identity explicitly and is
+/// order-independent in every field.
 pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
   let nodes =
     dict.fold(b.nodes, a.nodes, fn(acc, id, b_node) {
@@ -634,6 +668,25 @@ pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
     counter: int.max(a.counter, b.counter),
     nodes: nodes,
   )
+}
+
+/// Merge two sequence CRDT states under an explicitly named replica identity.
+///
+/// Same as `merge`, except the merged state is stamped with `replica` instead
+/// of inheriting the first argument's id. That makes the call fully
+/// order-independent — `merge_as(a, b, replica)` equals
+/// `merge_as(b, a, replica)` in every field — so applying an incoming delta
+/// cannot re-mint local edits under the sender's replica id, whichever side
+/// it is passed on.
+///
+/// Pass the identity this replica edits under. The merged counter is the max
+/// of both sides, so it still dominates every ID `replica` has minted here.
+pub fn merge_as(
+  a: Sequence(a),
+  b: Sequence(a),
+  replica: ReplicaId,
+) -> Sequence(a) {
+  Sequence(..merge(a, b), replica_id: replica)
 }
 
 fn merge_node(a: Node(a), b: Node(a)) -> Node(a) {

@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Added"
+body = """
+Add merge_as for order-independent replica identity
+
+`text.merge` keeps the first argument's replica id, so applying an incoming delta as `merge(delta, state)` silently hands the local state the sender's identity. `merge_as(a, b, replica)` takes the local identity explicitly and is order-independent. `merge` now documents the contract."""

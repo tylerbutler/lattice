@@ -403,6 +403,51 @@ pub fn move_after_descendant_does_not_drop_items_test() {
   sequence.length(moved) |> expect.to_equal(3)
 }
 
+pub fn merge_adopts_the_first_arguments_replica_identity_test() {
+  // Pins the `merge(self, other)` contract: identity is positional, so
+  // applying a remote delta as the FIRST argument re-mints local edits under
+  // the remote's replica id and they collide with that replica's own edits.
+  // `merge_as` is the order-independent alternative (see the test below).
+  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let #(b_state, b_delta) =
+    sequence.merge(sequence.new(rid("B")), base)
+    |> sequence.insert_with_delta(1, "b")
+
+  let a_state = sequence.merge(b_delta, base) |> sequence.insert(2, "x")
+  let b_state = sequence.insert(b_state, 2, "c")
+
+  sequence.merge(a_state, b_state)
+  |> sequence.length()
+  |> expect.to_equal(3)
+}
+
+pub fn merge_as_keeps_local_identity_whatever_the_argument_order_test() {
+  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let #(b_state, b_delta) =
+    sequence.merge(sequence.new(rid("B")), base)
+    |> sequence.insert_with_delta(1, "b")
+
+  // Same reversed call as above, but stating the local identity keeps A
+  // minting under its own id, so nothing collides with B's next insert.
+  let a_state =
+    sequence.merge_as(b_delta, base, rid("A")) |> sequence.insert(2, "x")
+  let b_state = sequence.insert(b_state, 2, "c")
+
+  sequence.merge(a_state, b_state)
+  |> sequence.length()
+  |> expect.to_equal(4)
+}
+
+pub fn merge_as_is_argument_order_independent_test() {
+  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let #(_, b_delta) =
+    sequence.merge(sequence.new(rid("B")), base)
+    |> sequence.insert_with_delta(1, "b")
+
+  sequence.merge_as(base, b_delta, rid("A"))
+  |> expect.to_equal(sequence.merge_as(b_delta, base, rid("A")))
+}
+
 pub fn co_gap_movers_stack_in_op_order_across_resolution_paths_test() {
   // Three concurrent moves land in the same gap (between "L" and "R") but
   // resolve differently: the ones anchored on the later-moved "e" lose their

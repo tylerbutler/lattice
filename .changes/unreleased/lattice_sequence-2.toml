@@ -1,0 +1,6 @@
+package = "lattice_sequence"
+kind = "Added"
+body = """
+Add merge_as for order-independent replica identity
+
+`merge` keeps the first argument's replica id, so applying an incoming delta as `merge(delta, state)` silently hands the local state the sender's identity and later local edits mint colliding item IDs. `merge_as(a, b, replica)` takes the local identity explicitly and is order-independent in every field. The `merge(self, other)` contract is now documented on `merge`, on the delta-producing functions, and in the module docs."""
