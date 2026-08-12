@@ -12,7 +12,7 @@ command = "gleam run -m glinter"
 needs_deps = true
 
 [tools.trellis.publish]
-tag_format = "{name}-v{version}"
+exact_tag_format = "{name}-v{version}"
 path_dep_requirement = "minor"
 retry = { attempts = 5, initial_delay = "30s", multiplier = 2 }
 
