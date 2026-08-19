@@ -1,3 +1,6 @@
 package = "lattice_presence"
 kind = "Added"
-body = "Add replica incarnation identities with `new_incarnation`, `base_replica`, and `same_base`"
+body = """
+Add `new_incarnation` for restart-safe replica identities
+
+A replica that restarts under the same identity it used before can collide with the causal history peers still hold for it, which silently drops its fresh joins or resurrects presence it had already left. `new_incarnation(base)` derives a replica ID that is unique per process run while keeping a stable base identity, and `base_replica` and `same_base` let callers recover and compare that base without parsing the encoded string. `new` is unchanged for callers that already supply a globally unique ID per run."""

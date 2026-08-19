@@ -1,3 +1,6 @@
 package = "lattice_presence"
 kind = "Fixed"
-body = "Prevent pruned presence entries from resurrecting after stale gossip while leaving live replicas untouched"
+body = """
+Keep pruned replicas from reappearing
+
+Pruning a replica discarded the causal watermark that recorded what had already been seen from it, so a lagging peer's older sync could restore the entry it had just removed. Pruning now retains that watermark, drops the replica's entries and pending clocks, and applies only to replicas explicitly marked down. Live replicas are unaffected."""
