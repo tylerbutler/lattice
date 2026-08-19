@@ -1,0 +1,19 @@
+name: lattice
+version: 1.0.0
+description: APM project for lattice
+author: Tyler Butler
+# Which agent platforms to deploy to.
+# Resolution order: --target flag > this field > auto-detect from filesystem.
+# Accepted values: agent-skills, antigravity, claude, codex, copilot, cursor, gemini, grok-build, kiro, opencode, windsurf
+targets:
+  - claude
+  - copilot
+dependencies:
+  apm: []
+  mcp: []
+includes: auto
+scripts: {}
+devDependencies:
+  apm:
+    - tylerbutler/agent-marketplace/plugins/gleam
+    - tylerbutler/apm-base
