@@ -709,6 +709,78 @@ pub fn compact_reduces_clouds_test() {
   }
 }
 
+pub fn compact_prunes_stale_cloud_entries_before_folding_prefix_test() {
+  let uncompact =
+    state.from_replicated_parts(
+      "node_local",
+      dict.from_list([#("node_remote", 3)]),
+      dict.from_list([#("node_remote", set.from_list([1, 3, 4, 5, 7]))]),
+      dict.new(),
+    )
+
+  let compacted = state.compact(uncompact)
+
+  dict.get(state.compacted_clocks(compacted), "node_remote")
+  |> expect.to_equal(Ok(5))
+  dict.get(state.internal_clouds(compacted), "node_remote")
+  |> expect.to_equal(Ok(set.from_list([7])))
+}
+
+pub fn compact_preserves_membership_through_full_state_merge_test() {
+  let values =
+    dict.from_list([
+      #(
+        state.Tag(replica: "node_remote", clock: 2),
+        state.Entry(
+          topic: "lobby",
+          key: "alice",
+          pid: "pid-alice",
+          meta: json.object([]),
+        ),
+      ),
+      #(
+        state.Tag(replica: "node_remote", clock: 5),
+        state.Entry(
+          topic: "lobby",
+          key: "bob",
+          pid: "pid-bob",
+          meta: json.object([]),
+        ),
+      ),
+      #(
+        state.Tag(replica: "node_remote", clock: 7),
+        state.Entry(
+          topic: "lobby",
+          key: "carol",
+          pid: "pid-carol",
+          meta: json.object([]),
+        ),
+      ),
+    ])
+  let uncompact =
+    state.from_replicated_parts(
+      "node_remote",
+      dict.from_list([#("node_remote", 3)]),
+      dict.from_list([#("node_remote", set.from_list([1, 3, 4, 5, 7]))]),
+      values,
+    )
+
+  let compacted = state.compact(uncompact)
+  let received =
+    state.merge(state.new("node_receiver"), state.extract_full_state(compacted))
+
+  state.get_by_topic(compacted, "lobby")
+  |> list.length
+  |> expect.to_equal(3)
+  state.get_by_topic(received, "lobby") |> list.length |> expect.to_equal(3)
+  state.get_by_key(received, "lobby", "alice")
+  |> expect.to_equal([#("pid-alice", json.object([]))])
+  state.get_by_key(received, "lobby", "bob")
+  |> expect.to_equal([#("pid-bob", json.object([]))])
+  state.get_by_key(received, "lobby", "carol")
+  |> expect.to_equal([#("pid-carol", json.object([]))])
+}
+
 pub fn merge_with_empty_state_test() {
   let a = state.new("node_a")
   let a = state.join(a, "p1", "room:1", "k1", json.object([]))
