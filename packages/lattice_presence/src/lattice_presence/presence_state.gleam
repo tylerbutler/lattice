@@ -28,6 +28,7 @@ import gleam/dict.{type Dict}
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/result
 import gleam/set.{type Set}
 
 /// Unique identifier for a node in the cluster
@@ -471,19 +472,31 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
   }
 }
 
-/// Permanently remove all entries and context for a downed replica
+/// Permanently remove all entries for a downed replica.
+///
+/// The replica's causal high-water mark is retained so entries held by a
+/// lagging peer cannot be re-admitted later. If the replica is not marked
+/// `Down`, the state is returned unchanged.
 pub fn remove_down_replica(state: State, replica: Replica) -> State {
-  let new_values =
-    dict.filter(state.values, fn(tag, _) { tag.replica != replica })
-  let new_context = dict.delete(state.context, replica)
-  let new_clouds = dict.delete(state.clouds, replica)
-  let new_replicas = dict.delete(state.replicas, replica)
+  use <- bool.guard(dict.get(state.replicas, replica) != Ok(Down), state)
+
+  let context_clock = result.unwrap(dict.get(state.context, replica), 0)
+  let cloud_clock =
+    dict.get(state.clouds, replica)
+    |> result.map(fn(cloud) { set.fold(cloud, 0, int.max) })
+    |> result.unwrap(0)
+  let high_water = int.max(context_clock, cloud_clock)
+  let new_context = case high_water > 0 {
+    True -> dict.insert(state.context, replica, high_water)
+    False -> state.context
+  }
+
   State(
     ..state,
-    values: new_values,
+    values: dict.filter(state.values, fn(tag, _) { tag.replica != replica }),
     context: new_context,
-    clouds: new_clouds,
-    replicas: new_replicas,
+    clouds: dict.delete(state.clouds, replica),
+    replicas: dict.delete(state.replicas, replica),
   )
 }
 

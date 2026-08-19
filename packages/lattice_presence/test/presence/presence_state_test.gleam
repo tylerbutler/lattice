@@ -617,9 +617,49 @@ pub fn phoenix_remove_down_replicas_test() {
   // Permanently remove node1
   let s2 = state.remove_down_replica(s2, "node1")
 
-  // Even after replica_up, alice is gone permanently
+  // Even after replica_up and stale gossip, alice is gone permanently
   let #(s2, _) = state.replica_up(s2, "node1")
+  let s2 = state.merge(s2, s1)
   state.online_list(s2) |> list.length |> expect.to_equal(1)
+}
+
+pub fn remove_down_replica_does_not_remove_live_replica_test() {
+  let live =
+    state.new("node1")
+    |> state.join("pid_alice", "lobby", "alice", json.object([]))
+  let local = state.new("node2") |> state.merge(live)
+
+  let unchanged = state.remove_down_replica(local, "node1")
+
+  state.online_list(unchanged) |> list.length |> expect.to_equal(1)
+  state.entry_count(unchanged) |> expect.to_equal(1)
+}
+
+pub fn remove_down_replica_retains_cloud_high_water_test() {
+  let tag = state.Tag(replica: "node1", clock: 3)
+  let entry =
+    state.Entry(
+      topic: "lobby",
+      key: "alice",
+      pid: "pid_alice",
+      meta: json.object([]),
+    )
+  let stale =
+    state.from_replicated_parts(
+      "node1",
+      dict.from_list([#("node1", 1)]),
+      dict.from_list([#("node1", set.from_list([3]))]),
+      dict.from_list([#(tag, entry)]),
+    )
+  let local = state.new("node2") |> state.merge(stale)
+  let #(local, _) = state.replica_down(local, "node1")
+  let local = state.remove_down_replica(local, "node1")
+
+  dict.get(state.compacted_clocks(local), "node1")
+  |> expect.to_equal(Ok(3))
+
+  let local = state.merge(local, stale)
+  state.entry_count(local) |> expect.to_equal(0)
 }
 
 // ── edge cases ───────────────────────────────────────────────────────
