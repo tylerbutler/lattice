@@ -29,8 +29,12 @@ import gleam/int
 import gleam/json
 import gleam/list
 import gleam/set.{type Set}
+import gleam/string
+import youid/uuid
 
-/// Unique identifier for a node in the cluster
+const incarnation_prefix = "lattice-presence:v1:"
+
+/// Unique identifier for a running node incarnation in the cluster
 pub type Replica =
   String
 
@@ -116,7 +120,19 @@ pub type Diff {
 
 // ── Core operations ─────────────────────────────────────────────────
 
-/// Create a new empty state for this replica
+/// Create a new empty state for a globally unique replica incarnation.
+///
+/// Reusing `replica` after a process or node restart is unsafe because peers
+/// may retain causal history for the previous incarnation. Use
+/// `new_incarnation` when the same stable replica name can restart.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let state = new("node-a-019d449c-2c82-71bb-b4bf-6505df7ad7c2")
+/// replica(state)
+/// // -> "node-a-019d449c-2c82-71bb-b4bf-6505df7ad7c2"
+/// ```
 pub fn new(replica: Replica) -> State {
   State(
     replica: replica,
@@ -125,6 +141,23 @@ pub fn new(replica: Replica) -> State {
     values: dict.new(),
     replicas: dict.from_list([#(replica, Up)]),
   )
+}
+
+/// Create a new empty state with a fresh incarnation of a stable replica name.
+///
+/// The generated replica identity is safe to use in the existing string-valued
+/// replication and JSON formats. Use `base_replica` to recover `base`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let state = new_incarnation("node-a")
+/// base_replica(replica(state))
+/// // -> "node-a"
+/// ```
+pub fn new_incarnation(base: String) -> State {
+  let token = uuid.v4() |> uuid.to_base64
+  new(incarnation_prefix <> token <> ":" <> base)
 }
 
 /// Add a tracked presence. Increments the local clock.
@@ -387,6 +420,46 @@ pub fn extract_full_state(state: State) -> State {
 /// Get the replica name this state was created with.
 pub fn replica(state: State) -> Replica {
   state.replica
+}
+
+/// Get the stable replica name from an incarnation identity.
+///
+/// Replica values not created by `new_incarnation` are returned unchanged.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let state = new_incarnation("node-a")
+/// base_replica(replica(state))
+/// // -> "node-a"
+/// ```
+pub fn base_replica(replica: Replica) -> String {
+  case replica {
+    "lattice-presence:v1:" <> encoded ->
+      case string.split_once(encoded, on: ":") {
+        Ok(#(token, base)) ->
+          case uuid.from_base64(token) {
+            Ok(_) -> base
+            Error(Nil) -> replica
+          }
+        Error(Nil) -> replica
+      }
+    _ -> replica
+  }
+}
+
+/// Return whether two replica identities share the same stable name.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let first = new_incarnation("node-a")
+/// let second = new_incarnation("node-a")
+/// same_base(replica(first), replica(second))
+/// // -> True
+/// ```
+pub fn same_base(first: Replica, second: Replica) -> Bool {
+  base_replica(first) == base_replica(second)
 }
 
 /// Get the compacted vector clock.

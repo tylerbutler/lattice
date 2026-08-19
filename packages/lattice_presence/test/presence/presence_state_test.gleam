@@ -13,6 +13,26 @@ pub fn new_creates_empty_state_test() {
   state.replica(s) |> expect.to_equal("node1")
 }
 
+pub fn new_incarnation_creates_unique_replica_identity_test() {
+  let first = state.new_incarnation("node:west")
+  let second = state.new_incarnation("node:west")
+
+  state.replica(first) |> expect.to_not_equal(state.replica(second))
+  state.base_replica(state.replica(first)) |> expect.to_equal("node:west")
+  state.base_replica(state.replica(second)) |> expect.to_equal("node:west")
+  state.same_base(state.replica(first), state.replica(second))
+  |> expect.to_equal(True)
+}
+
+pub fn base_replica_preserves_caller_supplied_identity_test() {
+  let replica = "lattice-presence:v1:not-a-uuid:node:west"
+
+  state.base_replica(replica) |> expect.to_equal(replica)
+  state.same_base(replica, state.replica(state.new(replica)))
+  |> expect.to_equal(True)
+  state.same_base(replica, "node:west") |> expect.to_equal(False)
+}
+
 // ── join ─────────────────────────────────────────────────────────────
 
 pub fn join_makes_user_online_test() {

@@ -19,6 +19,22 @@ pub fn roundtrip_empty_state_test() {
   state.cloud_count(decoded) |> expect.to_equal(0)
 }
 
+pub fn roundtrip_incarnation_identity_test() {
+  let original =
+    state.new_incarnation("node:west")
+    |> state.join("pid1", "room:lobby", "alice", json.null())
+  let replica = state.replica(original)
+
+  let encoded = state_json.to_json_string(original)
+  let assert Ok(decoded) = state_json.from_json(encoded)
+
+  state.replica(decoded) |> expect.to_equal(replica)
+  state.base_replica(state.replica(decoded)) |> expect.to_equal("node:west")
+  state.same_base(state.replica(original), state.replica(decoded))
+  |> expect.to_equal(True)
+  dict.get(state.compacted_clocks(decoded), replica) |> expect.to_equal(Ok(1))
+}
+
 pub fn roundtrip_state_with_entries_test() {
   let s = state.new("node1")
   let s =
