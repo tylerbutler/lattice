@@ -315,8 +315,8 @@ fn merge_clouds(
 
 /// Compact clouds into context where possible
 ///
-/// If context[replica] + 1 is in the cloud, advance context and remove from
-/// cloud. Repeat until no more compaction possible.
+/// Remove cloud clocks already covered by context, then advance context through
+/// the remaining contiguous prefix.
 pub fn compact(state: State) -> State {
   let #(new_context, new_clouds) =
     dict.fold(
@@ -328,6 +328,7 @@ pub fn compact(state: State) -> State {
           Ok(c) -> c
           Error(Nil) -> 0
         }
+        let cloud = set.filter(cloud, fn(clock) { clock > base })
         let #(new_base, remaining) = compact_cloud(base, cloud)
         let new_ctx = case new_base > base {
           True -> dict.insert(ctx, replica, new_base)
