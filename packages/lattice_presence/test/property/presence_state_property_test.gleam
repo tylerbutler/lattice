@@ -404,13 +404,10 @@ pub fn prop_remove_down_replicas_permanent_test() {
   let #(a, _) = state.replica_down(a, "r2")
   let a = state.remove_down_replica(a, "r2")
 
-  // Re-merging b's state should NOT bring back r2's entries
-  // because remove_down_replicas clears the context for r2,
-  // but b's tag (r2, 1) will be re-added as a new join.
-  // However, if we mark r2 up and merge, b's entries reappear
-  // as new. The key invariant: the REMOVED context is gone.
+  // The retained high-water mark prevents lagging b from resurrecting r2.
   let r2_context = dict.get(state.compacted_clocks(a), "r2")
-  let _ = expect.to_be_error(r2_context)
+  r2_context |> expect.to_equal(Ok(1))
+  let a = state.merge(a, b)
 
   // r2's entries are gone from values
   let r2_entries =

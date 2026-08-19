@@ -42,7 +42,8 @@ pub fn main() {
 
 - `presence_state` exposes `new`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `online_list`, `get_by_topic`, and `get_by_key`.
 - `merge_with_diff` reports Phoenix-style joins and leaves while returning the merged state.
-- Replica liveness is local-only: `replica_down`, `replica_up`, and `remove_down_replica` affect local visibility and are not merged as replicated state.
+- Replica liveness is local-only: `replica_down` and `replica_up` affect local visibility and are not merged as replicated state.
+- `remove_down_replica` permanently removes a down replica's entries while retaining its replicated causal high-water mark so stale gossip cannot restore them.
 - Use `state_json.to_json_string` and `state_json.from_json` for persistence or transport.
 
 ## Links
