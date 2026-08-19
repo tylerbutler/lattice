@@ -1,0 +1,3 @@
+package = "lattice_presence"
+kind = "Fixed"
+body = "Prevent restarted replicas from admitting cached entries owned by earlier process incarnations while preserving their causal context so peers remove stale presence"

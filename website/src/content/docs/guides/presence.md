@@ -18,7 +18,7 @@ import lattice_presence/presence_state as presence
 
 pub fn main() {
   let state =
-    presence.new("node-a")
+    presence.new_incarnation("node-a")
     |> presence.join("pid-1", "room:lobby", "alice", json.object([]))
 
   presence.get_by_topic(state, "room:lobby")
@@ -28,6 +28,23 @@ pub fn main() {
 
 Each `join` creates a causal tag owned by the local replica. Queries hide entries
 from replicas you have marked down locally.
+
+## Process restarts
+
+Replica identity uniqueness is per process incarnation, not just per stable node
+name. Create a fresh identity every time the presence process starts:
+
+```gleam
+let state = presence.new_incarnation("node-a")
+```
+
+This preserves `node-a` as the stable name while giving each run a unique causal
+identity. On merge, a restarted state ignores cached values owned by an earlier
+incarnation of that stable name but retains their causal context. Syncing the
+restarted state back to peers therefore removes those stale entries.
+
+Use `new` only when the supplied identity is already unique for the entire
+process incarnation and will never be reused after restart.
 
 ## Merging replicas
 

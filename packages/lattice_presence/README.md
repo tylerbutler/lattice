@@ -18,7 +18,7 @@ import lattice_presence/presence_state
 
 pub fn main() {
   let state =
-    presence_state.new("node-a")
+    presence_state.new_incarnation("node-a")
     |> presence_state.join(
       pid: "pid-1",
       topic: "room:lobby",
@@ -40,8 +40,10 @@ pub fn main() {
 
 ## Notes
 
-- `presence_state` exposes `new`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `online_list`, `get_by_topic`, and `get_by_key`.
+- `presence_state` exposes `new`, `new_incarnation`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `online_list`, `get_by_topic`, and `get_by_key`.
 - `merge_with_diff` reports Phoenix-style joins and leaves while returning the merged state.
+- Replica identity uniqueness is per process incarnation. Use `new_incarnation` with a stable node name on every process start so peers cannot confuse new joins with causal history retained from an earlier run.
+- A restarted state rejects cached values from earlier incarnations of its stable replica while retaining their causal context, so merging it back removes those stale entries from peers.
 - Replica liveness is local-only: `replica_down` and `replica_up` affect local visibility and are not merged as replicated state.
 - `remove_down_replica` permanently removes a down replica's entries while retaining its replicated causal high-water mark so stale gossip cannot restore them.
 - Use `state_json.to_json_string` and `state_json.from_json` for persistence or transport.

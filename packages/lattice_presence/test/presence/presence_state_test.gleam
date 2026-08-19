@@ -118,6 +118,38 @@ pub fn merge_adds_remote_entries_test() {
   state.get_by_topic(merged, "room:lobby") |> list.length |> expect.to_equal(2)
 }
 
+pub fn restarted_replica_fresh_join_survives_old_higher_clock_test() {
+  let before_restart =
+    state.new_incarnation("node-a")
+    |> state.join("old-pid-1", "room:lobby", "old-1", json.object([]))
+    |> state.join("old-pid-2", "room:lobby", "old-2", json.object([]))
+  let peer = state.new_incarnation("node-b") |> state.merge(before_restart)
+
+  let after_restart =
+    state.new_incarnation("node-a")
+    |> state.join("fresh-pid", "room:lobby", "fresh", json.object([]))
+  let peer = state.merge(peer, after_restart)
+
+  state.get_by_key(peer, "room:lobby", "fresh")
+  |> list.length
+  |> expect.to_equal(1)
+}
+
+pub fn restarted_replica_rejects_and_removes_cached_old_entry_test() {
+  let before_restart =
+    state.new_incarnation("node-a")
+    |> state.join("old-pid", "room:lobby", "old", json.object([]))
+  let peer = state.new_incarnation("node-b") |> state.merge(before_restart)
+
+  let after_restart = state.new_incarnation("node-a")
+  let #(after_restart, diff) = state.merge_with_diff(after_restart, peer)
+  state.get_by_topic(after_restart, "room:lobby") |> expect.to_equal([])
+  dict.size(diff.joins) |> expect.to_equal(0)
+
+  let peer = state.merge(peer, after_restart)
+  state.get_by_topic(peer, "room:lobby") |> expect.to_equal([])
+}
+
 pub fn merge_is_idempotent_test() {
   let a = state.new("node_a")
   let a = state.join(a, "pid1", "room:lobby", "alice", json.object([]))
