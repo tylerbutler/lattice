@@ -1,0 +1,3 @@
+package = "lattice_presence"
+kind = "Added"
+body = "Add replica incarnation identities with `new_incarnation`, `base_replica`, and `same_base`"
