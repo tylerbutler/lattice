@@ -7,6 +7,8 @@
 //// Each node (replica) tracks its own presences authoritatively. State is
 //// replicated by extracting deltas and merging them at remote replicas.
 //// Conflicts are resolved causally: adds win over concurrent removes.
+//// Replica identities must be unique per process incarnation. Use
+//// `new_incarnation` when a stable node name can restart.
 ////
 //// ## Example
 ////
@@ -14,9 +16,9 @@
 //// import gleam/json
 //// import lattice_presence/presence_state as state
 ////
-//// let a = state.new("node-a")
+//// let a = state.new_incarnation("node-a")
 ////   |> state.join("pid-1", "room:lobby", "alice", json.object([]))
-//// let b = state.new("node-b")
+//// let b = state.new_incarnation("node-b")
 ////   |> state.join("pid-2", "room:lobby", "bob", json.object([]))
 //// let merged = state.merge(a, b)
 //// state.get_by_topic(merged, "room:lobby")
@@ -260,6 +262,11 @@ pub fn merge(local: State, remote: State) -> State {
 }
 
 /// Merge remote state into local state and return a diff of what changed.
+///
+/// Values owned by an earlier incarnation of the local state's stable replica
+/// are not admitted. Their causal context is still merged so syncing the
+/// restarted state back to peers removes any cached entries from that earlier
+/// incarnation.
 pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
   // The `joins` and `removes` lists are materialized (rather than folded
   // straight into the new values dict) because they are reused below to
@@ -272,6 +279,9 @@ pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
     |> list.filter(fn(kv) {
       let #(tag, _) = kv
       !tag_is_in(local.context, local.clouds, tag)
+      && {
+        tag.replica == local.replica || !same_base(tag.replica, local.replica)
+      }
     })
 
   // 2. Find entries we should remove (in remote's causal context but not in
