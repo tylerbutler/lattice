@@ -1,6 +1,0 @@
-package = "lattice_presence"
-kind = "Fixed"
-body = """
-Shrink full-state payloads by dropping already-covered clocks
-
-Out-of-order updates park clocks in a pending cloud until the gaps ahead of them fill in. Clocks that the merged context already covered were never cleared, so the cloud grew without bound and inflated every full-state payload sent afterwards. Compaction now discards covered clocks before folding in the contiguous run."""
