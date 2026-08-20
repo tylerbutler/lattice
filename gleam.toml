@@ -46,3 +46,6 @@ kinds = [
   { label = "Dependencies", bump = "patch" },
   { label = "Security", bump = "patch" },
 ]
+
+[tools.licence_audit]
+allow = ["Apache-2.0", "MIT"]

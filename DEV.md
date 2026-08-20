@@ -8,13 +8,14 @@ Ensure you have the following installed:
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Erlang/OTP | 27.2.1+ | BEAM runtime |
+| Erlang/OTP | 28.5.0.5 | BEAM runtime |
 | Gleam | 1.16.0+ | Compiler and tooling |
 | just | 1.38.0+ | Task runner (thin delegation layer) |
 | [trellis](https://github.com/tylerbutler/trellis) | 0.1.0 | Workspace CLI: task fan-out, changelog, versioning, publishing |
+| [licence_audit](https://licence-audit.tylerbutler.com) | 0.8.0 | Dependency licence policy enforcement |
 
 **Recommended:** Use [mise](https://mise.jdx.dev/) — `mise install` installs
-everything above (including trellis, via the `github:` backend in
+everything above (including trellis and licence_audit via the `github:` backend in
 `.mise.toml`). CI uses the same files through `jdx/mise-action`, so local and
 CI toolchains can't drift.
 

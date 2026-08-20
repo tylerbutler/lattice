@@ -94,6 +94,14 @@ build-pkg pkg:
 doctor:
     trellis doctor
 
+# Enforce the licence allow-list for every workspace member
+licence-audit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for manifest in packages/*/manifest.toml examples/manifest.toml; do
+        licence_audit check --config=gleam.toml --manifest="$manifest"
+    done
+
 # === DOCUMENTATION ===
 
 # Build documentation for published packages without bursting the Hex API
@@ -137,9 +145,10 @@ examples:
 
 # === CI ===
 
-# Run all CI checks (format, check, lint, test, build strict, doctor)
+# Run all CI checks (doctor, licence audit, format, check, lint, test, build strict)
 ci:
     trellis doctor
+    just licence-audit
     trellis run format --check
     trellis run check
     trellis run lint
