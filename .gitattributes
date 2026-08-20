@@ -1,2 +1,4 @@
 .claude/** linguist-detectable=false
 website/** linguist-documentation=true
+
+.github/workflows/*.lock.yml linguist-generated=true
