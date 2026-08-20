@@ -1,6 +1,0 @@
-package = "lattice_presence"
-kind = "Fixed"
-body = """
-Stop restarted replicas from resurrecting as ghost presence
-
-After a restart, a peer holding a higher clock from the previous run could silently swallow the replica's fresh join, or replay a cached entry from that earlier run so it showed up as present again. A replica now rejects incoming values owned by a different incarnation of its own identity while still merging their causal context, so syncing back to peers clears the stale entries instead of reviving them."""
