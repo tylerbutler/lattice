@@ -95,12 +95,8 @@ doctor:
     trellis doctor
 
 # Enforce the licence allow-list for every workspace member
-licence-audit:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    for manifest in packages/*/manifest.toml examples/manifest.toml; do
-        licence_audit check --config=gleam.toml --manifest="$manifest"
-    done
+licence-audit *ARGS:
+    trellis run licence-audit --serial {{ ARGS }}
 
 # === DOCUMENTATION ===
 

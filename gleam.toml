@@ -11,6 +11,9 @@ exclude = { docs = ["examples"] }
 command = "gleam run -m glinter"
 needs_deps = true
 
+[tools.trellis.tasks.licence-audit]
+command = "licence_audit check --config=\"$(git rev-parse --show-toplevel)/gleam.toml\""
+
 [tools.trellis.publish]
 exact_tag_format = "{name}-v{version}"
 path_dep_requirement = "minor"
