@@ -41,7 +41,9 @@ pub fn main() {
 ## Notes
 
 - `presence_state` exposes `new`, `new_incarnation`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `online_list`, `get_by_topic`, and `get_by_key`.
-- `merge_with_diff` reports Phoenix-style joins and leaves while returning the merged state.
+- `merge` and `merge_with_diff` return `Result`; handle `SameReplica` by rejecting stale restart echoes or fixing duplicate replica names.
+- An identical state from the same replica is accepted as an idempotent no-op. Divergent states must use unique replica names.
+- `merge_with_diff` reports Phoenix-style joins and leaves with the merged state on success.
 - Replica identity uniqueness is per process incarnation. Use `new_incarnation` with a stable node name on every process start so peers cannot confuse new joins with causal history retained from an earlier run.
 - A restarted state rejects cached values from earlier incarnations of its stable replica while retaining their causal context, so merging it back removes those stale entries from peers.
 - Replica liveness is local-only: `replica_down` and `replica_up` affect local visibility and are not merged as replicated state.

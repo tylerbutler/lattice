@@ -20,7 +20,7 @@
 ////   |> state.join("pid-1", "room:lobby", "alice", json.object([]))
 //// let b = state.new_incarnation("node-b")
 ////   |> state.join("pid-2", "room:lobby", "bob", json.object([]))
-//// let merged = state.merge(a, b)
+//// let assert Ok(merged) = state.merge(a, b)
 //// state.get_by_topic(merged, "room:lobby")
 //// // -> [#("pid-1", "alice", _), #("pid-2", "bob", _)]
 //// ```
@@ -119,6 +119,15 @@ pub type Diff {
     joins: Dict(String, List(#(String, String, json.Json))),
     leaves: Dict(String, List(#(String, String, json.Json))),
   )
+}
+
+/// Error returned when two divergent states claim the same replica name.
+///
+/// This indicates either a stale state echoed after a restart or multiple
+/// live nodes configured with the same replica name. Assign every live node
+/// a unique name and discard stale state before retrying the merge.
+pub type MergeError {
+  SameReplica(replica: Replica)
 }
 
 // ── Core operations ─────────────────────────────────────────────────
@@ -256,18 +265,52 @@ pub fn get_by_key(
 ///
 /// `replicas` (per-node liveness view) is **not** merged because it is
 /// local-only view state, not part of the replicated CRDT payload.
-pub fn merge(local: State, remote: State) -> State {
-  let #(merged, _) = merge_with_diff(local, remote)
-  merged
+///
+/// Returns `Error(SameReplica(...))` when the states claim the same replica
+/// name but their replicated data differs. Identical replicated states are
+/// accepted as an idempotent no-op.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(merged) = merge(new("node-a"), new("node-b"))
+/// ```
+pub fn merge(local: State, remote: State) -> Result(State, MergeError) {
+  case merge_with_diff(local, remote) {
+    Ok(#(merged, _)) -> Ok(merged)
+    Error(error) -> Error(error)
+  }
 }
 
 /// Merge remote state into local state and return a diff of what changed.
 ///
+/// Returns `Error(SameReplica(...))` under the same conditions as `merge`.
 /// Values owned by an earlier incarnation of the local state's stable replica
 /// are not admitted. Their causal context is still merged so syncing the
 /// restarted state back to peers removes any cached entries from that earlier
 /// incarnation.
-pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(#(merged, diff)) =
+///   merge_with_diff(new("node-a"), new("node-b"))
+/// ```
+pub fn merge_with_diff(
+  local: State,
+  remote: State,
+) -> Result(#(State, Diff), MergeError) {
+  use <- bool.guard(
+    local.replica == remote.replica,
+    case replicated_data_equal(local, remote) {
+      True -> Ok(#(local, Diff(joins: dict.new(), leaves: dict.new())))
+      False -> Error(SameReplica(replica: local.replica))
+    },
+  )
+  Ok(merge_distinct_replicas(local, remote))
+}
+
+fn merge_distinct_replicas(local: State, remote: State) -> #(State, Diff) {
   // The `joins` and `removes` lists are materialized (rather than folded
   // straight into the new values dict) because they are reused below to
   // build the `Diff`. Doing it as a single dict.fold would save one
@@ -322,6 +365,10 @@ pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
     State(..local, context: new_context, clouds: new_clouds, values: new_values)
 
   #(compact(new_state), diff)
+}
+
+fn replicated_data_equal(a: State, b: State) -> Bool {
+  a.context == b.context && a.clouds == b.clouds && a.values == b.values
 }
 
 /// Check if a tag is "in" a causal context (either compacted or in clouds)

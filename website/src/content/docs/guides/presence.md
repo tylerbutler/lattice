@@ -48,21 +48,25 @@ process incarnation and will never be reused after restart.
 
 ## Merging replicas
 
-`merge` returns the merged state:
+`merge` returns the merged state on success:
 
 ```gleam
-let merged = presence.merge(node_a, node_b)
+let assert Ok(merged) = presence.merge(node_a, node_b)
 ```
 
 Use `merge_with_diff` when an application needs Phoenix-style join and leave
 notifications while applying remote state:
 
 ```gleam
-let #(merged, diff) = presence.merge_with_diff(node_a, node_b)
+let assert Ok(#(merged, diff)) = presence.merge_with_diff(node_a, node_b)
 ```
 
 The diff groups joins and leaves by topic. It is for notifying subscribers; the
 merged state is still the source of truth.
+
+Both merge functions return `Error(SameReplica(...))` when divergent states use
+the same replica identity. Discard stale restart echoes or assign each live
+replica a unique identity before retrying.
 
 ## Replica visibility
 

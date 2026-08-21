@@ -1,0 +1,6 @@
+package = "lattice_presence"
+kind = "Breaking"
+body = """
+Reject divergent states that share a replica name
+
+`presence_state.merge` and `presence_state.merge_with_diff` now return `Result` and report `SameReplica` for stale restart echoes or duplicate live node names. Callers must handle the error and assign every live node a unique replica name. Identical replicated states remain an idempotent no-op."""
