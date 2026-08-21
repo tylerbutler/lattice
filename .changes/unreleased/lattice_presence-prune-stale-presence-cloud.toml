@@ -1,3 +1,0 @@
-package = "lattice_presence"
-kind = "Fixed"
-body = "Prune stale presence cloud entries during compaction"

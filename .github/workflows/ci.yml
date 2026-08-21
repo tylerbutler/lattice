@@ -54,6 +54,16 @@ jobs:
       - uses: ./.github/actions/setup
       - run: trellis run lint
 
+  licence-audit:
+    name: Licence audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+      - run: just licence-audit
+
   build:
     name: Build
     needs: dependencies
