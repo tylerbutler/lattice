@@ -152,9 +152,49 @@ pub fn sequence_from_json_missing_move_decodes_as_no_move_test() {
 
 pub fn sequence_from_json_unknown_version_rejected_test() {
   let payload =
-    "{\"type\":\"sequence\",\"v\":2,\"state\":{\"self_id\":\"A\",\"counter\":0,\"frontier\":"
+    "{\"type\":\"sequence\",\"v\":3,\"state\":{\"self_id\":\"A\",\"counter\":0,\"frontier\":"
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[]}}"
+
+  case sequence.from_json(payload, decode.string) {
+    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
+pub fn sequence_from_json_v1_without_moves_accepted_test() {
+  // v1 stored the move-applied order, but with no move record there was no
+  // overlay, so the payload's order is already the canonical base.
+  let payload =
+    "{\"type\":\"sequence\",\"v\":1,\"state\":{\"self_id\":\"A\",\"counter\":2,\"frontier\":"
+    <> empty_frontier
+    <> ",\"forwardings\":[],\"segments\":["
+    <> "{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":1},\"origin_left\":null,"
+    <> "\"origin_right\":null,\"value\":\"a\",\"deleted\":null,\"move\":null},"
+    <> "{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":2},\"origin_left\":"
+    <> "{\"replica_id\":\"A\",\"counter\":1},\"origin_right\":null,\"value\":\"b\","
+    <> "\"deleted\":null,\"move\":null}]}}"
+
+  case sequence.from_json(payload, decode.string) {
+    Ok(decoded) -> sequence.values(decoded) |> expect.to_equal(["a", "b"])
+    Error(_) -> expect.to_be_true(False)
+  }
+}
+
+pub fn sequence_from_json_v1_with_compacted_move_rejected_test() {
+  // A v1 payload holding both a move record and a compacted block cannot be
+  // brought into base order: the block has no origins to re-integrate the
+  // mover against. The holder must resync rather than decode a state whose
+  // mover would be pinned at its post-move slot.
+  let payload =
+    "{\"type\":\"sequence\",\"v\":1,\"state\":{\"self_id\":\"A\",\"counter\":3,\"frontier\":"
+    <> empty_frontier
+    <> ",\"forwardings\":[],\"segments\":["
+    <> "{\"kind\":\"block\",\"first_id\":{\"replica_id\":\"A\",\"counter\":1},\"values\":[\"a\"]},"
+    <> "{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":2},\"origin_left\":"
+    <> "{\"replica_id\":\"A\",\"counter\":1},\"origin_right\":null,\"value\":\"b\","
+    <> "\"deleted\":null,\"move\":{\"op_id\":{\"replica_id\":\"A\",\"counter\":3},"
+    <> "\"origin_left\":null,\"origin_right\":{\"replica_id\":\"A\",\"counter\":1}}}]}}"
 
   case sequence.from_json(payload, decode.string) {
     Error(_) -> expect.to_be_true(True)

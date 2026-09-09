@@ -117,48 +117,85 @@ pub fn compact_does_not_merge_blocks_across_counter_gaps_test() {
   count_kind(compacted, "block") |> expect.to_equal(2)
 }
 
-pub fn compact_is_noop_while_move_records_exist_test() {
-  // A state holding a move record is left unchanged EVEN when the move op is
-  // covered by the frontier (here frontier_a(4) covers the move's counter 4).
-  // This is load-bearing for convergence, not mere conservatism, and the
-  // guard has to stay this blunt. Compaction is safe only because `rebuild`
-  // is frontier-invariant: pinning a covered element at its stored position
-  // agrees with integrating it from origins. A mover breaks that — it is
-  // never pinned, its stored position is post-move, and re-integrating it
-  // yields its PRE-move position, so raising the frontier moves it.
-  //
-  // The frontier advance ALONE is therefore unsafe: a `compact` that changes
-  // no element and only advances `frontier` already falsifies
-  // `merge_commutes_with_compaction_for_deltas_above_frontier`. No subset of
-  // the pass is safe while a mover is present, so do not relax this to
-  // "in-flight moves only" and do not try to compact around a mover. The fix
-  // is to make the stored order the pre-move base order, applying moves as a
-  // view — see issue #98.
+pub fn compact_reclaims_alongside_a_moved_item_test() {
+  // Regression for #98: `compact` used to bail on ANY move record, and
+  // nothing ever cleared one, so a replica that performed or received a
+  // single move could never reclaim anything again. Moves are now an overlay
+  // on the stored base rather than baked into it, so the pass runs normally.
   let seq = abc() |> sequence.move(0, 2)
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(4))
 
-  compacted |> expect.to_equal(seq)
   sequence.values(compacted) |> expect.to_equal(["b", "c", "a"])
   sequence.forwarding_size(forwardings) |> expect.to_equal(0)
-  count_kind(compacted, "block") |> expect.to_equal(0)
+  // "a" stays live as the mover and "c" as the move's target anchor; only
+  // "b" is free to stabilize.
+  count_kind(compacted, "block") |> expect.to_equal(1)
+  count_kind(compacted, "item") |> expect.to_equal(2)
 }
 
-pub fn merging_a_stabilized_peer_does_not_clear_a_move_record_test() {
-  // The one escape hatch a replica might hope for does not exist: merging a
-  // peer that compacted the item into a block BEFORE it heard about the move
-  // does not clear the move. `stable_or_live` keeps a moved item live and
-  // supersedes the block slot, so the record survives and compaction stays
-  // disabled. Move records are permanent for the item's lifetime.
-  let base = abc()
-  // The peer stabilizes a, b, c into a block, never having seen the move.
-  let #(peer, _) = sequence.compact(base, frontier_a(3))
-  let moved = base |> sequence.move(0, 2)
-  let merged = sequence.merge(moved, peer)
-  let #(compacted, forwardings) = sequence.compact(merged, frontier_a(4))
+pub fn compact_reclaims_tombstones_with_a_move_live_test() {
+  let seq =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.insert(2, "c")
+    |> sequence.insert(3, "d")
+    // tombstones "b" with op counter 5
+    |> sequence.delete(1)
+    // moves "a" after "d" with op counter 6
+    |> sequence.move(0, 2)
+  let #(compacted, forwardings) = sequence.compact(seq, frontier_a(6))
 
-  compacted |> expect.to_equal(merged)
+  sequence.values(compacted) |> expect.to_equal(["c", "d", "a"])
+  // The stable tombstone is reclaimed even though a move record is live.
+  sequence.forwarding_size(forwardings) |> expect.to_equal(1)
+}
+
+pub fn compact_preserves_co_gap_move_order_across_a_tombstone_test() {
+  // "c" falls back to AfterGap("L") when "e" is moved, while "b" still
+  // resolves BeforeElement("R"). The unrelated tombstone between L and R
+  // must neither split that visible gap nor change its mover order when it is
+  // reclaimed.
+  let base =
+    sequence.new(rid("Z"))
+    |> sequence.insert(0, "L")
+    |> sequence.insert(1, "tombstone")
+    |> sequence.insert(2, "e")
+    |> sequence.insert(3, "R")
+    |> sequence.insert(4, "c")
+    |> sequence.insert(5, "b")
+    |> sequence.delete(1)
+  let a = sequence.merge(sequence.new(rid("A")), base) |> sequence.move(3, 1)
+  let b = sequence.merge(sequence.new(rid("B")), base) |> sequence.move(4, 2)
+  let merged =
+    sequence.merge(a, b)
+    // Moving "e" strips the shared boundary during move resolution.
+    |> sequence.move(2, 4)
+  let frontier = version_vector.new() |> version_vector.set_max(rid("Z"), 7)
+  let #(compacted, forwardings) = sequence.compact(merged, frontier)
+
+  sequence.values(merged) |> expect.to_equal(["L", "c", "b", "R", "e"])
+  sequence.values(compacted) |> expect.to_equal(sequence.values(merged))
+  sequence.forwarding_size(forwardings) |> expect.to_equal(1)
+}
+
+pub fn compact_retains_a_live_moves_target_anchors_test() {
+  // A move splices at an exact position, so reclaiming one of its target-gap
+  // boundaries would leave a compacted replica and an uncompacted one
+  // splicing the mover differently. Anchors are retained until the move is.
+  let seq =
+    sequence.new(rid("A"))
+    |> sequence.insert(0, "a")
+    |> sequence.insert(1, "b")
+    |> sequence.insert(2, "c")
+    // "b" becomes the move's right anchor, then is tombstoned
+    |> sequence.move(2, 1)
+    |> sequence.delete(2)
+  let #(compacted, forwardings) = sequence.compact(seq, frontier_a(5))
+
+  // The tombstoned anchor is NOT reclaimed while the move is live.
   sequence.forwarding_size(forwardings) |> expect.to_equal(0)
-  sequence.values(compacted) |> expect.to_equal(["b", "c", "a"])
+  sequence.values(compacted) |> expect.to_equal(sequence.values(seq))
 }
 
 // --- idempotence and frontier regression ----------------------------------

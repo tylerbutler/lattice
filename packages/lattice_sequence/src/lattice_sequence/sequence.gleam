@@ -287,6 +287,7 @@ pub fn try_insert_many_with_delta(
   values: List(a),
 ) -> Result(#(Sequence(a), Sequence(a)), InsertError) {
   let elements = segments_to_elements(sequence.segments)
+  let visible = apply_moves(elements, sequence.forwardings)
   let size = visible_length_elements(elements)
 
   case index < 0 || index > size {
@@ -303,20 +304,11 @@ pub fn try_insert_many_with_delta(
           // volatile items — never a compacted element.
           let origin_left = case index {
             0 -> None
-            _ -> visible_element_id_at(elements, index - 1)
+            _ -> visible_element_id_at(visible, index - 1)
           }
-          let has_live_move = list.any(live_items_of(elements), has_move)
-          // Without moves the stored order IS the canonical base, so its
-          // stored successor is the canonical successor. With moves present
-          // the two diverge and we must consult the rebuilt base.
-          let origin_right = case has_live_move {
-            False -> canonical_successor(elements, origin_left)
-            True ->
-              canonical_successor(
-                rebuild_base(elements, sequence.forwardings, sequence.frontier),
-                origin_left,
-              )
-          }
+          // Stored order IS the canonical base, so its stored successor is
+          // the canonical successor — no rebuild needed even with moves live.
+          let origin_right = canonical_successor(elements, origin_left)
           let #(items, last_counter) =
             build_insert_run(
               sequence.replica_id,
@@ -326,18 +318,10 @@ pub fn try_insert_many_with_delta(
               origin_right,
             )
           let new_elements = list.map(items, LiveEl)
-          // Local edits splice into the authoritative stored order; only a
-          // live move makes stored order diverge from canonical, forcing the
-          // rebuild path.
-          let updated_elements = case has_live_move {
-            False -> splice_run_after(elements, origin_left, new_elements)
-            True ->
-              rebuild(
-                list.append(elements, new_elements),
-                sequence.forwardings,
-                sequence.frontier,
-              )
-          }
+          // The run's origins name a gap in the base, so splicing it there is
+          // exactly where integration would put it on every replica.
+          let updated_elements =
+            splice_run_after(elements, origin_left, new_elements)
           let updated =
             Sequence(
               ..sequence,
@@ -458,6 +442,7 @@ pub fn try_delete_with_delta(
   index: Int,
 ) -> Result(#(Sequence(a), Sequence(a)), DeleteError) {
   let elements = segments_to_elements(sequence.segments)
+  let visible = apply_moves(elements, sequence.forwardings)
   let size = visible_length_elements(elements)
 
   case index < 0 || index >= size {
@@ -465,7 +450,7 @@ pub fn try_delete_with_delta(
     False -> {
       let next_counter = sequence.counter + 1
       let op = OpId(replica_id: sequence.replica_id, counter: next_counter)
-      case tombstone_visible_element_at(elements, index, 0, None, op) {
+      case tombstone_in_base(elements, visible, index, op) {
         Some(#(updated_elements, deleted_item)) -> {
           let updated =
             Sequence(
@@ -527,6 +512,7 @@ pub fn try_move_with_delta(
   to_index: Int,
 ) -> Result(#(Sequence(a), Sequence(a)), MoveError) {
   let elements = segments_to_elements(sequence.segments)
+  let visible = apply_moves(elements, sequence.forwardings)
   let size = visible_length_elements(elements)
   let length_after_removal = size - 1
 
@@ -541,25 +527,25 @@ pub fn try_move_with_delta(
         length_after_removal: length_after_removal,
       ))
     False, False ->
-      move_visible_element(sequence, elements, from_index, to_index)
+      move_visible_element(sequence, elements, visible, from_index, to_index)
   }
 }
 
 fn move_visible_element(
   sequence: Sequence(a),
   elements: List(Element(a)),
+  visible: List(Element(a)),
   from_index: Int,
   to_index: Int,
 ) -> Result(#(Sequence(a), Sequence(a)), MoveError) {
-  case visible_element_as_item_at(elements, from_index, 0, None) {
+  case base_item_at_visible_index(elements, visible, from_index) {
     None ->
       Error(MoveFromIndexOutOfBounds(
         index: from_index,
         length: visible_length_elements(elements),
       ))
     Some(item) -> {
-      let remaining =
-        list.filter(elements, fn(el) { element_id(el) != item.id })
+      let remaining = list.filter(visible, fn(el) { element_id(el) != item.id })
       // Move origins are pure splice anchors (no YATA window), so they
       // reference VISIBLE neighbors: anything visible to the creator of a
       // volatile move cannot have been dropped at the floor the creator
@@ -627,7 +613,7 @@ pub fn try_anchor_at(
   index: Int,
   bias: Bias,
 ) -> Result(Anchor, AnchorError) {
-  let elements = segments_to_elements(sequence.segments)
+  let elements = visible_elements(sequence)
   let size = visible_length_elements(elements)
 
   case index < 0 || index > size {
@@ -674,7 +660,7 @@ pub fn try_resolve(
   sequence: Sequence(a),
   anchor: Anchor,
 ) -> Result(Int, AnchorError) {
-  let elements = segments_to_elements(sequence.segments)
+  let elements = visible_elements(sequence)
 
   case anchor {
     Start -> Ok(0)
@@ -819,14 +805,14 @@ fn bias_decoder() -> decode.Decoder(Bias) {
 
 /// Return all visible values in sequence order.
 pub fn values(sequence: Sequence(a)) -> List(a) {
-  sequence.segments
-  |> list.flat_map(fn(segment) {
-    case segment {
-      Block(_, values) -> values
-      Live(item) ->
+  visible_elements(sequence)
+  |> list.filter_map(fn(el) {
+    case el {
+      Stable(_, value) -> Ok(value)
+      LiveEl(item) ->
         case item.deleted {
-          None -> [item.value]
-          Some(_) -> []
+          None -> Ok(item.value)
+          Some(_) -> Error(Nil)
         }
     }
   })
@@ -1059,7 +1045,16 @@ fn rebuild(
   frontier: VersionVector,
 ) -> List(Element(a)) {
   rebuild_base(elements, forwardings, frontier)
-  |> apply_moves(forwardings)
+}
+
+/// The user-facing element order: the stored base with every move overlaid.
+///
+/// Moves are an overlay, not part of the stored order, so every read that
+/// depends on position — values, index lookups, anchors — goes through here.
+/// Writes go the other way: they compute origins from this view and then
+/// update the base.
+fn visible_elements(sequence: Sequence(a)) -> List(Element(a)) {
+  apply_moves(segments_to_elements(sequence.segments), sequence.forwardings)
 }
 
 /// The canonical pre-move order: pinned covered elements in list order with
@@ -1080,14 +1075,12 @@ fn rebuild_base(
     list.filter(elements, fn(el) {
       case el {
         Stable(_, _) -> True
-        LiveEl(item) -> frontier_covers(frontier, item.id) && item.move == None
+        LiveEl(item) -> frontier_covers(frontier, item.id)
       }
     })
   elements
   |> live_items_of()
-  |> list.filter(fn(item) {
-    !frontier_covers(frontier, item.id) || item.move != None
-  })
+  |> list.filter(fn(item) { !frontier_covers(frontier, item.id) })
   |> list.sort(compare_lamport)
   |> list.fold(pinned, fn(current, item) {
     integrate_element(current, item, forwardings)
@@ -1165,7 +1158,7 @@ fn apply_moves(
     list.fold(movers, dict.new(), fn(acc, item) {
       dict.insert(acc, item.id, Nil)
     })
-  let gap_anchors = base_gap_anchors(stripped)
+  let #(before_gap_anchors, after_gap_anchors) = base_gap_anchors(stripped)
   let #(result, _) =
     list.fold(movers, #(stripped, dict.new()), fn(acc, item) {
       let #(current, last_in_gap) = acc
@@ -1181,63 +1174,107 @@ fn apply_moves(
               mover_ids,
             )
           {
-            BeforeElement(right_id) -> #(
-              insert_element_before_id(current, right_id, LiveEl(item)),
-              record_in_gap(last_in_gap, gap_anchors, right_id, item.id),
-            )
-            AtEnd -> #(list.append(current, [LiveEl(item)]), last_in_gap)
-            AfterGap(anchor) -> #(
-              splice_into_gap(
+            BeforeElement(right_id) ->
+              splice_before_and_record(
                 current,
-                dict.get(last_in_gap, anchor),
-                anchor,
+                last_in_gap,
+                before_gap_anchors,
+                right_id,
                 LiveEl(item),
-              ),
-              dict.insert(last_in_gap, anchor, item.id),
-            )
+              )
+            AtEnd -> #(list.append(current, [LiveEl(item)]), last_in_gap)
+            AfterGap(anchor) -> {
+              let gap = canonical_after_gap(anchor, after_gap_anchors)
+              #(
+                splice_into_gap(
+                  current,
+                  dict.get(last_in_gap, gap),
+                  anchor,
+                  LiveEl(item),
+                ),
+                dict.insert(last_in_gap, gap, item.id),
+              )
+            }
           }
       }
     })
   result
 }
 
-/// Map every element of the move-free base to the gap it closes: the id of
-/// the element immediately to its left, or `None` for the document start.
+/// Index the visible gaps on both sides of every element in the move-free base.
 ///
 /// Movers are spliced into the gaps of this base, so `BeforeElement(right)`
 /// and `AfterGap(left)` name the same gap exactly when `left` is `right`'s
 /// base predecessor. Keying both on that anchor is what lets co-gap movers
 /// stack in op order no matter which path each one resolved through.
+///
+/// Tombstones do not split visible gaps and may disappear during compaction,
+/// so they keep the preceding visible anchor on both sides. This makes the
+/// gap key invariant when an unreferenced tombstone is reclaimed.
 fn base_gap_anchors(
   elements: List(Element(a)),
-) -> Dict(ItemId, Option(ItemId)) {
-  let #(anchors, _) =
-    list.fold(elements, #(dict.new(), None), fn(acc, el) {
-      let #(anchors, previous) = acc
+) -> #(Dict(ItemId, Option(ItemId)), Dict(ItemId, Option(ItemId))) {
+  let #(before, after, _) =
+    list.fold(elements, #(dict.new(), dict.new(), None), fn(acc, el) {
+      let #(before, after, previous) = acc
       let id = element_id(el)
-      #(dict.insert(anchors, id, previous), Some(id))
+      let next = case element_is_visible(el) {
+        True -> Some(id)
+        False -> previous
+      }
+      #(dict.insert(before, id, previous), dict.insert(after, id, next), next)
     })
-  anchors
+  #(before, after)
 }
 
-/// Record a `BeforeElement` landing as the gap's rightmost mover so far.
+/// Canonicalize an `AfterGap` key without changing its physical splice anchor.
 ///
-/// Inserting before `right_id` always lands at the right end of that gap —
-/// every mover already placed there sits to its left — so the entry stays
-/// the correct splice point for the next mover in op order.
+/// Base tombstones map to their preceding visible neighbour. An absent ID is
+/// a mover already placed in this pass, so it remains its own gap anchor.
+fn canonical_after_gap(
+  anchor: Option(ItemId),
+  after_gap_anchors: Dict(ItemId, Option(ItemId)),
+) -> Option(ItemId) {
+  case anchor {
+    None -> None
+    Some(id) ->
+      case dict.get(after_gap_anchors, id) {
+        Ok(anchor) -> anchor
+        Error(Nil) -> Some(id)
+      }
+  }
+}
+
+/// Splice a `BeforeElement` landing after any earlier mover in the same gap,
+/// then record it as the gap's rightmost mover.
+///
+/// Usually inserting immediately before `right_id` lands at the right end of
+/// its gap. Tombstones can put an earlier co-gap mover physically after that
+/// boundary while remaining in the same visible gap, though, so the tracked
+/// mover is authoritative when present.
 ///
 /// A `right_id` absent from the base is a mover placed earlier in this pass.
 /// Landing before it is not the gap's right end, so there is nothing to
 /// record and the previous entry stands.
-fn record_in_gap(
+fn splice_before_and_record(
+  elements: List(Element(a)),
   last_in_gap: Dict(Option(ItemId), ItemId),
   gap_anchors: Dict(ItemId, Option(ItemId)),
   right_id: ItemId,
-  mover: ItemId,
-) -> Dict(Option(ItemId), ItemId) {
+  el: Element(a),
+) -> #(List(Element(a)), Dict(Option(ItemId), ItemId)) {
   case dict.get(gap_anchors, right_id) {
-    Ok(anchor) -> dict.insert(last_in_gap, anchor, mover)
-    Error(Nil) -> last_in_gap
+    Ok(anchor) -> #(
+      case dict.get(last_in_gap, anchor) {
+        Ok(previous) -> insert_element_after_id(elements, previous, el)
+        Error(Nil) -> insert_element_before_id(elements, right_id, el)
+      },
+      dict.insert(last_in_gap, anchor, element_id(el)),
+    )
+    Error(Nil) -> #(
+      insert_element_before_id(elements, right_id, el),
+      last_in_gap,
+    )
   }
 }
 
@@ -1275,24 +1312,73 @@ fn resolve_move_target(
     Some(raw_right) ->
       case contains_element_id(elements, raw_right) {
         True -> BeforeElement(raw_right)
+        // Absent because a compaction pass reclaimed it, or because it is a
+        // mover this pass has not spliced back in yet. Only the first has a
+        // gap to re-aim at; the second falls back to the move's own left
+        // origin.
         False ->
-          case chase_right(move_right, forwardings, fuel) {
-            Some(right_id) ->
-              // A forwarded boundary that is itself being moved in this
-              // pass is not a faithful gap edge — a replica that still had
-              // the dropped target would not anchor on it. Use the left
-              // side of the gap instead.
-              case
-                !dict.has_key(mover_ids, right_id)
-                && contains_element_id(elements, right_id)
-              {
-                True -> BeforeElement(right_id)
-                False -> left_gap
-              }
-            // Nothing retained to the target's right: the gap collapsed to
-            // the document end.
-            None -> AtEnd
+          case dict.has_key(forwardings, raw_right) {
+            False -> left_gap
+            True ->
+              reclaimed_boundary_target(
+                elements,
+                move_right,
+                forwardings,
+                mover_ids,
+                fuel,
+              )
           }
+      }
+  }
+}
+
+/// Where a move lands when its right boundary was reclaimed by a pass.
+///
+/// Prefer the nearest retained element to the boundary's right, so the move
+/// still splices before the same neighbour. A forwarded boundary that is
+/// itself being moved in this pass is not a faithful gap edge — a replica
+/// that still held the reclaimed target would not anchor on it — so that
+/// falls through to the gap's left edge instead.
+fn reclaimed_boundary_target(
+  elements: List(Element(a)),
+  move_right: Option(ItemId),
+  forwardings: Dict(ItemId, Forwarding),
+  mover_ids: Dict(ItemId, Nil),
+  fuel: Int,
+) -> MoveTarget {
+  case chase_right(move_right, forwardings, fuel) {
+    None -> reclaimed_boundary_gap(elements, move_right, forwardings, fuel)
+    Some(right_id) ->
+      case
+        !dict.has_key(mover_ids, right_id)
+        && contains_element_id(elements, right_id)
+      {
+        True -> BeforeElement(right_id)
+        False -> reclaimed_boundary_gap(elements, move_right, forwardings, fuel)
+      }
+  }
+}
+
+/// The gap a reclaimed right boundary left behind, named by its left edge.
+///
+/// The move targeted the gap immediately before that boundary, so once the
+/// boundary is gone the same gap is "after whatever was retained to its
+/// left". Falling back to the move's own left origin instead would aim at the
+/// far edge of the original gap and skip past everything inserted into it
+/// since the move was made — which is how a compacted replica and an
+/// uncompacted one end up ordering the mover differently.
+fn reclaimed_boundary_gap(
+  elements: List(Element(a)),
+  move_right: Option(ItemId),
+  forwardings: Dict(ItemId, Forwarding),
+  fuel: Int,
+) -> MoveTarget {
+  case chase_left(move_right, forwardings, fuel) {
+    None -> AfterGap(None)
+    Some(left_id) ->
+      case contains_element_id(elements, left_id) {
+        True -> AfterGap(Some(left_id))
+        False -> AtEnd
       }
   }
 }
@@ -1321,53 +1407,19 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// Compacting at the current frontier, at an older one, or at one concurrent
 /// with it is a no-op — frontiers only advance.
 ///
-/// ## Moves disable the pass entirely
-///
-/// A state holding ANY move record is left unchanged, even when every move op
-/// is already covered by `stable`. The guard is load-bearing for convergence,
-/// not conservatism, and it has to be this blunt:
-///
-/// Compaction is safe only because `rebuild` is frontier-invariant: a covered
-/// element is pinned at its stored position, and pinning it agrees with
-/// integrating it from origins, so raising the frontier cannot reorder
-/// anything. A mover is the one element that breaks this. It is never pinned —
-/// its stored position is post-move, but re-integrating it from its INSERT
-/// origins yields its PRE-move position — so the two disagree, and raising the
-/// frontier changes which elements are pinned around it and therefore where it
-/// lands.
-///
-/// That makes the frontier advance itself unsafe, not the element rewriting:
-/// a `compact` that changes NO element and only advances `frontier` already
-/// falsifies `merge_commutes_with_compaction_for_deltas_above_frontier` when a
-/// move record exists. So there is nothing to relax here — no subset of the
-/// pass is safe while a mover is present.
-///
-/// Nothing clears a move record — not a local op, and not merging a peer that
-/// stabilized the item before it heard about the move, because
-/// `stable_or_live` keeps a moved item live and supersedes the block slot. So
-/// a replica that performs or receives a move stops reclaiming for good, and
-/// its tombstones and origins grow without bound. Representing a settled move
-/// without discarding the geometry concurrent inserts rely on needs a
-/// redesign; tracked in issue #98.
+/// Moved items remain live so their move records and insertion origins survive.
+/// The pass can still stabilize unrelated items and reclaim tombstones, while
+/// retaining any target-gap boundaries referenced by a live move.
 pub fn compact(
   sequence: Sequence(a),
   stable: VersionVector,
 ) -> #(Sequence(a), ForwardingMap) {
-  let has_move_records =
-    sequence.segments
-    |> segments_to_elements()
-    |> live_items_of()
-    |> list.any(has_move)
-
-  case has_move_records {
-    True -> #(sequence, ForwardingMap(dict.new()))
-    False ->
-      case version_vector.compare(stable, sequence.frontier) {
-        version_vector.After -> do_compact(sequence, stable)
-        version_vector.Before
-        | version_vector.Concurrent
-        | version_vector.Equal -> #(sequence, ForwardingMap(dict.new()))
-      }
+  case version_vector.compare(stable, sequence.frontier) {
+    version_vector.After -> do_compact(sequence, stable)
+    version_vector.Before | version_vector.Concurrent | version_vector.Equal -> #(
+      sequence,
+      ForwardingMap(dict.new()),
+    )
   }
 }
 
@@ -1381,20 +1433,25 @@ fn do_compact(
   stable: VersionVector,
 ) -> #(Sequence(a), ForwardingMap) {
   let elements = segments_to_elements(sequence.segments)
+  let anchored = move_anchor_ids(elements)
   let classified =
     list.map(elements, fn(el) {
       case el {
         Stable(_, _) -> Retained(el)
         LiveEl(item) ->
-          case item_stability(item, stable) {
-            DropTombstone -> Dropped(item.id)
-            ToStable -> Retained(Stable(id: item.id, value: item.value))
-            KeepLive -> Retained(el)
+          case dict.has_key(anchored, item.id) {
+            True -> Retained(el)
+            False ->
+              case item_stability(item, stable) {
+                DropTombstone -> Dropped(item.id)
+                ToStable -> Retained(Stable(id: item.id, value: item.value))
+                KeepLive -> Retained(el)
+              }
           }
       }
     })
 
-  let new_entries = forwarding_entries_for_pass(classified)
+  let new_entries = forwarding_entries_for_pass(classified, stable)
   // Dropping and stabilizing happen strictly in place, so the visible order
   // is preserved by construction. Retained items keep their origins as-is;
   // stored order is authoritative and never re-derived from them.
@@ -1430,6 +1487,38 @@ fn do_compact(
   #(compacted, ForwardingMap(new_entries))
 }
 
+/// Every ID a live move still names as one of its target-gap boundaries.
+///
+/// Reclaiming one of these would leave the move anchoring on a gap that has
+/// to be reconstructed from forwardings, and the reconstruction is not
+/// position-identical: a compacted replica and an uncompacted one would
+/// splice the mover differently. Retaining them keeps move resolution exactly
+/// what it was before the pass, at a cost of at most two extra tombstones per
+/// live mover.
+fn move_anchor_ids(elements: List(Element(a))) -> Dict(ItemId, Nil) {
+  elements
+  |> live_items_of()
+  |> list.fold(dict.new(), fn(acc, item) {
+    case item.move {
+      None -> acc
+      Some(Move(_, move_left, move_right)) ->
+        acc
+        |> insert_optional_id(move_left)
+        |> insert_optional_id(move_right)
+    }
+  })
+}
+
+fn insert_optional_id(
+  acc: Dict(ItemId, Nil),
+  id: Option(ItemId),
+) -> Dict(ItemId, Nil) {
+  case id {
+    None -> acc
+    Some(id) -> dict.insert(acc, id, Nil)
+  }
+}
+
 type Stability {
   DropTombstone
   ToStable
@@ -1439,12 +1528,6 @@ type Stability {
 /// A settled tombstone is reclaimed and a settled plain item is baked into the
 /// skeleton; anything above the frontier or holding an unacknowledged delete
 /// stays live.
-///
-/// A mover never reaches this function — `compact` bails before `do_compact`
-/// when any move record exists — so there is no covered-move case to decide.
-/// The classification is written to reject one anyway rather than encode an
-/// unreachable "settled move stabilizes" intent, which is not safe at any
-/// frontier; see `compact`.
 fn item_stability(item: Item(a), stable: VersionVector) -> Stability {
   use <- bool.guard(!frontier_covers(stable, item.id), KeepLive)
   case item.deleted, item.move {
@@ -1453,20 +1536,38 @@ fn item_stability(item: Item(a), stable: VersionVector) -> Stability {
         True -> DropTombstone
         False -> KeepLive
       }
-    None, Some(_) -> KeepLive
     None, None -> ToStable
+    // A mover keeps its record and the origins naming its target gap:
+    // the overlay is re-applied on every read, so both stay live data.
+    None, Some(_) -> KeepLive
   }
 }
 
+/// Forwardings for one pass, naming only settled landmarks.
+///
+/// A forwarding must resolve identically on every replica, and volatile
+/// membership does not: replicas compacting at the same frontier hold
+/// different above-frontier items, so a forwarding naming one would point
+/// somewhere the other cannot follow.
+///
+/// Move anchors make this load-bearing: they splice at an exact position
+/// rather than searching a window, so the identity of the target decides the
+/// result outright.
 fn forwarding_entries_for_pass(
   classified: List(Classified(a)),
+  stable: VersionVector,
 ) -> Dict(ItemId, Forwarding) {
-  let lefts = left_targets(classified, None, dict.new())
+  let settled = fn(el: Element(a)) { frontier_covers(stable, element_id(el)) }
+  let lefts = left_targets(classified, None, dict.new(), settled)
   let #(rights, _) =
     list.fold_right(classified, #(dict.new(), None), fn(acc, entry) {
       let #(targets, next_retained) = acc
       case entry {
-        Retained(el) -> #(targets, Some(element_id(el)))
+        Retained(el) ->
+          case settled(el) {
+            True -> #(targets, Some(element_id(el)))
+            False -> #(targets, next_retained)
+          }
         Dropped(id) -> #(dict.insert(targets, id, next_retained), next_retained)
       }
     })
@@ -1484,12 +1585,22 @@ fn left_targets(
   classified: List(Classified(a)),
   last_retained: Option(ItemId),
   acc: Dict(ItemId, Option(ItemId)),
+  settled: fn(Element(a)) -> Bool,
 ) -> Dict(ItemId, Option(ItemId)) {
   case classified {
     [] -> acc
-    [Retained(el), ..rest] -> left_targets(rest, Some(element_id(el)), acc)
+    [Retained(el), ..rest] ->
+      case settled(el) {
+        True -> left_targets(rest, Some(element_id(el)), acc, settled)
+        False -> left_targets(rest, last_retained, acc, settled)
+      }
     [Dropped(id), ..rest] ->
-      left_targets(rest, last_retained, dict.insert(acc, id, last_retained))
+      left_targets(
+        rest,
+        last_retained,
+        dict.insert(acc, id, last_retained),
+        settled,
+      )
   }
 }
 
@@ -1607,7 +1718,7 @@ pub fn to_json(
 ) -> json.Json {
   json.object([
     #("type", json.string("sequence")),
-    #("v", json.int(1)),
+    #("v", json.int(2)),
     #(
       "state",
       json.object([
@@ -1637,7 +1748,7 @@ pub fn from_json(
   json_string: String,
   value_decoder: decode.Decoder(a),
 ) -> Result(Sequence(a), json.DecodeError) {
-  let state_decoder = {
+  let state_decoder = fn(version: Int) {
     use state <- decode.field("state", {
       use self_id <- decode.field("self_id", replica_id.decoder())
       use counter <- decode.field("counter", non_negative_int_decoder())
@@ -1650,13 +1761,28 @@ pub fn from_json(
         "segments",
         decode.list(segment_decoder(value_decoder)),
       )
-      decode.success(Sequence(
-        replica_id: self_id,
-        counter: counter,
-        segments: elements_to_segments(segments_to_elements(segments)),
-        forwardings: dict.from_list(forwardings),
-        frontier: frontier,
-      ))
+      let forwarding_map = dict.from_list(forwardings)
+      case base_order_segments(version, segments, forwarding_map) {
+        Ok(base) ->
+          decode.success(Sequence(
+            replica_id: self_id,
+            counter: counter,
+            segments: base,
+            forwardings: forwarding_map,
+            frontier: frontier,
+          ))
+        Error(Nil) ->
+          decode.failure(
+            Sequence(
+              replica_id: self_id,
+              counter: counter,
+              segments: [],
+              forwardings: forwarding_map,
+              frontier: frontier,
+            ),
+            "a v1 payload whose moved items were not already compacted",
+          )
+      }
     })
     decode.success(state)
   }
@@ -1669,17 +1795,52 @@ pub fn from_json(
   case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
-      case type_tag == "sequence" && version == 1 {
-        True -> json.parse(from: json_string, using: state_decoder)
+      case type_tag == "sequence" && { version == 1 || version == 2 } {
+        True -> json.parse(from: json_string, using: state_decoder(version))
         False ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
-                expected: "type=sequence and v=1",
+                expected: "type=sequence and v=1 or v=2",
                 found: type_tag <> " v=" <> int.to_string(version),
                 path: [],
               ),
             ]),
+          )
+      }
+  }
+}
+
+/// Bring a decoded payload's segments into canonical base order.
+///
+/// Version 2 stores the pre-move base and overlays moves on read, so its
+/// segments are already the base. Version 1 stored the move-APPLIED order, so
+/// a mover sits at its post-move slot and would be pinned there.
+///
+/// A v1 payload with no move records never had an overlay, so its order is
+/// already the base. One with movers but no compacted segments still carries
+/// every origin, so the base re-derives exactly. One with both is
+/// unrecoverable — the compacted elements have no origins to re-integrate
+/// from, and replicas at different frontiers would reconstruct the mover's
+/// slot differently — so it is rejected and the holder must resync.
+fn base_order_segments(
+  version: Int,
+  segments: List(Segment(a)),
+  forwardings: Dict(ItemId, Forwarding),
+) -> Result(List(Segment(a)), Nil) {
+  let elements = segments_to_elements(segments)
+  case version >= 2 || !list.any(live_items_of(elements), has_move) {
+    True -> Ok(elements_to_segments(elements))
+    False ->
+      case list.any(elements, is_stable_element) {
+        True -> Error(Nil)
+        False ->
+          Ok(
+            elements_to_segments(rebuild_base(
+              elements,
+              forwardings,
+              version_vector.new(),
+            )),
           )
       }
   }
@@ -2094,42 +2255,78 @@ fn remove_element_by_id(
 /// Walk to the visible element at `target`, replacing it with a tombstone.
 /// A stable block member is extracted to a live item with origins
 /// synthesized from its current neighbors so ordering keeps it in place.
-fn tombstone_visible_element_at(
+/// Tombstone the element sitting at visible index `target`, updating the
+/// CANONICAL base. A stable block member is extracted with its base
+/// neighbours as origins, not the neighbours the move overlay gave it.
+fn tombstone_in_base(
   elements: List(Element(a)),
+  visible: List(Element(a)),
   target: Int,
-  current: Int,
+  op: OpId,
+) -> Option(#(List(Element(a)), Item(a))) {
+  case visible_element_id_at(visible, target) {
+    None -> None
+    Some(id) -> tombstone_element_by_id(elements, id, None, op)
+  }
+}
+
+fn tombstone_element_by_id(
+  elements: List(Element(a)),
+  id: ItemId,
   prev: Option(ItemId),
   op: OpId,
 ) -> Option(#(List(Element(a)), Item(a))) {
   case elements {
     [] -> None
     [el, ..rest] ->
-      case element_is_visible(el) {
+      case element_id(el) == id {
+        True -> {
+          let item = tombstone_of(el, prev, next_element_id(rest), op)
+          Some(#([LiveEl(item), ..rest], item))
+        }
         False ->
-          tombstone_visible_element_at(
-            rest,
-            target,
-            current,
-            Some(element_id(el)),
-            op,
-          )
+          tombstone_element_by_id(rest, id, Some(element_id(el)), op)
           |> prepend_element_result(el)
+      }
+  }
+}
+
+/// The item at visible index `target`, read out of the CANONICAL base so a
+/// stable block member gets its base neighbours as origins.
+fn base_item_at_visible_index(
+  elements: List(Element(a)),
+  visible: List(Element(a)),
+  target: Int,
+) -> Option(Item(a)) {
+  case visible_element_id_at(visible, target) {
+    None -> None
+    Some(id) -> element_as_item_by_id(elements, id, None)
+  }
+}
+
+fn element_as_item_by_id(
+  elements: List(Element(a)),
+  id: ItemId,
+  prev: Option(ItemId),
+) -> Option(Item(a)) {
+  case elements {
+    [] -> None
+    [el, ..rest] ->
+      case element_id(el) == id {
         True ->
-          case current == target {
-            True -> {
-              let item = tombstone_of(el, prev, next_element_id(rest), op)
-              Some(#([LiveEl(item), ..rest], item))
-            }
-            False ->
-              tombstone_visible_element_at(
-                rest,
-                target,
-                current + 1,
-                Some(element_id(el)),
-                op,
-              )
-              |> prepend_element_result(el)
+          case el {
+            LiveEl(item) -> Some(item)
+            Stable(stable_id, value) ->
+              Some(Item(
+                id: stable_id,
+                origin_left: prev,
+                origin_right: next_element_id(rest),
+                value: value,
+                deleted: None,
+                move: None,
+              ))
           }
+        False -> element_as_item_by_id(rest, id, Some(element_id(el)))
       }
   }
 }
@@ -2161,52 +2358,6 @@ fn prepend_element_result(
   case result {
     Some(#(updated_rest, item)) -> Some(#([el, ..updated_rest], item))
     None -> None
-  }
-}
-
-/// The visible element at `target` as a full item. A stable block member is
-/// given origins synthesized from its current neighbors.
-fn visible_element_as_item_at(
-  elements: List(Element(a)),
-  target: Int,
-  current: Int,
-  prev: Option(ItemId),
-) -> Option(Item(a)) {
-  case elements {
-    [] -> None
-    [el, ..rest] ->
-      case element_is_visible(el) {
-        False ->
-          visible_element_as_item_at(
-            rest,
-            target,
-            current,
-            Some(element_id(el)),
-          )
-        True ->
-          case current == target {
-            True ->
-              case el {
-                LiveEl(item) -> Some(item)
-                Stable(id, value) ->
-                  Some(Item(
-                    id: id,
-                    origin_left: prev,
-                    origin_right: next_element_id(rest),
-                    value: value,
-                    deleted: None,
-                    move: None,
-                  ))
-              }
-            False ->
-              visible_element_as_item_at(
-                rest,
-                target,
-                current + 1,
-                Some(element_id(el)),
-              )
-          }
-      }
   }
 }
 

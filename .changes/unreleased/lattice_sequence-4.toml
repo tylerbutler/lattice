@@ -1,0 +1,10 @@
+package = "lattice_sequence"
+kind = "Breaking"
+body = """
+Compact with move records present
+
+`compact` no longer bails when any item carries a move record. Because nothing ever cleared a move, a replica that performed or received a single move could never reclaim tombstones or origins again — an unbounded leak for any host that uses `move`.
+
+Moves are now an overlay on the stored order rather than baked into it: `segments` holds the canonical pre-move base and moves are applied when reading values, indices, and anchors. That makes the rebuild frontier-invariant, which is the property compaction depends on, so the pass runs normally with moves live. A mover and the boundaries of its target gap stay live until the move does; everything else reclaims as usual.
+
+Breaking: the state JSON schema is now `v: 2`, since `segments` changed meaning. Version 1 payloads still decode — without move records the stored order is already the base, and with moves but no compacted blocks the base re-derives from origins. A version 1 payload holding both a move record and a compacted block is rejected: the block has no origins to re-integrate the mover against, so the holder must resync."""
