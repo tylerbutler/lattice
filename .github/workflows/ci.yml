@@ -44,23 +44,25 @@ jobs:
           cache: "false"
       - run: trellis run format --check
 
-  check:
-    name: Check
+  workspace-validation:
+    name: Workspace validation
     needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: trellis run check
-
-  lint:
-    name: Lint
-    needs: dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - run: trellis run lint
+      - name: Check
+        run: trellis run check
+      - name: Lint
+        run: trellis run lint
+      - name: Build
+        run: trellis run build --strict --target all
+      - name: Test
+        run: trellis run test
+      - name: Test (JavaScript)
+        run: trellis run test --target javascript
+      - name: Docs
+        run: trellis run docs --serial
 
   licence-audit:
     name: Licence audit
@@ -71,39 +73,3 @@ jobs:
         with:
           cache: "false"
       - run: just licence-audit
-
-  build:
-    name: Build
-    needs: dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - run: trellis run build --strict --target all
-
-  test:
-    name: Test
-    needs: dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - run: trellis run test
-
-  test-js:
-    name: Test (JavaScript)
-    needs: dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - run: trellis run test --target javascript
-
-  docs:
-    name: Docs
-    needs: dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - run: trellis run docs --serial
