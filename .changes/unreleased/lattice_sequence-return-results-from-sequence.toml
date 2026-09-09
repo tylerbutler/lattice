@@ -1,0 +1,6 @@
+package = "lattice_sequence"
+kind = "Breaking"
+body = """
+Return Results from sequence edits and anchors
+
+Insert, batch insert, delete, move, and their delta variants now return Result, as do anchor_at and resolve. Replace the removed try_* names with their plain equivalents and handle the existing typed errors instead of relying on panic wrappers."""

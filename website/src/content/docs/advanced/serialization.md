@@ -16,7 +16,7 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 
 pub fn main() {
-  let counter =
+  let assert Ok(counter) =
     g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(3)
 
@@ -46,15 +46,17 @@ import lattice_maps/or_map
 
 fn add_points(value: crdt.Crdt) -> crdt.Crdt {
   case value {
-    crdt.CrdtGCounter(counter) ->
-      crdt.CrdtGCounter(g_counter.increment(counter, 1))
+    crdt.CrdtGCounter(counter) -> {
+      let assert Ok(counter) = g_counter.increment(counter, 1)
+      crdt.CrdtGCounter(counter)
+    }
 
     other -> other
   }
 }
 
 pub fn main() {
-  let map =
+  let assert Ok(map) =
     or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
     |> or_map.update("alice", add_points)
 
@@ -115,3 +117,15 @@ clock values and limits nested metadata depth before returning `Ok(state)`.
 Use `presence_state.decoder()` to embed presence state in a larger JSON
 decoder. The former `state_json` module and public replicated-parts constructor
 are removed; the wire representation is unchanged.
+
+## Sequence snapshots and local identity
+
+Sequence and text decoding restores the serialized replica identity. Before
+editing a snapshot received from another replica, merge it with your local
+state using `merge(local, decoded, local_id)`. Do not edit remote state under
+the sender's identity.
+
+YATA sequence and text state use schema v2. V1 states without moves decode
+directly; v1 states with moves and no compacted blocks reconstruct base order.
+V1 states with both moves and compacted blocks are rejected and require a
+resync. Fugue retains schema v1.

@@ -65,15 +65,18 @@ fn apply_op(
   case kind {
     2 ->
       case len {
-        0 -> sequence.insert(seq, 0, pos)
-        _ -> sequence.delete(seq, pos % len)
+        0 -> sequence.insert(seq, 0, pos) |> expect.to_be_ok()
+        _ -> sequence.delete(seq, pos % len) |> expect.to_be_ok()
       }
     3 ->
       case len < 2 {
-        True -> sequence.insert(seq, 0, pos * 31 + kind)
-        False -> sequence.move(seq, pos % len, { pos / 3 } % len)
+        True -> sequence.insert(seq, 0, pos * 31 + kind) |> expect.to_be_ok()
+        False ->
+          sequence.move(seq, pos % len, { pos / 3 } % len) |> expect.to_be_ok()
       }
-    _ -> sequence.insert(seq, pos % { len + 1 }, pos * 31 + kind)
+    _ ->
+      sequence.insert(seq, pos % { len + 1 }, pos * 31 + kind)
+      |> expect.to_be_ok()
   }
 }
 
@@ -98,7 +101,8 @@ fn scenario(seed_a: Int, seed_b: Int) {
   let frontier =
     version_vector.new()
     |> version_vector.set_max(rid("A"), list.length(ops_a))
-  let b_state = apply_ops(sequence.merge(sequence.new(rid("B")), base), ops_b)
+  let b_state =
+    apply_ops(sequence.merge(sequence.new(rid("B")), base, rid("B")), ops_b)
   #(base, b_state, frontier)
 }
 
@@ -106,7 +110,7 @@ pub fn compaction_preserves_visible_order__test() {
   qcheck.run(small_test_config(), seed_pair_generator(), fn(seeds) {
     let #(seed_a, seed_b) = seeds
     let #(base, b_state, frontier) = scenario(seed_a, seed_b)
-    let merged = sequence.merge(base, b_state)
+    let merged = sequence.merge(base, b_state, rid("A"))
     let #(compacted, _) = sequence.compact(merged, frontier)
 
     sequence.values(compacted) |> expect.to_equal(sequence.values(merged))
@@ -129,15 +133,16 @@ pub fn merge_commutes_with_compaction_for_deltas_above_frontier__test() {
       |> version_vector.set_max(rid("A"), list.length(ops_a))
     let b_state =
       apply_ops(
-        sequence.merge(sequence.new(rid("B")), base),
+        sequence.merge(sequence.new(rid("B")), base, rid("B")),
         expand_ops_without_moves(seed_b + 2, 10),
       )
     let #(compacted_base, _) = sequence.compact(base, frontier)
-    let left = sequence.merge(compacted_base, b_state)
-    let #(right, _) = sequence.compact(sequence.merge(base, b_state), frontier)
+    let left = sequence.merge(compacted_base, b_state, rid("A"))
+    let #(right, _) =
+      sequence.compact(sequence.merge(base, b_state, rid("A")), frontier)
 
     sequence.values(left) |> expect.to_equal(sequence.values(right))
-    sequence.values(sequence.merge(b_state, compacted_base))
+    sequence.values(sequence.merge(b_state, compacted_base, rid("A")))
     |> expect.to_equal(sequence.values(right))
     Nil
   })
@@ -151,12 +156,11 @@ pub fn moves_above_frontier_still_converge_on_merge__test() {
     let #(seed_a, seed_b) = seeds
     let #(base, b_state, frontier) = scenario(seed_a, seed_b)
     let #(compacted_base, _) = sequence.compact(base, frontier)
-    let left = sequence.merge(compacted_base, b_state)
-    let swapped = sequence.merge(b_state, compacted_base)
+    let left = sequence.merge(compacted_base, b_state, rid("A"))
+    let swapped = sequence.merge(b_state, compacted_base, rid("A"))
 
-    sequence.values(left) |> expect.to_equal(sequence.values(swapped))
-    sequence.values(sequence.merge(left, swapped))
-    |> expect.to_equal(sequence.values(left))
+    left |> expect.to_equal(swapped)
+    sequence.merge(left, swapped, rid("A")) |> expect.to_equal(left)
     Nil
   })
 }
@@ -165,20 +169,26 @@ pub fn anchor_resolution_agrees_across_compaction__test() {
   qcheck.run(small_test_config(), seed_pair_generator(), fn(seeds) {
     let #(seed_a, seed_b) = seeds
     let #(base, b_state, frontier) = scenario(seed_a, seed_b)
-    let merged = sequence.merge(base, b_state)
+    let merged = sequence.merge(base, b_state, rid("A"))
     let #(compacted, _) = sequence.compact(merged, frontier)
     let positions = [0, sequence.length(merged) / 2, sequence.length(merged)]
 
     list.each(positions, fn(position) {
       let assert Ok(before_bias) =
-        sequence.try_anchor_at(merged, position, sequence.Before)
+        sequence.anchor_at(merged, position, sequence.Before)
       let assert Ok(after_bias) =
-        sequence.try_anchor_at(merged, position, sequence.After)
+        sequence.anchor_at(merged, position, sequence.After)
 
-      sequence.try_resolve(compacted, before_bias)
-      |> expect.to_equal(sequence.try_resolve(merged, before_bias))
-      sequence.try_resolve(compacted, after_bias)
-      |> expect.to_equal(sequence.try_resolve(merged, after_bias))
+      sequence.resolve(compacted, before_bias)
+      |> expect.to_be_ok()
+      |> expect.to_equal(
+        sequence.resolve(merged, before_bias) |> expect.to_be_ok(),
+      )
+      sequence.resolve(compacted, after_bias)
+      |> expect.to_be_ok()
+      |> expect.to_equal(
+        sequence.resolve(merged, after_bias) |> expect.to_be_ok(),
+      )
     })
     Nil
   })
@@ -188,7 +198,7 @@ pub fn compact_twice_equals_compact_once__test() {
   qcheck.run(small_test_config(), seed_pair_generator(), fn(seeds) {
     let #(seed_a, seed_b) = seeds
     let #(base, b_state, frontier) = scenario(seed_a, seed_b)
-    let merged = sequence.merge(base, b_state)
+    let merged = sequence.merge(base, b_state, rid("A"))
     let #(once, _) = sequence.compact(merged, frontier)
     let #(twice, round) = sequence.compact(once, frontier)
 
@@ -204,8 +214,8 @@ pub fn compacted_merge_stays_commutative__test() {
     let #(base, b_state, frontier) = scenario(seed_a, seed_b)
     let #(compacted, _) = sequence.compact(base, frontier)
 
-    sequence.values(sequence.merge(compacted, b_state))
-    |> expect.to_equal(sequence.values(sequence.merge(b_state, compacted)))
+    sequence.merge(compacted, b_state, rid("A"))
+    |> expect.to_equal(sequence.merge(b_state, compacted, rid("A")))
     Nil
   })
 }
@@ -217,17 +227,32 @@ pub fn concurrent_replicas_converge_across_compaction__test() {
     // A third replica edits concurrently with B, both above the frontier.
     let c_state =
       apply_ops(
-        sequence.merge(sequence.new(rid("C")), base),
+        sequence.merge(sequence.new(rid("C")), base, rid("C")),
         expand_ops(seed_a + seed_b + 3, 10),
       )
     let #(compacted, _) = sequence.compact(base, frontier)
 
-    let one = sequence.merge(sequence.merge(compacted, b_state), c_state)
-    let two = sequence.merge(sequence.merge(c_state, compacted), b_state)
-    let three = sequence.merge(b_state, sequence.merge(c_state, compacted))
+    let one =
+      sequence.merge(
+        sequence.merge(compacted, b_state, rid("A")),
+        c_state,
+        rid("A"),
+      )
+    let two =
+      sequence.merge(
+        sequence.merge(c_state, compacted, rid("A")),
+        b_state,
+        rid("A"),
+      )
+    let three =
+      sequence.merge(
+        b_state,
+        sequence.merge(c_state, compacted, rid("A")),
+        rid("A"),
+      )
 
-    sequence.values(two) |> expect.to_equal(sequence.values(one))
-    sequence.values(three) |> expect.to_equal(sequence.values(one))
+    two |> expect.to_equal(one)
+    three |> expect.to_equal(one)
     Nil
   })
 }

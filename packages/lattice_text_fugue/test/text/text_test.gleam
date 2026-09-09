@@ -1,5 +1,8 @@
+import gleam/list
+import gleam/result
 import gleam/string
 import lattice_core/replica_id
+import lattice_fugue/sequence
 import lattice_text_fugue/text
 import startest/expect
 
@@ -12,7 +15,7 @@ fn doc() {
 }
 
 fn fork(base: text.Text, id: String) -> text.Text {
-  text.merge(text.new(rid(id)), base)
+  text.merge(text.new(rid(id)), base, rid(id))
 }
 
 pub fn new_is_empty_test() {
@@ -30,55 +33,52 @@ pub fn new_length_is_zero_test() {
 pub fn insert_sets_value_test() {
   doc()
   |> text.insert(0, "hello")
-  |> text.value()
-  |> expect.to_equal("hello")
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("hello"))
 }
 
 pub fn insert_counts_graphemes_test() {
   doc()
   |> text.insert(0, "a👍b")
-  |> text.length()
-  |> expect.to_equal(3)
+  |> result.map(text.length)
+  |> expect.to_equal(Ok(3))
 }
 
 pub fn insert_in_middle_test() {
   doc()
   |> text.insert(0, "ad")
-  |> text.insert(1, "bc")
-  |> text.value()
-  |> expect.to_equal("abcd")
+  |> result.try(text.insert(_, 1, "bc"))
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("abcd"))
 }
 
 pub fn append_test() {
   doc()
   |> text.insert(0, "ab")
-  |> text.append("cd")
-  |> text.value()
-  |> expect.to_equal("abcd")
+  |> result.try(text.append(_, "cd"))
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("abcd"))
 }
 
 pub fn delete_test() {
-  doc()
-  |> text.insert(0, "abc")
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  base
   |> text.delete(1)
-  |> text.value()
-  |> expect.to_equal("ac")
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("ac"))
 }
 
-pub fn try_insert_out_of_bounds_test() {
+pub fn insert_out_of_bounds_test() {
   doc()
   |> text.insert(0, "ab")
-  |> text.try_insert_with_delta(9, "x")
-  |> is_err()
-  |> expect.to_be_true()
+  |> result.try(text.insert_with_delta(_, 9, "x"))
+  |> expect.to_equal(Error(sequence.IndexOutOfBounds(9, 2)))
 }
 
-pub fn try_delete_out_of_bounds_test() {
-  doc()
-  |> text.insert(0, "ab")
-  |> text.try_delete_with_delta(9)
-  |> is_err()
-  |> expect.to_be_true()
+pub fn delete_out_of_bounds_test() {
+  let assert Ok(base) = doc() |> text.insert(0, "ab")
+  text.delete_with_delta(base, 9)
+  |> expect.to_equal(Error(sequence.DeleteIndexOutOfBounds(9, 2)))
 }
 
 // ---------------------------------------------------------------------------
@@ -88,42 +88,39 @@ pub fn try_delete_out_of_bounds_test() {
 pub fn substring_test() {
   doc()
   |> text.insert(0, "abcd")
-  |> text.substring(1, 3)
-  |> expect.to_equal("bc")
+  |> result.map(text.substring(_, 1, 3))
+  |> expect.to_equal(Ok("bc"))
 }
 
 pub fn substring_clamps_test() {
   doc()
   |> text.insert(0, "abc")
-  |> text.substring(-2, 10)
-  |> expect.to_equal("abc")
+  |> result.map(text.substring(_, -2, 10))
+  |> expect.to_equal(Ok("abc"))
 }
 
 pub fn substring_inverted_is_empty_test() {
   doc()
   |> text.insert(0, "abc")
-  |> text.substring(2, 1)
-  |> expect.to_equal("")
+  |> result.map(text.substring(_, 2, 1))
+  |> expect.to_equal(Ok(""))
 }
 
 pub fn try_substring_valid_test() {
-  doc()
-  |> text.insert(0, "abc")
-  |> text.try_substring(1, 3)
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  text.try_substring(base, 1, 3)
   |> expect.to_equal(Ok("bc"))
 }
 
 pub fn try_substring_out_of_bounds_test() {
-  doc()
-  |> text.insert(0, "abc")
-  |> text.try_substring(0, 4)
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  text.try_substring(base, 0, 4)
   |> expect.to_equal(Error(text.RangeOutOfBounds(start: 0, end: 4, length: 3)))
 }
 
 pub fn try_substring_inverted_test() {
-  doc()
-  |> text.insert(0, "abc")
-  |> text.try_substring(2, 1)
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  text.try_substring(base, 2, 1)
   |> expect.to_equal(Error(text.RangeOutOfBounds(start: 2, end: 1, length: 3)))
 }
 
@@ -132,67 +129,66 @@ pub fn try_substring_inverted_test() {
 // ---------------------------------------------------------------------------
 
 pub fn delete_range_test() {
-  doc()
-  |> text.insert(0, "abcd")
+  let assert Ok(base) = doc() |> text.insert(0, "abcd")
+  base
   |> text.delete_range(1, 3)
-  |> text.value()
-  |> expect.to_equal("ad")
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("ad"))
 }
 
 pub fn delete_range_empty_is_noop_test() {
-  doc()
-  |> text.insert(0, "abc")
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  base
   |> text.delete_range(1, 1)
-  |> text.value()
-  |> expect.to_equal("abc")
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("abc"))
 }
 
 pub fn delete_range_empty_returns_empty_delta_test() {
-  let base = doc() |> text.insert(0, "abc")
-  let #(updated, delta) = text.delete_range_with_delta(base, 1, 1)
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  let assert Ok(#(updated, delta)) = text.delete_range_with_delta(base, 1, 1)
 
   expect.to_equal(updated, base)
-  text.value(delta) |> expect.to_equal("")
+  delta |> expect.to_equal(doc())
 }
 
 pub fn replace_range_test() {
-  doc()
-  |> text.insert(0, "abcd")
+  let assert Ok(base) = doc() |> text.insert(0, "abcd")
+  base
   |> text.replace_range(1, 3, "XY")
-  |> text.value()
-  |> expect.to_equal("aXYd")
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("aXYd"))
 }
 
 pub fn replace_range_insert_only_test() {
-  doc()
-  |> text.insert(0, "ad")
+  let assert Ok(base) = doc() |> text.insert(0, "ad")
+  base
   |> text.replace_range(1, 1, "bc")
-  |> text.value()
-  |> expect.to_equal("abcd")
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("abcd"))
 }
 
 pub fn replace_range_delete_only_test() {
-  doc()
-  |> text.insert(0, "abcd")
+  let assert Ok(base) = doc() |> text.insert(0, "abcd")
+  base
   |> text.replace_range(1, 3, "")
-  |> text.value()
-  |> expect.to_equal("ad")
+  |> result.map(text.value)
+  |> expect.to_equal(Ok("ad"))
 }
 
-pub fn try_replace_range_out_of_bounds_test() {
-  doc()
-  |> text.insert(0, "abc")
-  |> text.try_replace_range_with_delta(0, 9, "z")
-  |> is_err()
-  |> expect.to_be_true()
+pub fn replace_range_out_of_bounds_test() {
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  text.replace_range_with_delta(base, 0, 9, "z")
+  |> expect.to_equal(Error(text.RangeOutOfBounds(0, 9, 3)))
 }
 
 pub fn replace_range_empty_edit_returns_empty_delta_test() {
-  let base = doc() |> text.insert(0, "abc")
-  let #(updated, delta) = text.replace_range_with_delta(base, 1, 1, "")
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  let assert Ok(#(updated, delta)) =
+    text.replace_range_with_delta(base, 1, 1, "")
 
   expect.to_equal(updated, base)
-  text.value(delta) |> expect.to_equal("")
+  delta |> expect.to_equal(doc())
 }
 
 // ---------------------------------------------------------------------------
@@ -200,37 +196,37 @@ pub fn replace_range_empty_edit_returns_empty_delta_test() {
 // ---------------------------------------------------------------------------
 
 pub fn insert_delta_merges_into_peer_test() {
-  let base = doc() |> text.insert(0, "hi")
-  let #(_updated, delta) = text.insert_with_delta(base, 2, "!")
-  text.merge(base, delta)
+  let assert Ok(base) = doc() |> text.insert(0, "hi")
+  let assert Ok(#(_updated, delta)) = text.insert_with_delta(base, 2, "!")
+  text.merge(base, delta, rid("A"))
   |> text.value()
   |> expect.to_equal("hi!")
 }
 
 pub fn empty_insert_returns_empty_delta_test() {
-  let base = doc() |> text.insert(0, "abc")
-  let #(updated, delta) = text.insert_with_delta(base, 1, "")
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  let assert Ok(#(updated, delta)) = text.insert_with_delta(base, 1, "")
 
   expect.to_equal(updated, base)
-  text.value(delta) |> expect.to_equal("")
+  delta |> expect.to_equal(doc())
 }
 
 pub fn empty_append_returns_empty_delta_test() {
-  let base = doc() |> text.insert(0, "abc")
-  let #(updated, delta) = text.append_with_delta(base, "")
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  let assert Ok(#(updated, delta)) = text.append_with_delta(base, "")
 
   expect.to_equal(updated, base)
-  text.value(delta) |> expect.to_equal("")
+  delta |> expect.to_equal(doc())
 }
 
 pub fn concurrent_edits_converge_test() {
-  let base = doc() |> text.insert(0, "abc")
-  let a = text.insert(base, 0, "X")
-  let b = fork(base, "B") |> text.insert(3, "Y")
+  let assert Ok(base) = doc() |> text.insert(0, "abc")
+  let assert Ok(a) = text.insert(base, 0, "X")
+  let assert Ok(b) = fork(base, "B") |> text.insert(3, "Y")
 
-  let merged_ab = text.merge(a, b)
-  let merged_ba = text.merge(b, a)
-  expect.to_equal(text.value(merged_ab), text.value(merged_ba))
+  let merged_ab = text.merge(a, b, rid("A"))
+  let merged_ba = text.merge(b, a, rid("A"))
+  expect.to_equal(merged_ab, merged_ba)
 }
 
 // ---------------------------------------------------------------------------
@@ -239,23 +235,23 @@ pub fn concurrent_edits_converge_test() {
 // ---------------------------------------------------------------------------
 
 pub fn concurrent_prepend_runs_stay_contiguous_test() {
-  let base = doc() |> text.insert(0, "!")
+  let assert Ok(base) = doc() |> text.insert(0, "!")
 
   // Replica A prepends "abc" one grapheme at a time.
-  let a =
+  let assert Ok(a) =
     base
     |> text.insert(0, "a")
-    |> text.insert(1, "b")
-    |> text.insert(2, "c")
+    |> result.try(text.insert(_, 1, "b"))
+    |> result.try(text.insert(_, 2, "c"))
 
   // Replica B concurrently prepends "xyz" at the same front gap.
-  let b =
+  let assert Ok(b) =
     fork(base, "B")
     |> text.insert(0, "x")
-    |> text.insert(1, "y")
-    |> text.insert(2, "z")
+    |> result.try(text.insert(_, 1, "y"))
+    |> result.try(text.insert(_, 2, "z"))
 
-  let merged = text.value(text.merge(a, b))
+  let merged = text.value(text.merge(a, b, rid("A")))
 
   // Both runs must be present and contiguous (not interleaved).
   let has_abc_contiguous = string.contains(merged, "abc")
@@ -263,35 +259,57 @@ pub fn concurrent_prepend_runs_stay_contiguous_test() {
   expect.to_be_true(has_abc_contiguous && has_xyz_contiguous)
 }
 
-fn is_err(result: Result(a, b)) -> Bool {
-  case result {
-    Error(_) -> True
-    Ok(_) -> False
-  }
+pub fn plain_edits_preserve_errors_and_input_test() {
+  let assert Ok(base) = text.insert(doc(), 0, "a👍b")
+  list.each([-1, 4], fn(index) {
+    list.each(["", "XY"], fn(value) {
+      text.insert(base, index, value)
+      |> expect.to_equal(Error(sequence.IndexOutOfBounds(index, 3)))
+      text.insert_with_delta(base, index, value)
+      |> expect.to_equal(Error(sequence.IndexOutOfBounds(index, 3)))
+    })
+  })
+  list.each([-1, 3, 4], fn(index) {
+    text.delete(base, index)
+    |> expect.to_equal(Error(sequence.DeleteIndexOutOfBounds(index, 3)))
+    text.delete_with_delta(base, index)
+    |> expect.to_equal(Error(sequence.DeleteIndexOutOfBounds(index, 3)))
+  })
+  list.each([#(-1, 1), #(2, 1), #(0, 4), #(4, 4)], fn(bounds) {
+    let #(start, end) = bounds
+    let error = text.RangeOutOfBounds(start, end, 3)
+    text.delete_range(base, start, end) |> expect.to_equal(Error(error))
+    text.delete_range_with_delta(base, start, end)
+    |> expect.to_equal(Error(error))
+    list.each(["", "XY"], fn(value) {
+      text.replace_range(base, start, end, value)
+      |> expect.to_equal(Error(error))
+      text.replace_range_with_delta(base, start, end, value)
+      |> expect.to_equal(Error(error))
+    })
+  })
+  text.value(base) |> expect.to_equal("a👍b")
+  text.delete(doc(), 0)
+  |> expect.to_equal(Error(sequence.DeleteIndexOutOfBounds(0, 0)))
+  text.delete_with_delta(doc(), 0)
+  |> expect.to_equal(Error(sequence.DeleteIndexOutOfBounds(0, 0)))
 }
 
-pub fn merge_as_keeps_local_identity_whatever_the_argument_order_test() {
-  // `merge` is identity-positional, so applying a remote delta as the FIRST
-  // argument would re-mint local edits under the sender's replica id and
-  // collide with that replica's own edits. Naming the local identity keeps A
-  // minting under its own id whichever side the delta arrives on.
-  let base = text.new(rid("A")) |> text.insert(0, "a")
-  let #(b_state, b_delta) =
-    text.merge(text.new(rid("B")), base) |> text.insert_with_delta(1, "b")
-
-  let a_state = text.merge_as(b_delta, base, rid("A")) |> text.insert(2, "x")
-  let b_state = text.insert(b_state, 2, "c")
-
-  text.merge(a_state, b_state)
-  |> text.length()
-  |> expect.to_equal(4)
-}
-
-pub fn merge_as_is_argument_order_independent_test() {
-  let base = text.new(rid("A")) |> text.insert(0, "a")
-  let #(_, b_delta) =
-    text.merge(text.new(rid("B")), base) |> text.insert_with_delta(1, "b")
-
-  text.merge_as(base, b_delta, rid("A"))
-  |> expect.to_equal(text.merge_as(b_delta, base, rid("A")))
+pub fn state_only_edits_match_delta_results_test() {
+  let assert Ok(base) = text.insert(doc(), 0, "a👍b")
+  let assert Ok(#(inserted, _)) = text.insert_with_delta(base, 1, "XY")
+  text.insert(base, 1, "XY") |> expect.to_equal(Ok(inserted))
+  let assert Ok(#(appended, _)) = text.append_with_delta(base, "XY")
+  text.append(base, "XY") |> expect.to_equal(Ok(appended))
+  let assert Ok(#(deleted, _)) = text.delete_with_delta(base, 1)
+  text.delete(base, 1) |> expect.to_equal(Ok(deleted))
+  let assert Ok(#(range_deleted, _)) = text.delete_range_with_delta(base, 1, 3)
+  text.delete_range(base, 1, 3) |> expect.to_equal(Ok(range_deleted))
+  let assert Ok(#(replaced, _)) =
+    text.replace_range_with_delta(base, 1, 3, "XY")
+  text.replace_range(base, 1, 3, "XY") |> expect.to_equal(Ok(replaced))
+  text.insert(base, 1, "") |> expect.to_equal(Ok(base))
+  text.append(base, "") |> expect.to_equal(Ok(base))
+  text.delete_range(base, 1, 1) |> expect.to_equal(Ok(base))
+  text.replace_range(base, 1, 1, "") |> expect.to_equal(Ok(base))
 }

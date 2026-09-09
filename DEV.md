@@ -191,29 +191,47 @@ Every leaf CRDT in this library exposes both a state-based and a delta-state mut
 
 ### Convention
 
-For every state-mutating operation `op` of type `T -> args -> T`, there is a companion `op_with_delta` of type `T -> args -> #(T, T)`. The first element of the returned tuple is the new state (identical to what `op` returns); the second element is a **delta** — itself a value of type `T` containing only the change.
+State-mutating operations have an `op_with_delta` companion. Infallible
+operations return a state or `#(state, delta)`. Fallible operations return
+`Result(state, error)` or `Result(#(state, delta), error)`. The delta is a
+value of the same CRDT type containing only the change.
 
 ```gleam
-// State-based (existing): full state in, full state out
-pub fn increment(counter: GCounter, n: Int) -> GCounter
+// State-based: reject negative amounts with IncrementError
+pub fn increment(counter: GCounter, n: Int) -> Result(GCounter, IncrementError)
 
 // Delta-state: same call returns the new state plus a small delta
-pub fn increment_with_delta(counter: GCounter, n: Int) -> #(GCounter, GCounter)
+pub fn increment_with_delta(counter: GCounter, n: Int)
+  -> Result(#(GCounter, GCounter), IncrementError)
 ```
 
-The state-based mutators are unchanged: they delegate to the delta-aware version and discard the delta. No call sites need to change.
+State-only mutators delegate to the delta-aware version, discard the successful
+delta, and preserve errors. Counter, sequence, and text APIs use plain names
+for Result-returning operations; the former panicking wrappers are removed.
 
 ### Merge contract
 
 A delta is a value of the same type as the state, so it is merged into a remote replica using the **existing `merge` function** — there is no separate "apply delta" code path:
 
 ```gleam
-let #(local_new, delta) = g_counter.increment_with_delta(local, 5)
+let assert Ok(#(local_new, delta)) = g_counter.increment_with_delta(local, 5)
 let remote_new = g_counter.merge(remote, delta)
 // remote_new is equivalent to merge(remote, local_new)
 ```
 
 Delta merge is **idempotent, commutative, and associative**, just like full-state merge. This is what makes deltas safe over unreliable transports (websockets with reconnects, at-least-once delivery, out-of-order arrival).
+
+Both sequence backends and their text wrappers require explicit output identity:
+
+```gleam
+let assert Ok(#(local_new, delta)) = sequence.insert_with_delta(local, 0, value)
+let remote_new = sequence.merge(remote, delta, remote_id)
+```
+
+The same identity must be supplied when comparing merge laws. Swapping the two
+operands does not change the output identity. `merge_as` is a safe alias with the
+same three arguments. Supply the receiving editor's ID for both full states and
+deltas; do not adopt the sender's identity when restoring a remote snapshot.
 
 ### Why this matters
 

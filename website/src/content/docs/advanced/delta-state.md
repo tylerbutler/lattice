@@ -13,11 +13,11 @@ every small update would waste bandwidth.
 
 ## Leaf CRDT convention
 
-For each state-changing operation, lattice keeps the existing mutator and adds a
-`*_with_delta` companion:
+Each state-changing operation has a `*_with_delta` companion. Fallible
+operations return `Result`:
 
 ```gleam
-let #(local, delta) = g_counter.increment_with_delta(local, 5)
+let assert Ok(#(local, delta)) = g_counter.increment_with_delta(local, 5)
 let remote = g_counter.merge(remote, delta)
 ```
 
@@ -25,8 +25,9 @@ The first tuple item is the new local state. The second item is itself a CRDT of
 the same type containing the change. Remote replicas merge that delta with the
 same `merge` function used for full-state replication.
 
-Existing mutators such as `increment`, `add`, `remove`, and `set` keep their
-signatures. They delegate to the delta-aware version and discard the delta.
+State-only operations discard the successful delta and preserve errors.
+Counter, sequence, and text edits return `Result` under plain names, without
+panicking variants. Infallible set operations still return their state directly.
 
 ## Example: counter deltas
 
@@ -38,7 +39,7 @@ pub fn main() {
   let local = g_counter.new(replica_id.new("node-a"))
   let remote = g_counter.new(replica_id.new("node-b"))
 
-  let #(local, delta) = g_counter.increment_with_delta(local, 5)
+  let assert Ok(#(local, delta)) = g_counter.increment_with_delta(local, 5)
   let remote = g_counter.merge(remote, delta)
 
   g_counter.value(remote)
@@ -48,6 +49,20 @@ pub fn main() {
 
 The delta carries only the changed replica entry, not every replica count in the
 counter.
+
+## Sequence and text identity
+
+Both sequence backends and their text wrappers require the receiving editor's
+identity when merging a state or delta:
+
+```gleam
+let assert Ok(#(local, delta)) = sequence.insert_with_delta(local, 0, value)
+let remote = sequence.merge(remote, delta, remote_id)
+```
+
+`merge(delta, remote, remote_id)` has the same result. `merge_as` is an alias
+with the same three arguments. Use a fixed output identity when applying merge
+laws, and keep each independent writer's identity unique.
 
 ## ORMap deltas
 
@@ -63,8 +78,10 @@ import lattice_maps/or_map
 
 fn add_points(value: crdt.Crdt) -> crdt.Crdt {
   case value {
-    crdt.CrdtGCounter(counter) ->
-      crdt.CrdtGCounter(g_counter.increment(counter, 5))
+    crdt.CrdtGCounter(counter) -> {
+      let assert Ok(counter) = g_counter.increment(counter, 5)
+      crdt.CrdtGCounter(counter)
+    }
 
     other -> other
   }

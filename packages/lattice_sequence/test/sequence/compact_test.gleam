@@ -22,8 +22,11 @@ fn count_kind(seq: sequence.Sequence(String), kind: String) -> Int {
 fn abc() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "b")
+  |> expect.to_be_ok()
   |> sequence.insert(2, "c")
+  |> expect.to_be_ok()
 }
 
 // --- basic passes ---------------------------------------------------------
@@ -59,7 +62,7 @@ pub fn compact_all_volatile_keeps_items_test() {
 }
 
 pub fn compact_drops_stable_tombstone_test() {
-  let seq = abc() |> sequence.delete(1)
+  let seq = abc() |> sequence.delete(1) |> expect.to_be_ok()
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(4))
 
   sequence.values(compacted) |> expect.to_equal(["a", "c"])
@@ -73,8 +76,11 @@ pub fn compact_retains_tombstone_above_frontier_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.delete(0)
+    |> expect.to_be_ok()
   // Frontier covers both inserts but not the delete op (counter 3): the
   // delete may still be unacknowledged, so the tombstone must survive.
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(2))
@@ -86,11 +92,13 @@ pub fn compact_retains_tombstone_above_frontier_test() {
 }
 
 pub fn compact_does_not_merge_blocks_across_replicas_test() {
-  let a_state = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let a_state =
+    sequence.new(rid("A")) |> sequence.insert(0, "a") |> expect.to_be_ok()
   let b_state =
-    sequence.merge(sequence.new(rid("B")), a_state)
+    sequence.merge(sequence.new(rid("B")), a_state, rid("B"))
     |> sequence.insert(1, "b")
-  let merged = sequence.merge(a_state, b_state)
+    |> expect.to_be_ok()
+  let merged = sequence.merge(a_state, b_state, rid("A"))
   // B's counter continues from the merged maximum, so its insert is B:2.
   let frontier =
     version_vector.new()
@@ -106,9 +114,13 @@ pub fn compact_does_not_merge_blocks_across_counter_gaps_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.delete(1)
+    |> expect.to_be_ok()
     |> sequence.insert(1, "c")
+    |> expect.to_be_ok()
   // Elements: a (1), dropped tombstone b (2), c (4) — the counter gap
   // between 1 and 4 must keep a and c in separate blocks.
   let #(compacted, _forwardings) = sequence.compact(seq, frontier_a(4))
@@ -122,7 +134,7 @@ pub fn compact_reclaims_alongside_a_moved_item_test() {
   // nothing ever cleared one, so a replica that performed or received a
   // single move could never reclaim anything again. Moves are now an overlay
   // on the stored base rather than baked into it, so the pass runs normally.
-  let seq = abc() |> sequence.move(0, 2)
+  let seq = abc() |> sequence.move(0, 2) |> expect.to_be_ok()
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(4))
 
   sequence.values(compacted) |> expect.to_equal(["b", "c", "a"])
@@ -137,13 +149,19 @@ pub fn compact_reclaims_tombstones_with_a_move_live_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     |> sequence.insert(3, "d")
+    |> expect.to_be_ok()
     // tombstones "b" with op counter 5
     |> sequence.delete(1)
+    |> expect.to_be_ok()
     // moves "a" after "d" with op counter 6
     |> sequence.move(0, 2)
+    |> expect.to_be_ok()
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(6))
 
   sequence.values(compacted) |> expect.to_equal(["c", "d", "a"])
@@ -159,18 +177,32 @@ pub fn compact_preserves_co_gap_move_order_across_a_tombstone_test() {
   let base =
     sequence.new(rid("Z"))
     |> sequence.insert(0, "L")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "tombstone")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "e")
+    |> expect.to_be_ok()
     |> sequence.insert(3, "R")
+    |> expect.to_be_ok()
     |> sequence.insert(4, "c")
+    |> expect.to_be_ok()
     |> sequence.insert(5, "b")
+    |> expect.to_be_ok()
     |> sequence.delete(1)
-  let a = sequence.merge(sequence.new(rid("A")), base) |> sequence.move(3, 1)
-  let b = sequence.merge(sequence.new(rid("B")), base) |> sequence.move(4, 2)
+    |> expect.to_be_ok()
+  let a =
+    sequence.merge(sequence.new(rid("A")), base, rid("A"))
+    |> sequence.move(3, 1)
+    |> expect.to_be_ok()
+  let b =
+    sequence.merge(sequence.new(rid("B")), base, rid("B"))
+    |> sequence.move(4, 2)
+    |> expect.to_be_ok()
   let merged =
-    sequence.merge(a, b)
+    sequence.merge(a, b, rid("A"))
     // Moving "e" strips the shared boundary during move resolution.
     |> sequence.move(2, 4)
+    |> expect.to_be_ok()
   let frontier = version_vector.new() |> version_vector.set_max(rid("Z"), 7)
   let #(compacted, forwardings) = sequence.compact(merged, frontier)
 
@@ -186,11 +218,16 @@ pub fn compact_retains_a_live_moves_target_anchors_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     // "b" becomes the move's right anchor, then is tombstoned
     |> sequence.move(2, 1)
+    |> expect.to_be_ok()
     |> sequence.delete(2)
+    |> expect.to_be_ok()
   let #(compacted, forwardings) = sequence.compact(seq, frontier_a(5))
 
   // The tombstoned anchor is NOT reclaimed while the move is live.
@@ -201,7 +238,7 @@ pub fn compact_retains_a_live_moves_target_anchors_test() {
 // --- idempotence and frontier regression ----------------------------------
 
 pub fn compact_at_same_frontier_is_noop_test() {
-  let seq = abc() |> sequence.delete(1)
+  let seq = abc() |> sequence.delete(1) |> expect.to_be_ok()
   let #(once, _) = sequence.compact(seq, frontier_a(4))
   let #(twice, forwardings) = sequence.compact(once, frontier_a(4))
 
@@ -210,7 +247,7 @@ pub fn compact_at_same_frontier_is_noop_test() {
 }
 
 pub fn compact_at_older_frontier_is_noop_test() {
-  let seq = abc() |> sequence.delete(1)
+  let seq = abc() |> sequence.delete(1) |> expect.to_be_ok()
   let #(once, _) = sequence.compact(seq, frontier_a(4))
   let #(regressed, forwardings) = sequence.compact(once, frontier_a(2))
 
@@ -222,7 +259,7 @@ pub fn compact_at_older_frontier_is_noop_test() {
 
 pub fn insert_into_middle_of_block_splits_it_test() {
   let #(compacted, _) = sequence.compact(abc(), frontier_a(3))
-  let updated = sequence.insert(compacted, 1, "x")
+  let updated = sequence.insert(compacted, 1, "x") |> expect.to_be_ok()
 
   sequence.values(updated) |> expect.to_equal(["a", "x", "b", "c"])
   count_kind(updated, "block") |> expect.to_equal(2)
@@ -231,7 +268,7 @@ pub fn insert_into_middle_of_block_splits_it_test() {
 
 pub fn delete_inside_block_extracts_tombstone_test() {
   let #(compacted, _) = sequence.compact(abc(), frontier_a(3))
-  let updated = sequence.delete(compacted, 1)
+  let updated = sequence.delete(compacted, 1) |> expect.to_be_ok()
 
   sequence.values(updated) |> expect.to_equal(["a", "c"])
   count_kind(updated, "item") |> expect.to_equal(1)
@@ -239,25 +276,25 @@ pub fn delete_inside_block_extracts_tombstone_test() {
 
 pub fn delete_inside_block_converges_across_replicas_test() {
   let #(compacted, _) = sequence.compact(abc(), frontier_a(3))
-  let b_state = sequence.merge(sequence.new(rid("B")), compacted)
-  let a_edit = sequence.delete(compacted, 1)
-  let b_edit = sequence.insert(b_state, 3, "d")
+  let b_state = sequence.merge(sequence.new(rid("B")), compacted, rid("B"))
+  let a_edit = sequence.delete(compacted, 1) |> expect.to_be_ok()
+  let b_edit = sequence.insert(b_state, 3, "d") |> expect.to_be_ok()
 
-  sequence.values(sequence.merge(a_edit, b_edit))
+  sequence.values(sequence.merge(a_edit, b_edit, rid("A")))
   |> expect.to_equal(["a", "c", "d"])
-  sequence.values(sequence.merge(b_edit, a_edit))
+  sequence.values(sequence.merge(b_edit, a_edit, rid("A")))
   |> expect.to_equal(["a", "c", "d"])
 }
 
 pub fn move_out_of_block_converges_across_replicas_test() {
   let #(compacted, _) = sequence.compact(abc(), frontier_a(3))
-  let b_state = sequence.merge(sequence.new(rid("B")), compacted)
-  let a_edit = sequence.move(compacted, 0, 2)
+  let b_state = sequence.merge(sequence.new(rid("B")), compacted, rid("B"))
+  let a_edit = sequence.move(compacted, 0, 2) |> expect.to_be_ok()
 
   sequence.values(a_edit) |> expect.to_equal(["b", "c", "a"])
-  sequence.values(sequence.merge(a_edit, b_state))
+  sequence.values(sequence.merge(a_edit, b_state, rid("A")))
   |> expect.to_equal(["b", "c", "a"])
-  sequence.values(sequence.merge(b_state, a_edit))
+  sequence.values(sequence.merge(b_state, a_edit, rid("A")))
   |> expect.to_equal(["b", "c", "a"])
 }
 
@@ -266,13 +303,14 @@ pub fn move_out_of_block_converges_across_replicas_test() {
 pub fn merge_with_uncompacted_peer_converges_test() {
   let base = abc()
   let b_state =
-    sequence.merge(sequence.new(rid("B")), base)
+    sequence.merge(sequence.new(rid("B")), base, rid("B"))
     |> sequence.insert(1, "x")
+    |> expect.to_be_ok()
   let #(compacted, _) = sequence.compact(base, frontier_a(3))
 
-  sequence.values(sequence.merge(compacted, b_state))
+  sequence.values(sequence.merge(compacted, b_state, rid("A")))
   |> expect.to_equal(["a", "x", "b", "c"])
-  sequence.values(sequence.merge(b_state, compacted))
+  sequence.values(sequence.merge(b_state, compacted, rid("A")))
   |> expect.to_equal(["a", "x", "b", "c"])
 }
 
@@ -280,14 +318,16 @@ pub fn merge_does_not_resurrect_compacted_tombstone_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
-  let b_state = sequence.merge(sequence.new(rid("B")), base)
-  let deleted = sequence.delete(base, 0)
+    |> expect.to_be_ok()
+  let b_state = sequence.merge(sequence.new(rid("B")), base, rid("B"))
+  let deleted = sequence.delete(base, 0) |> expect.to_be_ok()
   let #(compacted, _) = sequence.compact(deleted, frontier_a(3))
 
-  sequence.values(sequence.merge(compacted, b_state))
+  sequence.values(sequence.merge(compacted, b_state, rid("A")))
   |> expect.to_equal(["b"])
-  sequence.values(sequence.merge(b_state, compacted))
+  sequence.values(sequence.merge(b_state, compacted, rid("A")))
   |> expect.to_equal(["b"])
 }
 
@@ -295,15 +335,15 @@ pub fn merge_does_not_resurrect_compacted_tombstone_test() {
 
 pub fn anchor_resolves_through_forwarding_after_compaction_test() {
   let seq = abc()
-  let anchor = sequence.anchor_at(seq, 1, sequence.Before)
-  let deleted = sequence.delete(seq, 1)
+  let anchor = sequence.anchor_at(seq, 1, sequence.Before) |> expect.to_be_ok()
+  let deleted = sequence.delete(seq, 1) |> expect.to_be_ok()
   let #(compacted, round) = sequence.compact(deleted, frontier_a(4))
 
-  sequence.try_resolve(deleted, anchor) |> expect.to_equal(Ok(1))
-  sequence.try_resolve(compacted, anchor) |> expect.to_equal(Ok(1))
+  sequence.resolve(deleted, anchor) |> expect.to_equal(Ok(1))
+  sequence.resolve(compacted, anchor) |> expect.to_equal(Ok(1))
 
   let expired = sequence.remove_forwardings(compacted, round)
-  sequence.try_resolve(expired, anchor)
+  sequence.resolve(expired, anchor)
   |> expect.to_equal(Error(sequence.UnknownAnchorTarget))
 }
 
@@ -311,21 +351,24 @@ pub fn forwarding_at_document_start_resolves_to_zero_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
-  let anchor = sequence.anchor_at(seq, 0, sequence.Before)
-  let deleted = sequence.delete(seq, 0)
+    |> expect.to_be_ok()
+  let anchor = sequence.anchor_at(seq, 0, sequence.Before) |> expect.to_be_ok()
+  let deleted = sequence.delete(seq, 0) |> expect.to_be_ok()
   let #(compacted, _) = sequence.compact(deleted, frontier_a(3))
 
-  sequence.try_resolve(compacted, anchor) |> expect.to_equal(Ok(0))
+  sequence.resolve(compacted, anchor) |> expect.to_equal(Ok(0))
 }
 
 pub fn anchor_on_visible_item_survives_compaction_test() {
-  let seq = abc() |> sequence.delete(0)
-  let anchor = sequence.anchor_at(seq, 1, sequence.After)
+  let seq = abc() |> sequence.delete(0) |> expect.to_be_ok()
+  let anchor = sequence.anchor_at(seq, 1, sequence.After) |> expect.to_be_ok()
   let #(compacted, _) = sequence.compact(seq, frontier_a(4))
 
-  sequence.try_resolve(compacted, anchor)
-  |> expect.to_equal(sequence.try_resolve(seq, anchor))
+  sequence.resolve(compacted, anchor)
+  |> expect.to_be_ok()
+  |> expect.to_equal(sequence.resolve(seq, anchor) |> expect.to_be_ok())
 }
 
 // --- rebase / origin translation --------------------------------------------
@@ -334,14 +377,17 @@ pub fn translate_origins_rebases_dropped_left_origin_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
-  let c_state = sequence.merge(sequence.new(rid("C")), base)
-  let #(_, delta) = sequence.insert_with_delta(c_state, 1, "x")
-  let deleted = sequence.delete(base, 0)
+    |> expect.to_be_ok()
+  let c_state = sequence.merge(sequence.new(rid("C")), base, rid("C"))
+  let #(_, delta) =
+    sequence.insert_with_delta(c_state, 1, "x") |> expect.to_be_ok()
+  let deleted = sequence.delete(base, 0) |> expect.to_be_ok()
   let #(compacted, _) = sequence.compact(deleted, frontier_a(3))
 
   let assert Ok(translated) = sequence.translate_origins(delta, compacted)
-  sequence.values(sequence.merge(compacted, translated))
+  sequence.values(sequence.merge(compacted, translated, rid("A")))
   |> expect.to_equal(["x", "b"])
 }
 
@@ -349,17 +395,20 @@ pub fn translate_origins_lands_at_same_visible_position_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
   // C appends after b, so the delta's left origin is b's ID.
-  let c_state = sequence.merge(sequence.new(rid("C")), base)
-  let #(_, delta) = sequence.insert_with_delta(c_state, 2, "x")
+  let c_state = sequence.merge(sequence.new(rid("C")), base, rid("C"))
+  let #(_, delta) =
+    sequence.insert_with_delta(c_state, 2, "x") |> expect.to_be_ok()
 
-  let deleted = sequence.delete(base, 1)
-  let uncompacted = sequence.merge(deleted, delta)
+  let deleted = sequence.delete(base, 1) |> expect.to_be_ok()
+  let uncompacted = sequence.merge(deleted, delta, rid("A"))
   let #(compacted, _) = sequence.compact(deleted, frontier_a(3))
   let assert Ok(translated) = sequence.translate_origins(delta, compacted)
 
-  sequence.values(sequence.merge(compacted, translated))
+  sequence.values(sequence.merge(compacted, translated, rid("A")))
   |> expect.to_equal(sequence.values(uncompacted))
 }
 
@@ -367,10 +416,13 @@ pub fn translate_origins_expired_forwarding_fails_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
-  let c_state = sequence.merge(sequence.new(rid("C")), base)
-  let #(_, delta) = sequence.insert_with_delta(c_state, 1, "x")
-  let deleted = sequence.delete(base, 0)
+    |> expect.to_be_ok()
+  let c_state = sequence.merge(sequence.new(rid("C")), base, rid("C"))
+  let #(_, delta) =
+    sequence.insert_with_delta(c_state, 1, "x") |> expect.to_be_ok()
+  let deleted = sequence.delete(base, 0) |> expect.to_be_ok()
   let #(compacted, round) = sequence.compact(deleted, frontier_a(3))
   let expired = sequence.remove_forwardings(compacted, round)
 
@@ -382,13 +434,16 @@ pub fn translate_origins_drops_already_compacted_items_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
-  let #(deleted, delete_delta) = sequence.delete_with_delta(base, 0)
+    |> expect.to_be_ok()
+  let #(deleted, delete_delta) =
+    sequence.delete_with_delta(base, 0) |> expect.to_be_ok()
   let #(compacted, _) = sequence.compact(deleted, frontier_a(3))
 
   let assert Ok(translated) =
     sequence.translate_origins(delete_delta, compacted)
   sequence.length(translated) |> expect.to_equal(0)
-  sequence.values(sequence.merge(compacted, translated))
+  sequence.values(sequence.merge(compacted, translated, rid("A")))
   |> expect.to_equal(["b"])
 }

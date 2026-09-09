@@ -75,7 +75,8 @@ pub fn main() {
 fn increment_by(amount: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
   fn(value) {
     let assert crdt.CrdtGCounter(counter) = value
-    crdt.CrdtGCounter(g_counter.increment(counter, amount))
+    let assert Ok(counter) = g_counter.increment(counter, amount)
+    crdt.CrdtGCounter(counter)
   }
 }
 

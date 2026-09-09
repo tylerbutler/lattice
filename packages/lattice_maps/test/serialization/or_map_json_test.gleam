@@ -30,35 +30,26 @@ pub fn or_map_round_trip_crdt_spec_preserved_test() {
   // can successfully update with GCounter operations
   let map = or_map.new(rid("A"), GCounterSpec)
   let json_str = json.to_string(or_map.to_json(map))
-  let decoded = or_map.from_json(json_str)
-  case decoded {
-    Ok(d) -> {
-      // If spec wasn't preserved, this update would fail or produce wrong type
-      let updated =
-        or_map.update(d, "test_key", fn(c) {
-          case c {
-            crdt.CrdtGCounter(counter) ->
-              crdt.CrdtGCounter(g_counter.increment(counter, 1))
-            _ -> c
-          }
-        })
-      case or_map.get(updated, "test_key") {
-        Ok(crdt.CrdtGCounter(counter)) ->
-          g_counter.value(counter) |> expect.to_equal(1)
-        _ -> expect.to_be_true(False)
-      }
-    }
-    Error(_) -> expect.to_be_true(False)
-  }
+  let assert Ok(decoded) = or_map.from_json(json_str)
+  let assert Ok(updated) =
+    or_map.update(decoded, "test_key", fn(c) {
+      let assert crdt.CrdtGCounter(counter) = c
+      let assert Ok(counter) = g_counter.increment(counter, 1)
+      crdt.CrdtGCounter(counter)
+    })
+  let assert Ok(crdt.CrdtGCounter(counter)) = or_map.get(updated, "test_key")
+  g_counter.value(counter) |> expect.to_equal(1)
 }
 
 pub fn or_map_round_trip_single_key_test() {
   let map = or_map.new(rid("A"), GCounterSpec)
-  let map =
+  let assert Ok(map) =
     or_map.update(map, "score", fn(c) {
       case c {
-        crdt.CrdtGCounter(counter) ->
-          crdt.CrdtGCounter(g_counter.increment(counter, 5))
+        crdt.CrdtGCounter(counter) -> {
+          let assert Ok(counter) = g_counter.increment(counter, 5)
+          crdt.CrdtGCounter(counter)
+        }
         _ -> c
       }
     })
@@ -79,19 +70,23 @@ pub fn or_map_round_trip_single_key_test() {
 
 pub fn or_map_round_trip_multiple_keys_test() {
   let map = or_map.new(rid("A"), GCounterSpec)
-  let map =
+  let assert Ok(map) =
     or_map.update(map, "alpha", fn(c) {
       case c {
-        crdt.CrdtGCounter(counter) ->
-          crdt.CrdtGCounter(g_counter.increment(counter, 10))
+        crdt.CrdtGCounter(counter) -> {
+          let assert Ok(counter) = g_counter.increment(counter, 10)
+          crdt.CrdtGCounter(counter)
+        }
         _ -> c
       }
     })
-  let map =
+  let assert Ok(map) =
     or_map.update(map, "beta", fn(c) {
       case c {
-        crdt.CrdtGCounter(counter) ->
-          crdt.CrdtGCounter(g_counter.increment(counter, 20))
+        crdt.CrdtGCounter(counter) -> {
+          let assert Ok(counter) = g_counter.increment(counter, 20)
+          crdt.CrdtGCounter(counter)
+        }
         _ -> c
       }
     })
@@ -118,7 +113,7 @@ pub fn or_map_round_trip_multiple_keys_test() {
 
 pub fn or_map_round_trip_or_set_values_test() {
   let map = or_map.new(rid("A"), OrSetSpec)
-  let map =
+  let assert Ok(map) =
     or_map.update(map, "tags", fn(c) {
       case c {
         crdt.CrdtOrSet(orset) ->
@@ -206,7 +201,10 @@ pub fn or_map_from_json_invalid_test() {
 
 fn inc(c: crdt.Crdt, amount: Int) -> crdt.Crdt {
   case c {
-    CrdtGCounter(counter) -> CrdtGCounter(g_counter.increment(counter, amount))
+    CrdtGCounter(counter) -> {
+      let assert Ok(counter) = g_counter.increment(counter, amount)
+      CrdtGCounter(counter)
+    }
     _ -> c
   }
 }
@@ -215,10 +213,10 @@ fn inc(c: crdt.Crdt, amount: Int) -> crdt.Crdt {
 
 pub fn or_map_v2_round_trip_with_remove_bounds_test() {
   // Create map, add key, remove key → has remove_bound
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let m = or_map.remove(m, "x")
 
   let json_str = json.to_string(or_map.to_json(m))
   let assert Ok(decoded) = or_map.from_json(json_str)
@@ -239,8 +237,8 @@ pub fn or_map_v1_backward_compat_no_compaction_test() {
     |> or_set.add("x")
     |> or_set.remove("x")
 
-  let counter_json =
-    crdt.to_json(CrdtGCounter(g_counter.new(rid("A")) |> g_counter.increment(5)))
+  let assert Ok(counter) = g_counter.new(rid("A")) |> g_counter.increment(5)
+  let counter_json = crdt.to_json(CrdtGCounter(counter))
 
   let v1_json =
     json.to_string(
@@ -282,7 +280,7 @@ pub fn or_map_v1_backward_compat_no_compaction_test() {
   or_map.internal_value_count(pruned) |> expect.to_equal(1)
 
   // Merge with concurrent add still works
-  let concurrent =
+  let assert Ok(concurrent) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
   let assert Ok(merged) = or_map.merge(pruned, concurrent)
@@ -296,7 +294,7 @@ pub fn or_map_v1_backward_compat_no_compaction_test() {
 
 pub fn or_map_v2_from_json_reads_v1_test() {
   // A v1-encoded map should decode successfully and work correctly
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("y", fn(c) { inc(c, 10) })
 

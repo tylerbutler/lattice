@@ -1,5 +1,6 @@
 import gleam/dynamic/decode
 import gleam/json
+import gleam/result
 import gleam/string
 import lattice_core/replica_id
 import lattice_fugue/sequence
@@ -23,31 +24,31 @@ pub fn empty_round_trips_test() {
 }
 
 pub fn populated_round_trips_test() {
-  let seq =
+  let assert Ok(seq) =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
-    |> sequence.insert(1, "b")
-    |> sequence.insert(1, "c")
+    |> result.try(sequence.insert(_, 1, "b"))
+    |> result.try(sequence.insert(_, 1, "c"))
   round_trip(seq)
   |> expect.to_equal(Ok(seq))
 }
 
 pub fn tombstones_round_trip_test() {
-  let seq =
+  let assert Ok(inserted) =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
-    |> sequence.insert(1, "b")
-    |> sequence.delete(0)
+    |> result.try(sequence.insert(_, 1, "b"))
+  let assert Ok(seq) = sequence.delete(inserted, 0)
   round_trip(seq)
   |> expect.to_equal(Ok(seq))
 }
 
 pub fn round_trip_preserves_values_test() {
-  let seq =
+  let assert Ok(seq) =
     sequence.new(rid("A"))
     |> sequence.insert(0, "x")
-    |> sequence.insert(0, "y")
-    |> sequence.insert(0, "z")
+    |> result.try(sequence.insert(_, 0, "y"))
+    |> result.try(sequence.insert(_, 0, "z"))
   let assert Ok(decoded) = round_trip(seq)
   sequence.values(decoded)
   |> expect.to_equal(sequence.values(seq))
@@ -62,7 +63,7 @@ pub fn wrong_type_tag_fails_test() {
 }
 
 pub fn wrong_version_fails_test() {
-  let seq = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let assert Ok(seq) = sequence.new(rid("A")) |> sequence.insert(0, "a")
   let bad =
     seq
     |> sequence.to_json(json.string)

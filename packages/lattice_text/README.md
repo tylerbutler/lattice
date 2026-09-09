@@ -17,15 +17,16 @@ import lattice_core/replica_id
 import lattice_text/text
 
 pub fn main() {
-  let node_a =
-    text.new(replica_id.new("node-a"))
+  let local = replica_id.new("node-a")
+  let assert Ok(node_a) =
+    text.new(local)
     |> text.insert(0, "Hello world")
 
-  let node_b =
+  let assert Ok(node_b) =
     text.new(replica_id.new("node-b"))
     |> text.append("!")
 
-  let merged = text.merge(node_a, node_b)
+  let merged = text.merge(node_a, node_b, local)
 
   text.value(merged)
   // -> "Hello world!"
@@ -42,8 +43,11 @@ pub fn main() {
 
 - Editing operations: `insert`, `delete`, `delete_range`, `replace_range`, `move`, and `append`.
 - Query helpers: `value`, `values`, `length`, `substring`, and `try_substring`.
-- Fallible operations have `try_*` variants returning `Result`; the plain variants assert on invalid indexes. Range operations return `RangeError` when `0 <= start <= end <= length` does not hold.
-- Delta-state variants (`*_with_delta`) return the updated text plus a delta that can be merged into other replicas, avoiding full-state sync.
+- Edits (including `append`), `anchor_at`, and `resolve_anchor` return `Result`. Range operations return `RangeError` when `0 <= start <= end <= length` does not hold. Handle errors for untrusted inputs; the example asserts only known-valid operations.
+- `substring` still clamps bounds; `try_substring` retains its strict `Result` contract.
+- Delta-state variants (`*_with_delta`) return `Ok(#(updated, delta))`; apply a delta with `merge(state, delta, local_replica)`.
+- `merge(a, b, replica)` requires the identity for subsequent local edits. `merge_as` is a forwarding alias. Either operand order produces the same full state for a fixed output identity. Independent writers must use distinct replica IDs.
+- Decoded remote snapshots retain their serialized identity. Merge them under your local identity before editing.
 - Cursor anchors: `anchor_at` creates a stable position that survives concurrent edits and merges, `resolve_anchor` maps it back to a current grapheme index, and `anchor_to_json`/`anchor_from_json` let anchors travel between replicas (e.g. shared cursors).
 - `merge`, `to_json`, and `from_json` round-trip the full CRDT state using the canonical sequence JSON envelope.
 - Backed by `lattice_sequence` stable item IDs, so concurrent edits converge deterministically on both Erlang and JavaScript targets.

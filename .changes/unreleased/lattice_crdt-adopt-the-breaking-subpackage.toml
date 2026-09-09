@@ -1,0 +1,6 @@
+package = "lattice_crdt"
+kind = "Breaking"
+body = """
+Adopt the breaking subpackage APIs
+
+Counter, sequence, and text edits use plain Result-returning APIs, sequence/text merge requires an explicit replica identity, and ORMap update reports type mismatches. LWW-register labeled writes use value: instead of val:. Update callers when upgrading the umbrella package."""

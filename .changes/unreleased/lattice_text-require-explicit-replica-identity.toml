@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Breaking"
+body = """
+Require explicit replica identity when merging text
+
+Pass the receiving editor identity to merge(a, b, replica) for both full states and deltas. merge_as remains an equivalent alias. Internal range-operation delta batches preserve their editing identity, and JSON formats are unchanged."""

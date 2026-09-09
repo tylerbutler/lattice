@@ -16,7 +16,9 @@ pub fn sequence_string_round_trip_simple_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "h")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "i")
+    |> expect.to_be_ok()
 
   json.to_string(sequence.to_json(seq, json.string))
   |> sequence.from_json(decode.string)
@@ -27,8 +29,11 @@ pub fn sequence_int_round_trip_with_tombstone_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, 1)
+    |> expect.to_be_ok()
     |> sequence.insert(1, 2)
+    |> expect.to_be_ok()
     |> sequence.delete(0)
+    |> expect.to_be_ok()
 
   json.to_string(sequence.to_json(seq, json.int))
   |> sequence.from_json(decode.int)
@@ -39,9 +44,13 @@ pub fn sequence_round_trip_compacted_state_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     |> sequence.delete(1)
+    |> expect.to_be_ok()
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 4)
   let #(compacted, _forwardings) = sequence.compact(seq, frontier)
 
@@ -54,11 +63,14 @@ pub fn sequence_round_trip_mixed_blocks_and_items_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 3)
   let #(compacted, _forwardings) = sequence.compact(base, frontier)
-  let seq = sequence.insert(compacted, 1, "x")
+  let seq = sequence.insert(compacted, 1, "x") |> expect.to_be_ok()
 
   json.to_string(sequence.to_json(seq, json.string))
   |> sequence.from_json(decode.string)
@@ -69,8 +81,11 @@ pub fn sequence_compacted_json_contains_block_and_forwarding_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.delete(1)
+    |> expect.to_be_ok()
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 3)
   let #(compacted, _forwardings) = sequence.compact(seq, frontier)
   let json_string = json.to_string(sequence.to_json(compacted, json.string))
@@ -127,8 +142,11 @@ pub fn sequence_move_json_round_trip_keeps_v1_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.move(0, 1)
+    |> expect.to_be_ok()
   let json_string = json.to_string(sequence.to_json(seq, json.string))
 
   json_string |> string.contains("\"v\":1") |> expect.to_be_true()

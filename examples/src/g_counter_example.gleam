@@ -13,8 +13,8 @@ pub fn main() {
   let counter_b = g_counter.new(replica_id.new("node-b"))
 
   // Increment each counter
-  let counter_a = counter_a |> g_counter.increment(5)
-  let counter_b = counter_b |> g_counter.increment(3)
+  let assert Ok(counter_a) = counter_a |> g_counter.increment(5)
+  let assert Ok(counter_b) = counter_b |> g_counter.increment(3)
 
   io.println("node-a value: " <> int.to_string(g_counter.value(counter_a)))
   io.println("node-b value: " <> int.to_string(g_counter.value(counter_b)))

@@ -17,11 +17,11 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 
 pub fn main() {
-  let node_a =
+  let assert Ok(node_a) =
     g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(2)
 
-  let node_b =
+  let assert Ok(node_b) =
     g_counter.new(replica_id.new("node-b"))
     |> g_counter.increment(3)
 
@@ -43,7 +43,7 @@ pub fn main() {
 
 - Both counters expose `new`, `merge`, `value`, `to_json`, and `from_json`.
 - Use `increment_with_delta` and `decrement_with_delta` when you want to replicate only the delta from an operation.
-- Deltas must be non-negative. The `try_*` functions return an error for negative deltas; the asserting functions panic if given invalid input.
+- `increment`, `decrement`, and their `_with_delta` variants return `Result`. Negative deltas return `Error(NegativeDelta(delta))`; zero is accepted. The former `try_*` names have been removed.
 - `PNCounter` computes its value as positive counts minus negative counts.
 
 ## Links
