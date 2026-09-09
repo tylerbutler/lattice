@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.2.0 - 2026-08-12
+
+### Added
+
+#### Expose `lww_register.timestamp` and `lww_register.replica_id`, two pure accessors mirroring `value`. Because `set` accepts only strictly greater timestamps, a caller stamping writes from a wall clock has to stay ahead of the timestamp already held — otherwise two writes inside the same clock tick are unordered and the second is silently dropped. Reading the timestamp back makes that possible, including seeding a logical clock from a decoded snapshot without paying a JSON encode per key. `replica_id` returns the replica that wrote the value currently held, which after a merge is the replica whose write won. Neither accessor exposes the constructor, so the opacity that keeps the merge rule enforceable is unchanged.
+
 ## v1.1.0 - 2026-05-16
 
 
@@ -20,7 +26,6 @@ New `lww_register.set_with_delta` and `mv_register.set_with_delta` return both t
 #### Prevent divergence when an LWW-Register set is rejected locally
 
 When `lww_register.set` is called with a timestamp not strictly greater than the current one, the local state is correctly left unchanged. The companion `set_with_delta` now also returns the unchanged register as the delta in that case, ensuring a rejected write cannot win on a remote replica with an even smaller timestamp and cause divergence between local and remote.
-
 
 ## v1.0.0 - 2026-04-11
 
@@ -54,5 +59,3 @@ All types include JSON serialization via `to_json`/`from_json`. See the [registe
 #### Validate MVRegister state during JSON deserialization
 
 `mv_register.from_json` now rejects payloads with invalid causal metadata (e.g. negative counters or tags that exceed the version vector). Previously, malformed JSON could produce a register in an inconsistent state that would behave incorrectly on merge.
-
-

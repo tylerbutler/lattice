@@ -50,7 +50,7 @@ jobs:
         run: |
           trellis tag plan --json > plan.json
           echo "Release set:"
-          jq -r '.[] | "\(.name) \(.version)"' plan.json
+          jq -r '.tags[] | "\(.name) \(.version)"' plan.json
 
       - name: Publish to Hex.pm
         env:
@@ -69,7 +69,7 @@ jobs:
       - name: Refresh lockfiles
         continue-on-error: true
         run: |
-          for pkg in $(jq -r '.[].name' plan.json); do
+          for pkg in $(jq -r '.tags[].name' plan.json); do
             trellis lockfile refresh --package "$pkg"
           done
           rm plan.json

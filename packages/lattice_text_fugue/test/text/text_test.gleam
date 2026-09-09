@@ -269,3 +269,29 @@ fn is_err(result: Result(a, b)) -> Bool {
     Ok(_) -> False
   }
 }
+
+pub fn merge_as_keeps_local_identity_whatever_the_argument_order_test() {
+  // `merge` is identity-positional, so applying a remote delta as the FIRST
+  // argument would re-mint local edits under the sender's replica id and
+  // collide with that replica's own edits. Naming the local identity keeps A
+  // minting under its own id whichever side the delta arrives on.
+  let base = text.new(rid("A")) |> text.insert(0, "a")
+  let #(b_state, b_delta) =
+    text.merge(text.new(rid("B")), base) |> text.insert_with_delta(1, "b")
+
+  let a_state = text.merge_as(b_delta, base, rid("A")) |> text.insert(2, "x")
+  let b_state = text.insert(b_state, 2, "c")
+
+  text.merge(a_state, b_state)
+  |> text.length()
+  |> expect.to_equal(4)
+}
+
+pub fn merge_as_is_argument_order_independent_test() {
+  let base = text.new(rid("A")) |> text.insert(0, "a")
+  let #(_, b_delta) =
+    text.merge(text.new(rid("B")), base) |> text.insert_with_delta(1, "b")
+
+  text.merge_as(base, b_delta, rid("A"))
+  |> expect.to_equal(text.merge_as(b_delta, base, rid("A")))
+}

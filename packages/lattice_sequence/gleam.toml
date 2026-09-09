@@ -1,5 +1,5 @@
 name = "lattice_sequence"
-version = "1.0.1"
+version = "1.1.0"
 description = "Generic sequence CRDT for Gleam using YATA-style left/right origins"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }

@@ -364,10 +364,30 @@ pub fn frontier(text: Text) -> VersionVector {
 }
 
 /// Merge two text CRDT states.
+///
+/// The merged content is order-independent, but the replica identity is NOT:
+/// the result adopts `a`'s replica id. Call this as `merge(self, other)` —
+/// local state first — or the result takes the remote's identity and later
+/// local edits mint colliding node IDs. Deltas are ordinary `Text` values
+/// stamped with the minting replica, so `merge(incoming_delta, state)` is the
+/// easy way to get this wrong; use `merge_as` when the argument order is not
+/// statically obvious.
 pub fn merge(a: Text, b: Text) -> Text {
   let Text(a_seq) = a
   let Text(b_seq) = b
   Text(sequence.merge(a_seq, b_seq))
+}
+
+/// Merge two text CRDT states under an explicitly named replica identity.
+///
+/// Same as `merge`, except the merged state is stamped with `replica` instead
+/// of inheriting the first argument's id, which makes the call fully
+/// order-independent. Applying an incoming delta cannot re-mint local edits
+/// under the sender's replica id, whichever side it is passed on.
+pub fn merge_as(a: Text, b: Text, replica: ReplicaId) -> Text {
+  let Text(a_seq) = a
+  let Text(b_seq) = b
+  Text(sequence.merge_as(a_seq, b_seq, replica))
 }
 
 /// Encode text using the canonical fugue sequence JSON envelope.

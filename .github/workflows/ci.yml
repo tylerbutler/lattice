@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
   workflow_call:
+    secrets:
+      HEXPM_API_KEY:
+        description: Hex API key for dependency resolution and downloads
+        required: false
+
+env:
+  HEXPM_READ_API_KEY: ${{ secrets.HEXPM_API_KEY }}
 
 jobs:
   dependencies:
@@ -14,7 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: trellis run deps --serial
+      - name: Download dependencies with pacing
+        run: trellis exec --serial -- sh -c 'gleam deps download && sleep 5'
 
   doctor:
     name: Doctor
@@ -53,6 +61,16 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
       - run: trellis run lint
+
+  licence-audit:
+    name: Licence audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # ratchet:actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          cache: "false"
+      - run: just licence-audit
 
   build:
     name: Build

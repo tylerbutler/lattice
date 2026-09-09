@@ -21,6 +21,20 @@ Most CRDTs in lattice require a `ReplicaId` at construction time:
 A few types do not require one because they have no per-replica state:
 `GSet`, `TwoPSet`, and `LWWMap`.
 
-Choose IDs that are unique across your system. In practice, hostnames, UUIDs,
-or node names all work — the only requirement is that no two active replicas
-share the same ID.
+Choose IDs that are unique across your system and across process incarnations.
+A stable hostname or node name alone is unsafe after a restart because peers may
+retain causal history for its previous run. Generate a fresh ID for every
+process incarnation and keep the stable name separately when other CRDTs need
+restart-safe identities.
+
+`lattice_presence` provides this pattern directly:
+
+```gleam
+import lattice_presence/presence_state
+
+let presence = presence_state.new_incarnation("node-a")
+```
+
+`new_incarnation` preserves `node-a` as the stable base while generating a
+unique identity for the current process. Use `base_replica` when you need the
+stable name, and use `same_base` to compare incarnation identities by that name.

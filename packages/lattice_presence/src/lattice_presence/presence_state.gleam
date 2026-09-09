@@ -7,6 +7,8 @@
 //// Each node (replica) tracks its own presences authoritatively. State is
 //// replicated by extracting deltas and merging them at remote replicas.
 //// Conflicts are resolved causally: adds win over concurrent removes.
+//// Replica identities must be unique per process incarnation. Use
+//// `new_incarnation` when a stable node name can restart.
 ////
 //// ## Example
 ////
@@ -14,11 +16,11 @@
 //// import gleam/json
 //// import lattice_presence/presence_state as state
 ////
-//// let a = state.new("node-a")
+//// let a = state.new_incarnation("node-a")
 ////   |> state.join("pid-1", "room:lobby", "alice", json.object([]))
-//// let b = state.new("node-b")
+//// let b = state.new_incarnation("node-b")
 ////   |> state.join("pid-2", "room:lobby", "bob", json.object([]))
-//// let merged = state.merge(a, b)
+//// let assert Ok(merged) = state.merge(a, b)
 //// state.get_by_topic(merged, "room:lobby")
 //// // -> [#("pid-1", "alice", _), #("pid-2", "bob", _)]
 //// ```
@@ -28,9 +30,14 @@ import gleam/dict.{type Dict}
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/result
 import gleam/set.{type Set}
+import gleam/string
+import youid/uuid
 
-/// Unique identifier for a node in the cluster
+const incarnation_prefix = "lattice-presence:v1:"
+
+/// Unique identifier for a running node incarnation in the cluster
 pub type Replica =
   String
 
@@ -114,9 +121,31 @@ pub type Diff {
   )
 }
 
+/// Error returned when replicated data conflicts with the local replica identity.
+///
+/// This includes divergent states claiming the same name and unseen local-owned
+/// causal history echoed by another replica. It indicates a stale state after a
+/// restart or multiple live nodes configured with the same replica name. Assign
+/// every live node a unique identity and discard stale state before retrying.
+pub type MergeError {
+  SameReplica(replica: Replica)
+}
+
 // ── Core operations ─────────────────────────────────────────────────
 
-/// Create a new empty state for this replica
+/// Create a new empty state for a globally unique replica incarnation.
+///
+/// Reusing `replica` after a process or node restart is unsafe because peers
+/// may retain causal history for the previous incarnation. Use
+/// `new_incarnation` when the same stable replica name can restart.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let state = new("node-a-019d449c-2c82-71bb-b4bf-6505df7ad7c2")
+/// replica(state)
+/// // -> "node-a-019d449c-2c82-71bb-b4bf-6505df7ad7c2"
+/// ```
 pub fn new(replica: Replica) -> State {
   State(
     replica: replica,
@@ -125,6 +154,23 @@ pub fn new(replica: Replica) -> State {
     values: dict.new(),
     replicas: dict.from_list([#(replica, Up)]),
   )
+}
+
+/// Create a new empty state with a fresh incarnation of a stable replica name.
+///
+/// The generated replica identity is safe to use in the existing string-valued
+/// replication and JSON formats. Use `base_replica` to recover `base`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let state = new_incarnation("node-a")
+/// base_replica(replica(state))
+/// // -> "node-a"
+/// ```
+pub fn new_incarnation(base: String) -> State {
+  let token = uuid.v4() |> uuid.to_base64
+  new(incarnation_prefix <> token <> ":" <> base)
 }
 
 /// Add a tracked presence. Increments the local clock.
@@ -220,13 +266,92 @@ pub fn get_by_key(
 ///
 /// `replicas` (per-node liveness view) is **not** merged because it is
 /// local-only view state, not part of the replicated CRDT payload.
-pub fn merge(local: State, remote: State) -> State {
-  let #(merged, _) = merge_with_diff(local, remote)
-  merged
+///
+/// Returns `Error(SameReplica(...))` when the states claim the same replica
+/// name but their replicated data differs, or when remote carries local-owned
+/// tags or causal history that local has not observed, even via another peer.
+/// History for removed entries is checked too. Echoes of already-known local
+/// tags remain valid, and identical same-replica states are an idempotent no-op.
+/// This check does not replace the requirement for unique incarnation identities.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(merged) = merge(new("node-a"), new("node-b"))
+/// ```
+pub fn merge(local: State, remote: State) -> Result(State, MergeError) {
+  case merge_with_diff(local, remote) {
+    Ok(#(merged, _)) -> Ok(merged)
+    Error(error) -> Error(error)
+  }
 }
 
 /// Merge remote state into local state and return a diff of what changed.
-pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
+///
+/// Returns `Error(SameReplica(...))` under the same conditions as `merge`.
+/// Values owned by an earlier incarnation of the local state's stable replica
+/// are not admitted. Their causal context is still merged so syncing the
+/// restarted state back to peers removes any cached entries from that earlier
+/// incarnation.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(#(merged, diff)) =
+///   merge_with_diff(new("node-a"), new("node-b"))
+/// ```
+pub fn merge_with_diff(
+  local: State,
+  remote: State,
+) -> Result(#(State, Diff), MergeError) {
+  use <- bool.guard(
+    local.replica == remote.replica,
+    case replicated_data_equal(local, remote) {
+      True -> Ok(#(local, Diff(joins: dict.new(), leaves: dict.new())))
+      False -> Error(SameReplica(replica: local.replica))
+    },
+  )
+  use <- bool.guard(
+    remote_has_unseen_local_history(local, remote),
+    Error(SameReplica(replica: local.replica)),
+  )
+  Ok(merge_distinct_replicas(local, remote))
+}
+
+fn remote_has_unseen_local_history(local: State, remote: State) -> Bool {
+  // The sole writer of this identity cannot learn new local-owned events
+  // from gossip. Check retained history as well as active tags.
+  let local_clock = result.unwrap(dict.get(local.context, local.replica), 0)
+  let local_cloud =
+    result.unwrap(dict.get(local.clouds, local.replica), set.new())
+  // Cover the entire incoming prefix, not just its endpoint or maximum.
+  // Local clouds may extend that prefix without having been compacted yet.
+  let #(local_clock, _) = compact_cloud(local_clock, local_cloud)
+  let remote_clock = result.unwrap(dict.get(remote.context, local.replica), 0)
+  use <- bool.guard(remote_clock > local_clock, True)
+
+  let remote_cloud =
+    result.unwrap(dict.get(remote.clouds, local.replica), set.new())
+  let unseen_cloud =
+    set.fold(remote_cloud, False, fn(unseen, clock) {
+      unseen
+      || !tag_is_in(
+        local.context,
+        local.clouds,
+        Tag(replica: local.replica, clock: clock),
+      )
+    })
+  unseen_cloud
+  || dict.fold(remote.values, False, fn(unseen, tag, _) {
+    unseen
+    || {
+      tag.replica == local.replica
+      && !tag_is_in(local.context, local.clouds, tag)
+    }
+  })
+}
+
+fn merge_distinct_replicas(local: State, remote: State) -> #(State, Diff) {
   // The `joins` and `removes` lists are materialized (rather than folded
   // straight into the new values dict) because they are reused below to
   // build the `Diff`. Doing it as a single dict.fold would save one
@@ -238,6 +363,9 @@ pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
     |> list.filter(fn(kv) {
       let #(tag, _) = kv
       !tag_is_in(local.context, local.clouds, tag)
+      && {
+        tag.replica == local.replica || !same_base(tag.replica, local.replica)
+      }
     })
 
   // 2. Find entries we should remove (in remote's causal context but not in
@@ -280,6 +408,10 @@ pub fn merge_with_diff(local: State, remote: State) -> #(State, Diff) {
   #(compact(new_state), diff)
 }
 
+fn replicated_data_equal(a: State, b: State) -> Bool {
+  a.context == b.context && a.clouds == b.clouds && a.values == b.values
+}
+
 /// Check if a tag is "in" a causal context (either compacted or in clouds)
 fn tag_is_in(
   context: Dict(Replica, Clock),
@@ -315,8 +447,8 @@ fn merge_clouds(
 
 /// Compact clouds into context where possible
 ///
-/// If context[replica] + 1 is in the cloud, advance context and remove from
-/// cloud. Repeat until no more compaction possible.
+/// Remove cloud clocks already covered by context, then advance context through
+/// the remaining contiguous prefix.
 pub fn compact(state: State) -> State {
   let #(new_context, new_clouds) =
     dict.fold(
@@ -328,6 +460,7 @@ pub fn compact(state: State) -> State {
           Ok(c) -> c
           Error(Nil) -> 0
         }
+        let cloud = set.filter(cloud, fn(clock) { clock > base })
         let #(new_base, remaining) = compact_cloud(base, cloud)
         let new_ctx = case new_base > base {
           True -> dict.insert(ctx, replica, new_base)
@@ -387,6 +520,46 @@ pub fn extract_full_state(state: State) -> State {
 /// Get the replica name this state was created with.
 pub fn replica(state: State) -> Replica {
   state.replica
+}
+
+/// Get the stable replica name from an incarnation identity.
+///
+/// Replica values not created by `new_incarnation` are returned unchanged.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let state = new_incarnation("node-a")
+/// base_replica(replica(state))
+/// // -> "node-a"
+/// ```
+pub fn base_replica(replica: Replica) -> String {
+  case replica {
+    "lattice-presence:v1:" <> encoded ->
+      case string.split_once(encoded, on: ":") {
+        Ok(#(token, base)) ->
+          case uuid.from_base64(token) {
+            Ok(_) -> base
+            Error(Nil) -> replica
+          }
+        Error(Nil) -> replica
+      }
+    _ -> replica
+  }
+}
+
+/// Return whether two replica identities share the same stable name.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let first = new_incarnation("node-a")
+/// let second = new_incarnation("node-a")
+/// same_base(replica(first), replica(second))
+/// // -> True
+/// ```
+pub fn same_base(first: Replica, second: Replica) -> Bool {
+  base_replica(first) == base_replica(second)
 }
 
 /// Get the compacted vector clock.
@@ -471,19 +644,31 @@ pub fn replica_up(state: State, replica: Replica) -> #(State, Diff) {
   }
 }
 
-/// Permanently remove all entries and context for a downed replica
+/// Permanently remove all entries for a downed replica.
+///
+/// The replica's causal high-water mark is retained so entries held by a
+/// lagging peer cannot be re-admitted later. If the replica is not marked
+/// `Down`, the state is returned unchanged.
 pub fn remove_down_replica(state: State, replica: Replica) -> State {
-  let new_values =
-    dict.filter(state.values, fn(tag, _) { tag.replica != replica })
-  let new_context = dict.delete(state.context, replica)
-  let new_clouds = dict.delete(state.clouds, replica)
-  let new_replicas = dict.delete(state.replicas, replica)
+  use <- bool.guard(dict.get(state.replicas, replica) != Ok(Down), state)
+
+  let context_clock = result.unwrap(dict.get(state.context, replica), 0)
+  let cloud_clock =
+    dict.get(state.clouds, replica)
+    |> result.map(fn(cloud) { set.fold(cloud, 0, int.max) })
+    |> result.unwrap(0)
+  let high_water = int.max(context_clock, cloud_clock)
+  let new_context = case high_water > 0 {
+    True -> dict.insert(state.context, replica, high_water)
+    False -> state.context
+  }
+
   State(
     ..state,
-    values: new_values,
+    values: dict.filter(state.values, fn(tag, _) { tag.replica != replica }),
     context: new_context,
-    clouds: new_clouds,
-    replicas: new_replicas,
+    clouds: dict.delete(state.clouds, replica),
+    replicas: dict.delete(state.replicas, replica),
   )
 }
 
