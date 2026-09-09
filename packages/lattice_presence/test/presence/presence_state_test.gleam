@@ -694,20 +694,11 @@ pub fn remove_down_replica_does_not_remove_live_replica_test() {
 }
 
 pub fn remove_down_replica_retains_cloud_high_water_test() {
-  let tag = state.Tag(replica: "node1", clock: 3)
-  let entry =
-    state.Entry(
-      topic: "lobby",
-      key: "alice",
-      pid: "pid_alice",
-      meta: json.object([]),
-    )
-  let stale =
-    state.from_replicated_parts(
-      "node1",
-      dict.from_list([#("node1", 1)]),
-      dict.from_list([#("node1", set.from_list([3]))]),
-      dict.from_list([#(tag, entry)]),
+  let assert Ok(stale) =
+    state.from_json(
+      "{\"replica\":\"node1\",\"context\":{\"node1\":1},\"clouds\":{\"node1\":[3]},\"values\":[
+        {\"tag\":{\"replica\":\"node1\",\"clock\":3},\"entry\":{\"topic\":\"lobby\",\"key\":\"alice\",\"pid\":\"pid_alice\",\"meta\":{}}}
+      ]}",
     )
   let assert Ok(local) = state.merge(state.new("node2"), stale)
   let #(local, _) = state.replica_down(local, "node1")
@@ -748,12 +739,9 @@ pub fn compact_reduces_clouds_test() {
 }
 
 pub fn compact_prunes_stale_cloud_entries_before_folding_prefix_test() {
-  let uncompact =
-    state.from_replicated_parts(
-      "node_local",
-      dict.from_list([#("node_remote", 3)]),
-      dict.from_list([#("node_remote", set.from_list([1, 3, 4, 5, 7]))]),
-      dict.new(),
+  let assert Ok(uncompact) =
+    state.from_json(
+      "{\"replica\":\"node_local\",\"context\":{\"node_remote\":3},\"clouds\":{\"node_remote\":[1,3,4,5,7]},\"values\":[]}",
     )
 
   let compacted = state.compact(uncompact)
@@ -765,42 +753,13 @@ pub fn compact_prunes_stale_cloud_entries_before_folding_prefix_test() {
 }
 
 pub fn compact_preserves_membership_through_full_state_merge_test() {
-  let values =
-    dict.from_list([
-      #(
-        state.Tag(replica: "node_remote", clock: 2),
-        state.Entry(
-          topic: "lobby",
-          key: "alice",
-          pid: "pid-alice",
-          meta: json.object([]),
-        ),
-      ),
-      #(
-        state.Tag(replica: "node_remote", clock: 5),
-        state.Entry(
-          topic: "lobby",
-          key: "bob",
-          pid: "pid-bob",
-          meta: json.object([]),
-        ),
-      ),
-      #(
-        state.Tag(replica: "node_remote", clock: 7),
-        state.Entry(
-          topic: "lobby",
-          key: "carol",
-          pid: "pid-carol",
-          meta: json.object([]),
-        ),
-      ),
-    ])
-  let uncompact =
-    state.from_replicated_parts(
-      "node_remote",
-      dict.from_list([#("node_remote", 3)]),
-      dict.from_list([#("node_remote", set.from_list([1, 3, 4, 5, 7]))]),
-      values,
+  let assert Ok(uncompact) =
+    state.from_json(
+      "{\"replica\":\"node_remote\",\"context\":{\"node_remote\":3},\"clouds\":{\"node_remote\":[1,3,4,5,7]},\"values\":[
+        {\"tag\":{\"replica\":\"node_remote\",\"clock\":2},\"entry\":{\"topic\":\"lobby\",\"key\":\"alice\",\"pid\":\"pid-alice\",\"meta\":{}}},
+        {\"tag\":{\"replica\":\"node_remote\",\"clock\":5},\"entry\":{\"topic\":\"lobby\",\"key\":\"bob\",\"pid\":\"pid-bob\",\"meta\":{}}},
+        {\"tag\":{\"replica\":\"node_remote\",\"clock\":7},\"entry\":{\"topic\":\"lobby\",\"key\":\"carol\",\"pid\":\"pid-carol\",\"meta\":{}}}
+      ]}",
     )
 
   let compacted = state.compact(uncompact)
@@ -1019,19 +978,13 @@ pub fn merge_rejects_removed_local_history_via_peer_test() {
 }
 
 pub fn merge_rejects_unseen_local_cloud_history_test() {
-  let local =
-    state.from_replicated_parts(
-      "node_a",
-      dict.from_list([#("node_a", 1)]),
-      dict.from_list([#("node_a", set.from_list([5]))]),
-      dict.new(),
+  let assert Ok(local) =
+    state.from_json(
+      "{\"replica\":\"node_a\",\"context\":{\"node_a\":1},\"clouds\":{\"node_a\":[5]},\"values\":[]}",
     )
-  let peer =
-    state.from_replicated_parts(
-      "node_b",
-      dict.new(),
-      dict.from_list([#("node_a", set.from_list([3]))]),
-      dict.new(),
+  let assert Ok(peer) =
+    state.from_json(
+      "{\"replica\":\"node_b\",\"context\":{},\"clouds\":{\"node_a\":[3]},\"values\":[]}",
     )
 
   // Comparing only maximum clocks would miss this unseen clock in a gap.
@@ -1039,19 +992,13 @@ pub fn merge_rejects_unseen_local_cloud_history_test() {
 }
 
 pub fn merge_rejects_local_prefix_with_unseen_gap_test() {
-  let local =
-    state.from_replicated_parts(
-      "node_a",
-      dict.from_list([#("node_a", 1)]),
-      dict.from_list([#("node_a", set.from_list([3]))]),
-      dict.new(),
+  let assert Ok(local) =
+    state.from_json(
+      "{\"replica\":\"node_a\",\"context\":{\"node_a\":1},\"clouds\":{\"node_a\":[3]},\"values\":[]}",
     )
-  let peer =
-    state.from_replicated_parts(
-      "node_b",
-      dict.from_list([#("node_a", 3)]),
-      dict.new(),
-      dict.new(),
+  let assert Ok(peer) =
+    state.from_json(
+      "{\"replica\":\"node_b\",\"context\":{\"node_a\":3},\"clouds\":{},\"values\":[]}",
     )
 
   // The prefix endpoint is known, but clock 2 is not.
@@ -1059,15 +1006,11 @@ pub fn merge_rejects_local_prefix_with_unseen_gap_test() {
 }
 
 pub fn merge_rejects_unseen_local_active_tag_without_context_test() {
-  let old =
-    state.new("node_a")
-    |> state.join("old-pid", "lobby", "alice", json.object([]))
-  let peer =
-    state.from_replicated_parts(
-      "node_b",
-      dict.new(),
-      dict.new(),
-      state.internal_values(old),
+  let assert Ok(peer) =
+    state.from_json(
+      "{\"replica\":\"node_b\",\"context\":{},\"clouds\":{},\"values\":[
+        {\"tag\":{\"replica\":\"node_a\",\"clock\":1},\"entry\":{\"topic\":\"lobby\",\"key\":\"alice\",\"pid\":\"old-pid\",\"meta\":{}}}
+      ]}",
     )
 
   // The wire format can carry values independently of context/clouds.
@@ -1098,19 +1041,13 @@ pub fn merge_accepts_known_local_tags_via_peer_test() {
 }
 
 pub fn merge_accepts_local_history_covered_by_clouds_test() {
-  let local =
-    state.from_replicated_parts(
-      "node_a",
-      dict.from_list([#("node_a", 1)]),
-      dict.from_list([#("node_a", set.from_list([2, 3, 5]))]),
-      dict.new(),
+  let assert Ok(local) =
+    state.from_json(
+      "{\"replica\":\"node_a\",\"context\":{\"node_a\":1},\"clouds\":{\"node_a\":[2,3,5]},\"values\":[]}",
     )
-  let peer =
-    state.from_replicated_parts(
-      "node_b",
-      dict.from_list([#("node_a", 3)]),
-      dict.from_list([#("node_a", set.from_list([1, 5]))]),
-      dict.new(),
+  let assert Ok(peer) =
+    state.from_json(
+      "{\"replica\":\"node_b\",\"context\":{\"node_a\":3},\"clouds\":{\"node_a\":[1,5]},\"values\":[]}",
     )
   let expected = state.compact(local)
 

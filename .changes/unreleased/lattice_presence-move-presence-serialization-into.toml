@@ -1,0 +1,6 @@
+package = "lattice_presence"
+kind = "Breaking"
+body = """
+Move presence serialization into the state module
+
+Import to_json, to_json_string, from_json, and decoder from lattice_presence/presence_state instead of the removed state_json module. The replicated_parts and from_replicated_parts escape hatches are removed; construct replicated fixtures through the public decoder. Existing JSON payloads, metadata validation, and local-only liveness behavior are unchanged."""
