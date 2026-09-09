@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
   workflow_call:
+    secrets:
+      HEXPM_READ_API_KEY:
+        description: Read-only Hex API key for dependency resolution and downloads
+        required: false
+
+env:
+  HEXPM_READ_API_KEY: ${{ secrets.HEXPM_READ_API_KEY }}
 
 jobs:
   dependencies:
