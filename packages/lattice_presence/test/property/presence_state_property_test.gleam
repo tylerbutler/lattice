@@ -4,7 +4,6 @@ import gleam/json
 import gleam/list
 import gleam/set
 import lattice_presence/presence_state as state
-import lattice_presence/state_json
 import qcheck
 import startest/expect
 
@@ -79,8 +78,7 @@ pub fn prop_peer_echo_checks_local_causal_history_test() {
     |> state.join("history-pid", "lobby", "history", json.null())
     |> state.leave_by_pid("history-pid")
   let assert Ok(peer) = state.merge(state.new("r2"), original)
-  let assert Ok(peer) =
-    peer |> state_json.to_json_string |> state_json.from_json
+  let assert Ok(peer) = peer |> state.to_json_string |> state.from_json
 
   state.merge(original, peer) |> expect.to_equal(Ok(original))
   state.merge_with_diff(original, peer)
@@ -252,8 +250,8 @@ pub fn prop_serialization_roundtrip_test() {
   use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
   let s = crdt_generator.apply_ops(state.new("r1"), ops)
 
-  let json_str = state_json.to_json_string(s)
-  let assert Ok(decoded) = state_json.from_json(json_str)
+  let json_str = state.to_json_string(s)
+  let assert Ok(decoded) = state.from_json(json_str)
 
   // Both original and decoded should merge identically with a third state
   let other = state.new("r2") |> state.join("p_x", "t_x", "k_x", json.null())
@@ -272,11 +270,11 @@ pub fn prop_double_roundtrip_stability_test() {
   use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
   let s = crdt_generator.apply_ops(state.new("r1"), ops)
 
-  let encoded1 = state_json.to_json_string(s)
-  let assert Ok(decoded) = state_json.from_json(encoded1)
-  let encoded2 = state_json.to_json_string(decoded)
-  let assert Ok(decoded2) = state_json.from_json(encoded2)
-  let encoded3 = state_json.to_json_string(decoded2)
+  let encoded1 = state.to_json_string(s)
+  let assert Ok(decoded) = state.from_json(encoded1)
+  let encoded2 = state.to_json_string(decoded)
+  let assert Ok(decoded2) = state.from_json(encoded2)
+  let encoded3 = state.to_json_string(decoded2)
 
   // Second and third encodings should be identical
   encoded2 |> expect.to_equal(encoded3)

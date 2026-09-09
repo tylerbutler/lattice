@@ -117,17 +117,19 @@ return with useful state.
 
 ## Serialization
 
-Use `lattice_presence/state_json` for cross-node payloads:
+Use `lattice_presence/presence_state` for cross-node payloads:
 
 ```gleam
-import lattice_presence/state_json
+import lattice_presence/presence_state
 
-let payload = state_json.to_json_string(state)
-let decoded = state_json.from_json(payload)
+let payload = presence_state.to_json_string(state)
+let decoded = presence_state.from_json(payload)
 ```
 
 The JSON format contains replicated CRDT data: replica name, causal context,
 clouds, and presence entries. Local replica visibility (`replica_up` /
 `replica_down`) is intentionally not serialized. Decoding validates causal clock
 values and limits nested metadata depth so malformed payloads fail as
-`Result(Error(_))` instead of producing invalid state.
+`Error(_)` instead of producing invalid state. Use `presence_state.decoder()`
+to include state inside an envelope decoder. The former `state_json` import
+is removed; existing wire payloads keep the same format.

@@ -5,8 +5,8 @@ description: Serializing and deserializing CRDTs with JSON.
 
 Every CRDT module across all lattice packages exposes `to_json` and `from_json`.
 
-The encoded JSON includes a `"type"` discriminator and a schema version so the
-decoder can dispatch to the right implementation.
+Most encoded CRDTs include a `"type"` discriminator and schema version.
+Presence retains its unversioned replication format, described below.
 
 ## Basic example
 
@@ -97,17 +97,21 @@ of the same type as the full state.
 
 ## Presence serialization
 
-`lattice_presence/state_json` serializes distributed presence state for
+`lattice_presence/presence_state` serializes distributed presence state for
 cross-node replication:
 
 ```gleam
-import lattice_presence/state_json
+import lattice_presence/presence_state
 
-let payload = state_json.to_json_string(state)
-let decoded = state_json.from_json(payload)
+let payload = presence_state.to_json_string(state)
+let decoded = presence_state.from_json(payload)
 ```
 
 Presence JSON contains only replicated CRDT data: replica name, causal context,
 clouds, and presence entries. Local replica visibility state from
 `replica_up`/`replica_down` is intentionally not encoded. Decoding validates
 clock values and limits nested metadata depth before returning `Ok(state)`.
+
+Use `presence_state.decoder()` to embed presence state in a larger JSON
+decoder. The former `state_json` module and public replicated-parts constructor
+are removed; the wire representation is unchanged.
