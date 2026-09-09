@@ -70,6 +70,30 @@ pub fn prop_merge_idempotency_test() {
 
 // ── Convergence ─────────────────────────────────────────────────────
 
+/// Gossip is safe for the original writer, not a restart reusing its name.
+pub fn prop_peer_echo_checks_local_causal_history_test() {
+  use ops <- qcheck.given(crdt_generator.gen_ops_for("r1"))
+  let original =
+    crdt_generator.apply_ops(state.new("r1"), ops)
+    // Guarantee history even if all generated entries were removed.
+    |> state.join("history-pid", "lobby", "history", json.null())
+    |> state.leave_by_pid("history-pid")
+  let assert Ok(peer) = state.merge(state.new("r2"), original)
+  let assert Ok(peer) =
+    peer |> state_json.to_json_string |> state_json.from_json
+
+  state.merge(original, peer) |> expect.to_equal(Ok(original))
+  state.merge_with_diff(original, peer)
+  |> expect.to_equal(
+    Ok(#(original, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+
+  state.merge(state.new("r1"), peer)
+  |> expect.to_equal(Error(state.SameReplica("r1")))
+  state.merge_with_diff(state.new("r1"), peer)
+  |> expect.to_equal(Error(state.SameReplica("r1")))
+}
+
 /// All merge orderings of 3 replicas converge to the same state
 pub fn prop_merge_convergence_test() {
   use #(ops_a, #(ops_b, ops_c)) <- qcheck.given(qcheck.tuple2(

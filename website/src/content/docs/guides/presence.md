@@ -65,8 +65,13 @@ The diff groups joins and leaves by topic. It is for notifying subscribers; the
 merged state is still the source of truth.
 
 Both merge functions return `Error(SameReplica(...))` when divergent states use
-the same replica identity. Discard stale restart echoes or assign each live
-replica a unique identity before retrying.
+the same replica identity, or when a peer carries local-owned tags or causal
+history that the local state has not observed. This catches restart echoes
+relayed through another replica, even after the old entries have been removed.
+Gossip of already-known local tags remains valid, and identical same-replica
+states are an idempotent no-op. Discard stale restart echoes or assign each live
+replica a unique identity before retrying; the check does not replace the
+requirement for unique incarnation identities.
 
 ## Replica visibility
 

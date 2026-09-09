@@ -42,6 +42,7 @@ pub fn main() {
 
 - `presence_state` exposes `new`, `new_incarnation`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `online_list`, `get_by_topic`, and `get_by_key`.
 - `merge` and `merge_with_diff` return `Result`; handle `SameReplica` by rejecting stale restart echoes or fixing duplicate replica names.
+- The check also rejects unseen local-owned tags or causal history carried by another peer, including history whose entries have been removed. Gossip of already-known local tags remains valid; this check is not a substitute for unique incarnation identities.
 - An identical state from the same replica is accepted as an idempotent no-op. Divergent states must use unique replica names.
 - `merge_with_diff` reports Phoenix-style joins and leaves with the merged state on success.
 - Replica identity uniqueness is per process incarnation. Use `new_incarnation` with a stable node name on every process start so peers cannot confuse new joins with causal history retained from an earlier run.

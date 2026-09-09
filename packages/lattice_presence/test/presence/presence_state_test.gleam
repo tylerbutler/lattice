@@ -963,6 +963,10 @@ pub fn merge_accepts_identical_same_replica_state_test() {
   let assert Ok(merged) = state.merge(local, local)
 
   state.get_by_topic(merged, "lobby") |> list.length |> expect.to_equal(1)
+  state.merge_with_diff(local, local)
+  |> expect.to_equal(
+    Ok(#(local, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
 }
 
 pub fn merge_rejects_restart_echo_test() {
@@ -975,6 +979,153 @@ pub fn merge_rejects_restart_echo_test() {
     Error(state.SameReplica(replica)) -> replica |> expect.to_equal("node_a")
     _ -> panic as "expected same-replica conflict"
   }
+}
+
+pub fn merge_rejects_restart_echo_via_peer_test() {
+  let old =
+    state.new("node_a")
+    |> state.join("old-pid", "lobby", "alice", json.object([]))
+  let assert Ok(peer) = state.merge(state.new("node_b"), old)
+
+  state.merge(state.new("node_a"), peer)
+  |> expect.to_equal(Error(state.SameReplica("node_a")))
+}
+
+pub fn merge_with_diff_rejects_restart_echo_via_peer_test() {
+  let old =
+    state.new("node_a")
+    |> state.join("old-pid", "lobby", "alice", json.object([]))
+  let assert Ok(peer) = state.merge(state.new("node_b"), old)
+
+  state.merge_with_diff(state.new("node_a"), peer)
+  |> expect.to_equal(Error(state.SameReplica("node_a")))
+}
+
+pub fn merge_rejects_removed_local_history_via_peer_test() {
+  let local =
+    state.new("node_a")
+    |> state.join("pid", "lobby", "alice", json.object([]))
+  let old =
+    local
+    |> state.join("pid", "lobby", "bob", json.object([]))
+    |> state.leave_by_pid("pid")
+  let assert Ok(peer) = state.merge(state.new("node_b"), old)
+  state.entry_count(peer) |> expect.to_equal(0)
+
+  // Both an empty restart and a writer with some activity lack clock 2.
+  list.each([state.new("node_a"), local], fn(restarted) {
+    expect_local_history_conflict(restarted, peer)
+  })
+}
+
+pub fn merge_rejects_unseen_local_cloud_history_test() {
+  let local =
+    state.from_replicated_parts(
+      "node_a",
+      dict.from_list([#("node_a", 1)]),
+      dict.from_list([#("node_a", set.from_list([5]))]),
+      dict.new(),
+    )
+  let peer =
+    state.from_replicated_parts(
+      "node_b",
+      dict.new(),
+      dict.from_list([#("node_a", set.from_list([3]))]),
+      dict.new(),
+    )
+
+  // Comparing only maximum clocks would miss this unseen clock in a gap.
+  expect_local_history_conflict(local, peer)
+}
+
+pub fn merge_rejects_local_prefix_with_unseen_gap_test() {
+  let local =
+    state.from_replicated_parts(
+      "node_a",
+      dict.from_list([#("node_a", 1)]),
+      dict.from_list([#("node_a", set.from_list([3]))]),
+      dict.new(),
+    )
+  let peer =
+    state.from_replicated_parts(
+      "node_b",
+      dict.from_list([#("node_a", 3)]),
+      dict.new(),
+      dict.new(),
+    )
+
+  // The prefix endpoint is known, but clock 2 is not.
+  expect_local_history_conflict(local, peer)
+}
+
+pub fn merge_rejects_unseen_local_active_tag_without_context_test() {
+  let old =
+    state.new("node_a")
+    |> state.join("old-pid", "lobby", "alice", json.object([]))
+  let peer =
+    state.from_replicated_parts(
+      "node_b",
+      dict.new(),
+      dict.new(),
+      state.internal_values(old),
+    )
+
+  // The wire format can carry values independently of context/clouds.
+  expect_local_history_conflict(state.new("node_a"), peer)
+}
+
+pub fn merge_accepts_known_local_tags_via_peer_test() {
+  let local =
+    state.new("node_a")
+    |> state.join("pid", "lobby", "alice", json.object([]))
+  let assert Ok(peer) = state.merge(state.new("node_b"), local)
+
+  list.each(
+    [
+      local,
+      state.leave_by_pid(local, "pid"),
+      state.join(local, "new-pid", "lobby", "bob", json.object([])),
+    ],
+    fn(current) {
+      // Echoes of active or since-removed local tags are harmless.
+      state.merge(current, peer) |> expect.to_equal(Ok(current))
+      state.merge_with_diff(current, peer)
+      |> expect.to_equal(
+        Ok(#(current, state.Diff(joins: dict.new(), leaves: dict.new()))),
+      )
+    },
+  )
+}
+
+pub fn merge_accepts_local_history_covered_by_clouds_test() {
+  let local =
+    state.from_replicated_parts(
+      "node_a",
+      dict.from_list([#("node_a", 1)]),
+      dict.from_list([#("node_a", set.from_list([2, 3, 5]))]),
+      dict.new(),
+    )
+  let peer =
+    state.from_replicated_parts(
+      "node_b",
+      dict.from_list([#("node_a", 3)]),
+      dict.from_list([#("node_a", set.from_list([1, 5]))]),
+      dict.new(),
+    )
+  let expected = state.compact(local)
+
+  state.merge(local, peer) |> expect.to_equal(Ok(expected))
+  state.merge_with_diff(local, peer)
+  |> expect.to_equal(
+    Ok(#(expected, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+}
+
+fn expect_local_history_conflict(local: state.State, peer: state.State) {
+  state.merge(local, peer)
+  |> expect.to_equal(Error(state.SameReplica("node_a")))
+  state.merge_with_diff(local, peer)
+  |> expect.to_equal(Error(state.SameReplica("node_a")))
 }
 
 pub fn merge_rejects_duplicate_node_name_test() {

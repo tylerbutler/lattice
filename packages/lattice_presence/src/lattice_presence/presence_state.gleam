@@ -121,11 +121,12 @@ pub type Diff {
   )
 }
 
-/// Error returned when two divergent states claim the same replica name.
+/// Error returned when replicated data conflicts with the local replica identity.
 ///
-/// This indicates either a stale state echoed after a restart or multiple
-/// live nodes configured with the same replica name. Assign every live node
-/// a unique name and discard stale state before retrying the merge.
+/// This includes divergent states claiming the same name and unseen local-owned
+/// causal history echoed by another replica. It indicates a stale state after a
+/// restart or multiple live nodes configured with the same replica name. Assign
+/// every live node a unique identity and discard stale state before retrying.
 pub type MergeError {
   SameReplica(replica: Replica)
 }
@@ -267,8 +268,11 @@ pub fn get_by_key(
 /// local-only view state, not part of the replicated CRDT payload.
 ///
 /// Returns `Error(SameReplica(...))` when the states claim the same replica
-/// name but their replicated data differs. Identical replicated states are
-/// accepted as an idempotent no-op.
+/// name but their replicated data differs, or when remote carries local-owned
+/// tags or causal history that local has not observed, even via another peer.
+/// History for removed entries is checked too. Echoes of already-known local
+/// tags remain valid, and identical same-replica states are an idempotent no-op.
+/// This check does not replace the requirement for unique incarnation identities.
 ///
 /// ## Examples
 ///
@@ -307,7 +311,44 @@ pub fn merge_with_diff(
       False -> Error(SameReplica(replica: local.replica))
     },
   )
+  use <- bool.guard(
+    remote_has_unseen_local_history(local, remote),
+    Error(SameReplica(replica: local.replica)),
+  )
   Ok(merge_distinct_replicas(local, remote))
+}
+
+fn remote_has_unseen_local_history(local: State, remote: State) -> Bool {
+  // The sole writer of this identity cannot learn new local-owned events
+  // from gossip. Check retained history as well as active tags.
+  let local_clock = result.unwrap(dict.get(local.context, local.replica), 0)
+  let local_cloud =
+    result.unwrap(dict.get(local.clouds, local.replica), set.new())
+  // Cover the entire incoming prefix, not just its endpoint or maximum.
+  // Local clouds may extend that prefix without having been compacted yet.
+  let #(local_clock, _) = compact_cloud(local_clock, local_cloud)
+  let remote_clock = result.unwrap(dict.get(remote.context, local.replica), 0)
+  use <- bool.guard(remote_clock > local_clock, True)
+
+  let remote_cloud =
+    result.unwrap(dict.get(remote.clouds, local.replica), set.new())
+  let unseen_cloud =
+    set.fold(remote_cloud, False, fn(unseen, clock) {
+      unseen
+      || !tag_is_in(
+        local.context,
+        local.clouds,
+        Tag(replica: local.replica, clock: clock),
+      )
+    })
+  unseen_cloud
+  || dict.fold(remote.values, False, fn(unseen, tag, _) {
+    unseen
+    || {
+      tag.replica == local.replica
+      && !tag_is_in(local.context, local.clouds, tag)
+    }
+  })
 }
 
 fn merge_distinct_replicas(local: State, remote: State) -> #(State, Diff) {
