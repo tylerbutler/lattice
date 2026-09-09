@@ -1,4 +1,5 @@
 import gleam/list
+import gleam/result
 import lattice_core/replica_id
 import lattice_fugue/sequence
 import qcheck
@@ -23,10 +24,11 @@ fn insert_run(
   seq: sequence.Sequence(a),
   start: Int,
   values: List(a),
-) -> sequence.Sequence(a) {
+) -> Result(sequence.Sequence(a), sequence.InsertError) {
   values
-  |> list.index_fold(seq, fn(acc, value, offset) {
-    sequence.insert(acc, start + offset, value)
+  |> list.index_fold(Ok(seq), fn(acc, value, offset) {
+    use state <- result.try(acc)
+    sequence.insert(state, start + offset, value)
   })
 }
 
@@ -40,11 +42,11 @@ pub fn merge_commutativity__test() {
     ),
     fn(pair) {
       let #(a, b) = pair
-      let left = doc("A", a)
-      let right = doc("B", b)
+      let assert Ok(left) = doc("A", a)
+      let assert Ok(right) = doc("B", b)
 
-      sequence.values(sequence.merge(left, right))
-      |> expect.to_equal(sequence.values(sequence.merge(right, left)))
+      sequence.merge(left, right, rid("local"))
+      |> expect.to_equal(sequence.merge(right, left, rid("local")))
       Nil
     },
   )
@@ -52,8 +54,8 @@ pub fn merge_commutativity__test() {
 
 pub fn merge_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 100), fn(n) {
-    let d = doc("A", n)
-    sequence.merge(d, d) |> expect.to_equal(d)
+    let assert Ok(d) = doc("A", n)
+    sequence.merge(d, d, sequence.replica_id(d)) |> expect.to_equal(d)
     Nil
   })
 }
@@ -69,14 +71,17 @@ pub fn merge_associativity__test() {
     ),
     fn(triple) {
       let #(a, b, c) = triple
-      let doc_a = doc("A", a)
-      let doc_b = doc("B", b)
-      let doc_c = doc("C", c)
+      let assert Ok(doc_a) = doc("A", a)
+      let assert Ok(doc_b) = doc("B", b)
+      let assert Ok(doc_c) = doc("C", c)
+      let local = rid("local")
 
-      sequence.values(sequence.merge(sequence.merge(doc_a, doc_b), doc_c))
-      |> expect.to_equal(
-        sequence.values(sequence.merge(doc_a, sequence.merge(doc_b, doc_c))),
-      )
+      sequence.merge(sequence.merge(doc_a, doc_b, local), doc_c, local)
+      |> expect.to_equal(sequence.merge(
+        doc_a,
+        sequence.merge(doc_b, doc_c, local),
+        local,
+      ))
       Nil
     },
   )
@@ -84,11 +89,13 @@ pub fn merge_associativity__test() {
 
 pub fn merge_bottom_identity__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 100), fn(n) {
-    let state = doc("A", n)
+    let assert Ok(state) = doc("A", n)
     let empty = sequence.new(rid("A"))
 
-    sequence.values(sequence.merge(state, empty))
-    |> expect.to_equal(sequence.values(state))
+    sequence.merge(state, empty, rid("A"))
+    |> expect.to_equal(state)
+    sequence.merge(empty, state, rid("A"))
+    |> expect.to_equal(state)
     Nil
   })
 }
@@ -105,14 +112,15 @@ pub fn merge_convergence__test() {
     ),
     fn(pair) {
       let #(a, b) = pair
-      let da = doc("A", a) |> sequence.insert(1, a + 1)
-      let db = doc("B", b) |> sequence.insert(1, b + 1)
+      let assert Ok(da) =
+        doc("A", a) |> result.try(sequence.insert(_, 1, a + 1))
+      let assert Ok(db) =
+        doc("B", b) |> result.try(sequence.insert(_, 1, b + 1))
 
-      let left = sequence.merge(da, db)
-      let right = sequence.merge(db, da)
+      let left = sequence.merge(da, db, rid("local"))
+      let right = sequence.merge(db, da, rid("local"))
 
-      sequence.values(left)
-      |> expect.to_equal(sequence.values(right))
+      left |> expect.to_equal(right)
       Nil
     },
   )
@@ -125,10 +133,10 @@ pub fn non_interleaving__test() {
     let run_a = [n, n + 1, n + 2]
     let run_b = [n + 1000, n + 1001, n + 1002]
 
-    let a = sequence.new(rid("A")) |> insert_run(0, run_a)
-    let b = sequence.new(rid("B")) |> insert_run(0, run_b)
+    let assert Ok(a) = sequence.new(rid("A")) |> insert_run(0, run_a)
+    let assert Ok(b) = sequence.new(rid("B")) |> insert_run(0, run_b)
 
-    let values = sequence.values(sequence.merge(a, b))
+    let values = sequence.values(sequence.merge(a, b, rid("A")))
 
     // Every element of run A is entirely before or entirely after every
     // element of run B: equivalently, each run occupies a contiguous block.

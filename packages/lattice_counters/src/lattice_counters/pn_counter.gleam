@@ -11,15 +11,16 @@
 //// import lattice_core/replica_id
 //// import lattice_counters/pn_counter
 ////
-//// let counter = pn_counter.new(replica_id.new("node-a"))
+//// let assert Ok(counter) = pn_counter.new(replica_id.new("node-a"))
 ////   |> pn_counter.increment(10)
-////   |> pn_counter.decrement(3)
+//// let assert Ok(counter) = pn_counter.decrement(counter, 3)
 //// pn_counter.value(counter)  // -> 7
 //// ```
 
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/result
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_counters/g_counter
 
@@ -48,33 +49,17 @@ pub fn new(replica_id: ReplicaId) -> PNCounter {
 
 /// Increment the counter by `delta`.
 ///
-/// Adds `delta` to the positive G-Counter. `delta` should be a non-negative
-/// integer; the positive G-Counter is grow-only so passing a negative value
-/// violates the invariant.
+/// Adds `delta` to the positive G-Counter.
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
 ///
 /// See `increment_with_delta` for the delta-state variant that also returns
 /// a small payload suitable for incremental sync (e.g. over websockets).
-pub fn increment(counter: PNCounter, delta: Int) -> PNCounter {
-  // Ergonomic wrapper documented to panic on a negative delta; callers
-  // needing error handling use `try_increment`.
-  // nolint: assert_ok_pattern
-  let assert Ok(updated) = try_increment(counter, delta)
-  updated
-}
-
-/// Safely increment the counter by `delta`.
-///
-/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
-///
-/// See `try_increment_with_delta` for the delta-state variant.
-pub fn try_increment(
+pub fn increment(
   counter: PNCounter,
   delta: Int,
 ) -> Result(PNCounter, UpdateError) {
-  case try_increment_with_delta(counter, delta) {
-    Ok(#(updated, _)) -> Ok(updated)
-    Error(e) -> Error(e)
-  }
+  increment_with_delta(counter, delta)
+  |> result.map(fn(pair) { pair.0 })
 }
 
 /// Increment the counter by `delta` and return both the new state and a delta.
@@ -83,26 +68,14 @@ pub fn try_increment(
 /// only this replica's new positive count and whose negative G-Counter is
 /// empty. Merging the delta into a remote replica via `merge` produces the
 /// same observable result as merging the full new state.
-pub fn increment_with_delta(
-  counter: PNCounter,
-  delta: Int,
-) -> #(PNCounter, PNCounter) {
-  // Ergonomic wrapper documented to panic on a negative delta; callers
-  // needing error handling use `try_increment_with_delta`.
-  // nolint: assert_ok_pattern
-  let assert Ok(result) = try_increment_with_delta(counter, delta)
-  result
-}
-
-/// Safely increment the counter by `delta`, returning the new state and a delta.
 ///
 /// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
-pub fn try_increment_with_delta(
+pub fn increment_with_delta(
   counter: PNCounter,
   delta: Int,
 ) -> Result(#(PNCounter, PNCounter), UpdateError) {
   let PNCounter(positive, negative) = counter
-  case g_counter.try_increment_with_delta(positive, delta) {
+  case g_counter.increment_with_delta(positive, delta) {
     Ok(#(updated_positive, positive_delta)) -> {
       let updated = PNCounter(positive: updated_positive, negative: negative)
       let delta_state =
@@ -119,31 +92,15 @@ pub fn try_increment_with_delta(
 /// Decrement the counter by `delta`.
 ///
 /// Adds `delta` to the negative G-Counter (which reduces the visible value).
-/// `delta` should be a non-negative integer; the negative G-Counter is
-/// grow-only so passing a negative value violates the invariant.
-///
-/// See `decrement_with_delta` for the delta-state variant.
-pub fn decrement(counter: PNCounter, delta: Int) -> PNCounter {
-  // Ergonomic wrapper documented to panic on a negative delta; callers
-  // needing error handling use `try_decrement`.
-  // nolint: assert_ok_pattern
-  let assert Ok(updated) = try_decrement(counter, delta)
-  updated
-}
-
-/// Safely decrement the counter by `delta`.
-///
 /// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
 ///
-/// See `try_decrement_with_delta` for the delta-state variant.
-pub fn try_decrement(
+/// See `decrement_with_delta` for the delta-state variant.
+pub fn decrement(
   counter: PNCounter,
   delta: Int,
 ) -> Result(PNCounter, UpdateError) {
-  case try_decrement_with_delta(counter, delta) {
-    Ok(#(updated, _)) -> Ok(updated)
-    Error(e) -> Error(e)
-  }
+  decrement_with_delta(counter, delta)
+  |> result.map(fn(pair) { pair.0 })
 }
 
 /// Decrement the counter by `delta` and return both the new state and a delta.
@@ -152,26 +109,14 @@ pub fn try_decrement(
 /// only this replica's new negative count and whose positive G-Counter is
 /// empty. Merging the delta into a remote replica via `merge` produces the
 /// same observable result as merging the full new state.
-pub fn decrement_with_delta(
-  counter: PNCounter,
-  delta: Int,
-) -> #(PNCounter, PNCounter) {
-  // Ergonomic wrapper documented to panic on a negative delta; callers
-  // needing error handling use `try_decrement_with_delta`.
-  // nolint: assert_ok_pattern
-  let assert Ok(result) = try_decrement_with_delta(counter, delta)
-  result
-}
-
-/// Safely decrement the counter by `delta`, returning the new state and a delta.
 ///
 /// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
-pub fn try_decrement_with_delta(
+pub fn decrement_with_delta(
   counter: PNCounter,
   delta: Int,
 ) -> Result(#(PNCounter, PNCounter), UpdateError) {
   let PNCounter(positive, negative) = counter
-  case g_counter.try_increment_with_delta(negative, delta) {
+  case g_counter.increment_with_delta(negative, delta) {
     Ok(#(updated_negative, negative_delta)) -> {
       let updated = PNCounter(positive: positive, negative: updated_negative)
       let delta_state =

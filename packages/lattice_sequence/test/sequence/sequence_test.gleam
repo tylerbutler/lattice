@@ -21,6 +21,7 @@ pub fn new_length_is_zero_test() {
 pub fn insert_integer_into_empty_sequence_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, 42)
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal([42])
 }
@@ -28,7 +29,9 @@ pub fn insert_integer_into_empty_sequence_test() {
 pub fn insert_appends_at_end_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "h")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "i")
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal(["h", "i"])
 }
@@ -36,38 +39,46 @@ pub fn insert_appends_at_end_test() {
 pub fn insert_in_middle_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "c")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "b")
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal(["a", "b", "c"])
 }
 
 pub fn try_insert_negative_index_returns_error_test() {
   sequence.new(rid("A"))
-  |> sequence.try_insert_with_delta(-1, "x")
+  |> sequence.insert_with_delta(-1, "x")
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: -1, length: 0)))
 }
 
 pub fn try_insert_past_end_returns_error_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_insert_with_delta(2, "x")
+  |> expect.to_be_ok()
+  |> sequence.insert_with_delta(2, "x")
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: 2, length: 1)))
 }
 
 pub fn delete_removes_visible_item_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "b")
+  |> expect.to_be_ok()
   |> sequence.insert(2, "c")
+  |> expect.to_be_ok()
   |> sequence.delete(1)
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal(["a", "c"])
 }
 
 pub fn try_delete_negative_index_returns_error_test() {
   sequence.new(rid("A"))
-  |> sequence.try_delete_with_delta(-1)
+  |> sequence.delete_with_delta(-1)
   |> expect.to_equal(
     Error(sequence.DeleteIndexOutOfBounds(index: -1, length: 0)),
   )
@@ -76,7 +87,8 @@ pub fn try_delete_negative_index_returns_error_test() {
 pub fn try_delete_at_end_returns_error_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_delete_with_delta(1)
+  |> expect.to_be_ok()
+  |> sequence.delete_with_delta(1)
   |> expect.to_equal(
     Error(sequence.DeleteIndexOutOfBounds(index: 1, length: 1)),
   )
@@ -86,16 +98,20 @@ pub fn merge_concurrent_insert_same_position_is_deterministic_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "c")
+    |> expect.to_be_ok()
   let alice =
-    sequence.merge(sequence.new(rid("alice")), base)
+    sequence.merge(sequence.new(rid("alice")), base, rid("alice"))
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
   let bob =
-    sequence.merge(sequence.new(rid("bob")), base)
+    sequence.merge(sequence.new(rid("bob")), base, rid("bob"))
     |> sequence.insert(1, "X")
+    |> expect.to_be_ok()
 
-  let ab = sequence.merge(alice, bob) |> sequence.values()
-  let ba = sequence.merge(bob, alice) |> sequence.values()
+  let ab = sequence.merge(alice, bob, rid("A")) |> sequence.values()
+  let ba = sequence.merge(bob, alice, rid("A")) |> sequence.values()
 
   ab |> expect.to_equal(ba)
   ab |> expect.to_equal(["a", "b", "X", "c"])
@@ -105,64 +121,83 @@ pub fn merge_delete_and_insert_after_deleted_anchor_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
 
-  let alice = base |> sequence.delete(1)
+  let alice = base |> sequence.delete(1) |> expect.to_be_ok()
   let bob =
-    sequence.merge(sequence.new(rid("B")), base) |> sequence.insert(2, "Y")
+    sequence.merge(sequence.new(rid("B")), base, rid("B"))
+    |> sequence.insert(2, "Y")
+    |> expect.to_be_ok()
 
-  sequence.merge(alice, bob)
+  sequence.merge(alice, bob, rid("A"))
   |> sequence.values()
   |> expect.to_equal(["a", "Y", "c"])
 }
 
 pub fn merge_concurrent_runs_do_not_interleave_for_forward_typing_test() {
-  let base = sequence.new(rid("base")) |> sequence.insert(0, "_")
+  let base =
+    sequence.new(rid("base")) |> sequence.insert(0, "_") |> expect.to_be_ok()
   let alice =
-    sequence.merge(sequence.new(rid("alice")), base)
+    sequence.merge(sequence.new(rid("alice")), base, rid("alice"))
     |> sequence.insert(1, "m")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "o")
+    |> expect.to_be_ok()
     |> sequence.insert(3, "m")
+    |> expect.to_be_ok()
   let bob =
-    sequence.merge(sequence.new(rid("bob")), base)
+    sequence.merge(sequence.new(rid("bob")), base, rid("bob"))
     |> sequence.insert(1, "d")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(3, "d")
+    |> expect.to_be_ok()
 
-  sequence.merge(alice, bob)
+  sequence.merge(alice, bob, rid("A"))
   |> sequence.values()
   |> expect.to_equal(["_", "m", "o", "m", "d", "a", "d"])
 }
 
 pub fn merge_applies_insert_delta_test() {
   let base = sequence.new(rid("A"))
-  let #(updated, delta) = sequence.insert_with_delta(base, 0, "x")
+  let #(updated, delta) =
+    sequence.insert_with_delta(base, 0, "x") |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(updated)
 }
 
 pub fn merge_applies_delete_delta_test() {
-  let base = sequence.new(rid("A")) |> sequence.insert(0, "x")
-  let #(updated, delta) = sequence.delete_with_delta(base, 0)
+  let base =
+    sequence.new(rid("A")) |> sequence.insert(0, "x") |> expect.to_be_ok()
+  let #(updated, delta) =
+    sequence.delete_with_delta(base, 0) |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(updated)
 }
 
 pub fn insert_after_delete_at_same_index_is_canonically_ordered_test() {
   // Regression: a local insert whose position is preceded by tombstones must
   // produce the same item order as merge/from_json normalization, so that
-  // merge(base, delta) structurally equals the directly updated state.
+  // merge(base, delta, local) structurally equals the directly updated state.
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.delete(0)
-  let #(updated, delta) = sequence.insert_with_delta(base, 0, "x")
+    |> expect.to_be_ok()
+  let #(updated, delta) =
+    sequence.insert_with_delta(base, 0, "x") |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(updated)
   sequence.values(updated) |> expect.to_equal(["x", "b"])
 }
@@ -170,6 +205,7 @@ pub fn insert_after_delete_at_same_index_is_canonically_ordered_test() {
 pub fn insert_many_into_empty_test() {
   sequence.new(rid("A"))
   |> sequence.insert_many(0, ["a", "b", "c"])
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal(["a", "b", "c"])
 }
@@ -177,29 +213,35 @@ pub fn insert_many_into_empty_test() {
 pub fn insert_many_in_middle_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "d")
+  |> expect.to_be_ok()
   |> sequence.insert_many(1, ["b", "c"])
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal(["a", "b", "c", "d"])
 }
 
 pub fn insert_many_empty_list_is_noop_test() {
-  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let base =
+    sequence.new(rid("A")) |> sequence.insert(0, "a") |> expect.to_be_ok()
   base
   |> sequence.insert_many(1, [])
+  |> expect.to_be_ok()
   |> expect.to_equal(base)
 }
 
 pub fn try_insert_many_negative_index_returns_error_test() {
   sequence.new(rid("A"))
-  |> sequence.try_insert_many_with_delta(-1, ["x"])
+  |> sequence.insert_many_with_delta(-1, ["x"])
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: -1, length: 0)))
 }
 
 pub fn try_insert_many_past_end_returns_error_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_insert_many_with_delta(2, ["x"])
+  |> expect.to_be_ok()
+  |> sequence.insert_many_with_delta(2, ["x"])
   |> expect.to_equal(Error(sequence.IndexOutOfBounds(index: 2, length: 1)))
 }
 
@@ -209,10 +251,13 @@ pub fn insert_many_delta_merges_to_direct_state_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "d")
-  let #(direct, delta) = sequence.insert_many_with_delta(base, 1, ["b", "c"])
+    |> expect.to_be_ok()
+  let #(direct, delta) =
+    sequence.insert_many_with_delta(base, 1, ["b", "c"]) |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(direct)
 }
 
@@ -222,14 +267,21 @@ pub fn insert_many_equivalent_to_looped_inserts_test() {
   let looped =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "d")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
   let batched =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "d")
+    |> expect.to_be_ok()
     |> sequence.insert_many(1, ["b", "c"])
+    |> expect.to_be_ok()
 
   batched |> expect.to_equal(looped)
 }
@@ -240,11 +292,15 @@ pub fn insert_many_delta_merges_after_tombstone_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.delete(0)
-  let #(direct, delta) = sequence.insert_many_with_delta(base, 0, ["x", "y"])
+    |> expect.to_be_ok()
+  let #(direct, delta) =
+    sequence.insert_many_with_delta(base, 0, ["x", "y"]) |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(direct)
   sequence.values(direct) |> expect.to_equal(["x", "y", "b"])
 }
@@ -255,12 +311,17 @@ pub fn insert_after_move_delta_merges_to_direct_state_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     |> sequence.move(0, 2)
-  let #(direct, delta) = sequence.insert_with_delta(base, 1, "x")
+    |> expect.to_be_ok()
+  let #(direct, delta) =
+    sequence.insert_with_delta(base, 1, "x") |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(direct)
   sequence.values(direct) |> expect.to_equal(["b", "x", "c", "a"])
 }
@@ -269,12 +330,17 @@ pub fn insert_many_after_move_delta_merges_to_direct_state_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     |> sequence.move(0, 2)
-  let #(direct, delta) = sequence.insert_many_with_delta(base, 1, ["x", "y"])
+    |> expect.to_be_ok()
+  let #(direct, delta) =
+    sequence.insert_many_with_delta(base, 1, ["x", "y"]) |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(direct)
   sequence.values(direct) |> expect.to_equal(["b", "x", "y", "c", "a"])
 }
@@ -282,9 +348,13 @@ pub fn insert_many_after_move_delta_merges_to_direct_state_test() {
 pub fn move_reorders_visible_item_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "b")
+  |> expect.to_be_ok()
   |> sequence.insert(2, "c")
+  |> expect.to_be_ok()
   |> sequence.move(0, 2)
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal(["b", "c", "a"])
 }
@@ -292,7 +362,8 @@ pub fn move_reorders_visible_item_test() {
 pub fn try_move_from_index_out_of_bounds_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_move_with_delta(1, 0)
+  |> expect.to_be_ok()
+  |> sequence.move_with_delta(1, 0)
   |> expect.to_equal(
     Error(sequence.MoveFromIndexOutOfBounds(index: 1, length: 1)),
   )
@@ -301,7 +372,8 @@ pub fn try_move_from_index_out_of_bounds_test() {
 pub fn try_move_to_index_out_of_bounds_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
-  |> sequence.try_move_with_delta(0, 2)
+  |> expect.to_be_ok()
+  |> sequence.move_with_delta(0, 2)
   |> expect.to_equal(
     Error(sequence.MoveToIndexOutOfBounds(index: 2, length_after_removal: 0)),
   )
@@ -311,11 +383,15 @@ pub fn move_delta_merges_to_direct_state_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
-  let #(direct, delta) = sequence.move_with_delta(base, 0, 2)
+    |> expect.to_be_ok()
+  let #(direct, delta) =
+    sequence.move_with_delta(base, 0, 2) |> expect.to_be_ok()
 
-  sequence.merge(base, delta)
+  sequence.merge(base, delta, rid("A"))
   |> expect.to_equal(direct)
 }
 
@@ -323,11 +399,15 @@ pub fn repeated_move_delta_is_idempotent_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
-  let #(direct, delta) = sequence.move_with_delta(base, 0, 2)
+    |> expect.to_be_ok()
+  let #(direct, delta) =
+    sequence.move_with_delta(base, 0, 2) |> expect.to_be_ok()
 
-  sequence.merge(sequence.merge(base, delta), delta)
+  sequence.merge(sequence.merge(base, delta, rid("A")), delta, rid("A"))
   |> expect.to_equal(direct)
 }
 
@@ -335,18 +415,24 @@ pub fn concurrent_moves_of_same_item_converge_test() {
   let base =
     sequence.new(rid("base"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     |> sequence.insert(3, "d")
+    |> expect.to_be_ok()
   let alice =
-    sequence.merge(sequence.new(rid("alice")), base)
+    sequence.merge(sequence.new(rid("alice")), base, rid("alice"))
     |> sequence.move(1, 0)
+    |> expect.to_be_ok()
   let bob =
-    sequence.merge(sequence.new(rid("bob")), base)
+    sequence.merge(sequence.new(rid("bob")), base, rid("bob"))
     |> sequence.move(1, 2)
+    |> expect.to_be_ok()
 
-  let ab = sequence.merge(alice, bob) |> sequence.values()
-  let ba = sequence.merge(bob, alice) |> sequence.values()
+  let ab = sequence.merge(alice, bob, rid("A")) |> sequence.values()
+  let ba = sequence.merge(bob, alice, rid("A")) |> sequence.values()
 
   ab |> expect.to_equal(ba)
   ab |> expect.to_equal(["a", "c", "b", "d"])
@@ -356,17 +442,23 @@ pub fn causal_later_move_wins_test() {
   let base =
     sequence.new(rid("base"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     |> sequence.insert(3, "d")
+    |> expect.to_be_ok()
   let first =
-    sequence.merge(sequence.new(rid("alice")), base)
+    sequence.merge(sequence.new(rid("alice")), base, rid("alice"))
     |> sequence.move(1, 0)
+    |> expect.to_be_ok()
   let later =
-    sequence.merge(sequence.new(rid("bob")), first)
+    sequence.merge(sequence.new(rid("bob")), first, rid("bob"))
     |> sequence.move(0, 3)
+    |> expect.to_be_ok()
 
-  sequence.merge(first, later)
+  sequence.merge(first, later, rid("A"))
   |> sequence.values()
   |> expect.to_equal(["a", "c", "d", "b"])
 }
@@ -375,16 +467,21 @@ pub fn concurrent_move_and_delete_delete_wins_test() {
   let base =
     sequence.new(rid("base"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
   let moved =
-    sequence.merge(sequence.new(rid("mover")), base)
+    sequence.merge(sequence.new(rid("mover")), base, rid("mover"))
     |> sequence.move(1, 0)
+    |> expect.to_be_ok()
   let deleted =
-    sequence.merge(sequence.new(rid("deleter")), base)
+    sequence.merge(sequence.new(rid("deleter")), base, rid("deleter"))
     |> sequence.delete(1)
+    |> expect.to_be_ok()
 
-  sequence.merge(moved, deleted)
+  sequence.merge(moved, deleted, rid("A"))
   |> sequence.values()
   |> expect.to_equal(["a", "c"])
 }
@@ -393,9 +490,12 @@ pub fn move_after_descendant_does_not_drop_items_test() {
   let base =
     sequence.new(rid("base"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
-  let moved = base |> sequence.move(0, 1)
+    |> expect.to_be_ok()
+  let moved = base |> sequence.move(0, 1) |> expect.to_be_ok()
 
   moved
   |> sequence.values()
@@ -403,46 +503,53 @@ pub fn move_after_descendant_does_not_drop_items_test() {
   sequence.length(moved) |> expect.to_equal(3)
 }
 
-pub fn merge_adopts_the_first_arguments_replica_identity_test() {
-  // Pins the `merge(self, other)` contract: identity is positional, so
-  // applying a remote delta as the FIRST argument re-mints local edits under
-  // the remote's replica id and they collide with that replica's own edits.
-  // `merge_as` is the order-independent alternative (see the test below).
-  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+pub fn merge_uses_explicit_identity_when_delta_is_first_test() {
+  // Reversing delta application must not give A the sender's identity.
+  let base =
+    sequence.new(rid("A")) |> sequence.insert(0, "a") |> expect.to_be_ok()
   let #(b_state, b_delta) =
-    sequence.merge(sequence.new(rid("B")), base)
+    sequence.merge(sequence.new(rid("B")), base, rid("B"))
     |> sequence.insert_with_delta(1, "b")
+    |> expect.to_be_ok()
 
-  let a_state = sequence.merge(b_delta, base) |> sequence.insert(2, "x")
-  let b_state = sequence.insert(b_state, 2, "c")
+  let a_state =
+    sequence.merge(b_delta, base, rid("A"))
+    |> sequence.insert(2, "x")
+    |> expect.to_be_ok()
+  let b_state = sequence.insert(b_state, 2, "c") |> expect.to_be_ok()
 
-  sequence.merge(a_state, b_state)
+  sequence.merge(a_state, b_state, rid("A"))
   |> sequence.length()
-  |> expect.to_equal(3)
+  |> expect.to_equal(4)
 }
 
 pub fn merge_as_keeps_local_identity_whatever_the_argument_order_test() {
-  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let base =
+    sequence.new(rid("A")) |> sequence.insert(0, "a") |> expect.to_be_ok()
   let #(b_state, b_delta) =
-    sequence.merge(sequence.new(rid("B")), base)
+    sequence.merge(sequence.new(rid("B")), base, rid("B"))
     |> sequence.insert_with_delta(1, "b")
+    |> expect.to_be_ok()
 
-  // Same reversed call as above, but stating the local identity keeps A
-  // minting under its own id, so nothing collides with B's next insert.
+  // The alias has the same explicit-identity contract as canonical merge.
   let a_state =
-    sequence.merge_as(b_delta, base, rid("A")) |> sequence.insert(2, "x")
-  let b_state = sequence.insert(b_state, 2, "c")
+    sequence.merge_as(b_delta, base, rid("A"))
+    |> sequence.insert(2, "x")
+    |> expect.to_be_ok()
+  let b_state = sequence.insert(b_state, 2, "c") |> expect.to_be_ok()
 
-  sequence.merge(a_state, b_state)
+  sequence.merge(a_state, b_state, rid("A"))
   |> sequence.length()
   |> expect.to_equal(4)
 }
 
 pub fn merge_as_is_argument_order_independent_test() {
-  let base = sequence.new(rid("A")) |> sequence.insert(0, "a")
+  let base =
+    sequence.new(rid("A")) |> sequence.insert(0, "a") |> expect.to_be_ok()
   let #(_, b_delta) =
-    sequence.merge(sequence.new(rid("B")), base)
+    sequence.merge(sequence.new(rid("B")), base, rid("B"))
     |> sequence.insert_with_delta(1, "b")
+    |> expect.to_be_ok()
 
   sequence.merge_as(base, b_delta, rid("A"))
   |> expect.to_equal(sequence.merge_as(b_delta, base, rid("A")))
@@ -458,22 +565,38 @@ pub fn co_gap_movers_stack_in_op_order_across_resolution_paths_test() {
   let base =
     sequence.new(rid("Z"))
     |> sequence.insert(0, "L")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "e")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "R")
+    |> expect.to_be_ok()
     |> sequence.insert(3, "c")
+    |> expect.to_be_ok()
     |> sequence.insert(4, "d")
+    |> expect.to_be_ok()
     |> sequence.insert(5, "b")
+    |> expect.to_be_ok()
 
   // All three moves get the same counter, so replica id breaks the tie:
   // A ("c") < B ("d") < C ("b").
-  let a = sequence.merge(sequence.new(rid("A")), base) |> sequence.move(3, 1)
-  let b = sequence.merge(sequence.new(rid("B")), base) |> sequence.move(4, 2)
-  let c = sequence.merge(sequence.new(rid("C")), base) |> sequence.move(5, 1)
+  let a =
+    sequence.merge(sequence.new(rid("A")), base, rid("A"))
+    |> sequence.move(3, 1)
+    |> expect.to_be_ok()
+  let b =
+    sequence.merge(sequence.new(rid("B")), base, rid("B"))
+    |> sequence.move(4, 2)
+    |> expect.to_be_ok()
+  let c =
+    sequence.merge(sequence.new(rid("C")), base, rid("C"))
+    |> sequence.move(5, 1)
+    |> expect.to_be_ok()
 
   // Moving "e" last turns it into a mover, so it is no longer a usable right
   // boundary for the moves that anchored on it.
-  sequence.merge(sequence.merge(a, b), c)
+  sequence.merge(sequence.merge(a, b, rid("A")), c, rid("A"))
   |> sequence.move(3, 5)
+  |> expect.to_be_ok()
   |> sequence.values()
   |> expect.to_equal(["L", "c", "d", "b", "R", "e"])
 }

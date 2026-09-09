@@ -21,7 +21,7 @@ pub fn empty_round_trips_test() {
 }
 
 pub fn populated_round_trips_test() {
-  let doc =
+  let assert Ok(doc) =
     text.new(rid("A"))
     |> text.insert(0, "hello world")
   round_trip(doc)
@@ -29,10 +29,10 @@ pub fn populated_round_trips_test() {
 }
 
 pub fn value_survives_round_trip_test() {
-  let doc =
+  let assert Ok(inserted) =
     text.new(rid("A"))
     |> text.insert(0, "abc")
-    |> text.delete(1)
+  let assert Ok(doc) = text.delete(inserted, 1)
   let assert Ok(decoded) = round_trip(doc)
   text.value(decoded)
   |> expect.to_equal("ac")

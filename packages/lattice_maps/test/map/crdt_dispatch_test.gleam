@@ -59,8 +59,10 @@ pub fn default_crdt_or_set_test() {
 // --- merge dispatch tests ---
 
 pub fn merge_g_counter_dispatches_test() {
-  let a = CrdtGCounter(g_counter.new(rid("A")) |> g_counter.increment(3))
-  let b = CrdtGCounter(g_counter.new(rid("B")) |> g_counter.increment(5))
+  let assert Ok(a) = g_counter.new(rid("A")) |> g_counter.increment(3)
+  let assert Ok(b) = g_counter.new(rid("B")) |> g_counter.increment(5)
+  let a = CrdtGCounter(a)
+  let b = CrdtGCounter(b)
   let assert Ok(merged) = crdt.merge(a, b)
   case merged {
     CrdtGCounter(c) -> g_counter.value(c) |> expect.to_equal(8)
@@ -69,8 +71,10 @@ pub fn merge_g_counter_dispatches_test() {
 }
 
 pub fn merge_pn_counter_dispatches_test() {
-  let a = CrdtPnCounter(pn_counter.new(rid("A")) |> pn_counter.increment(3))
-  let b = CrdtPnCounter(pn_counter.new(rid("B")) |> pn_counter.increment(7))
+  let assert Ok(a) = pn_counter.new(rid("A")) |> pn_counter.increment(3)
+  let assert Ok(b) = pn_counter.new(rid("B")) |> pn_counter.increment(7)
+  let a = CrdtPnCounter(a)
+  let b = CrdtPnCounter(b)
   let assert Ok(merged) = crdt.merge(a, b)
   case merged {
     CrdtPnCounter(c) -> pn_counter.value(c) |> expect.to_equal(10)
@@ -146,14 +150,16 @@ pub fn merge_type_mismatch_returns_error_test() {
 // --- to_json / from_json round-trip tests ---
 
 pub fn to_json_from_json_g_counter_test() {
-  let c = CrdtGCounter(g_counter.new(rid("A")) |> g_counter.increment(5))
+  let assert Ok(c) = g_counter.new(rid("A")) |> g_counter.increment(5)
+  let c = CrdtGCounter(c)
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
   |> expect.to_equal(Ok(c))
 }
 
 pub fn to_json_from_json_pn_counter_test() {
-  let c = CrdtPnCounter(pn_counter.new(rid("A")) |> pn_counter.increment(3))
+  let assert Ok(c) = pn_counter.new(rid("A")) |> pn_counter.increment(3)
+  let c = CrdtPnCounter(c)
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
   |> expect.to_equal(Ok(c))

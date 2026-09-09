@@ -67,11 +67,11 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 
 pub fn main() {
-  let counter_a =
+  let assert Ok(counter_a) =
     g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(1)
 
-  let counter_b =
+  let assert Ok(counter_b) =
     g_counter.new(replica_id.new("node-b"))
     |> g_counter.increment(3)
 
@@ -82,9 +82,28 @@ pub fn main() {
 }
 ```
 
-`g_counter.increment` only accepts non-negative deltas. If you need both
+`g_counter.increment` returns `Result` and rejects negative deltas with
+`Error(NegativeDelta(delta))`. If you need both
 increments and decrements, use `lattice_counters/pn_counter`; its `increment` and
 `decrement` operations also require non-negative deltas.
+
+## Breaking API migration
+
+Counter, sequence, and text operations that previously panicked now return
+`Result` under their plain names. Replace calls such as `try_increment` and
+`try_insert_with_delta` with `increment` and `insert_with_delta`; handle or
+propagate the result. Text `append` and `append_with_delta` also return `Result`.
+Clamping `substring` and strict `try_substring` keep their existing behavior.
+
+Both sequence backends and text wrappers require an explicit output identity:
+`merge(local, remote, local_id)`. The argument order no longer selects the
+identity for later edits. `merge_as` remains an equivalent alias.
+
+`or_map.update` now returns `Result` and reports `TypeMismatch` instead of
+keeping a fallback value. LWW-register construction and updates use the
+`value:` label instead of `val:`. Import presence JSON functions from
+`lattice_presence/presence_state` instead of `lattice_presence/state_json`;
+the presence wire format is unchanged.
 
 ## Migrating from v1
 

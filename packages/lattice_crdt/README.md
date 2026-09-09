@@ -29,7 +29,7 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 
 pub fn main() {
-  let counter =
+  let assert Ok(counter) =
     g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(1)
 
@@ -47,7 +47,15 @@ pub fn main() {
 
 ## Delta-state replication
 
-Every leaf CRDT exposes a delta-state mutator alongside its state-based API. Each `op` of type `T -> args -> T` has a companion `op_with_delta` of type `T -> args -> #(T, T)` that returns both the new state and a small delta. The delta is itself a value of type `T` and merges into remote replicas via the existing `merge` function — there is no separate "apply delta" code path for leaf CRDTs.
+Leaf CRDTs expose `op_with_delta` alongside their state-only operations.
+Infallible operations return a state or `#(state, delta)`. Fallible operations
+return `Result` around the state or tuple. The delta has the same CRDT type as
+the state and uses the same `merge` function.
+
+Sequence and text merges require `merge(a, b, local_id)` to select the identity
+for later edits. `merge_as` remains an equivalent alias. Counter, sequence,
+and text edits now return `Result` under their plain names; remove the former
+`try_` prefix when upgrading, except for the distinct `try_substring` API.
 
 `ORMap` exposes `update_with_delta`, `remove_with_delta`, `apply_delta`, and `merge_deltas` for the composite case, with a dedicated `ORMapDelta` type for type safety.
 

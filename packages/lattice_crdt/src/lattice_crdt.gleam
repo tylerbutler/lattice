@@ -32,12 +32,15 @@
 ////
 //// ## Delta-state replication
 ////
-//// Every leaf CRDT exposes a delta-state mutator alongside its state-based
-//// API. Each `op` of type `T -> args -> T` has a companion `op_with_delta`
-//// of type `T -> args -> #(T, T)` that returns both the new state and a
-//// small delta. The delta is itself a value of type `T` and merges into
-//// remote replicas via the existing `merge` function — there is no separate
-//// "apply delta" code path for leaf CRDTs.
+//// Leaf CRDTs expose delta-state mutators alongside their state-based APIs.
+//// Infallible operations return a state or `#(state, delta)`. Fallible
+//// operations, including counter and sequence edits, return `Result` around
+//// the state or tuple. The delta has the same type as the state and uses
+//// the same `merge` function; leaf CRDTs need no separate apply-delta API.
+////
+//// Sequence and text merges require `merge(a, b, replica)`. The explicit
+//// replica identifies the editor that will make subsequent local edits,
+//// regardless of operand order. `merge_as` remains an equivalent alias.
 ////
 //// `ORMap` exposes `update_with_delta`, `remove_with_delta`, `apply_delta`,
 //// and `merge_deltas` for the composite case, with a dedicated `ORMapDelta`

@@ -12,7 +12,9 @@ pub fn text_round_trip_simple_test() {
   let doc =
     text.new(rid("A"))
     |> text.insert(0, "h")
+    |> expect.to_be_ok()
     |> text.insert(1, "i")
+    |> expect.to_be_ok()
 
   json.to_string(text.to_json(doc))
   |> text.from_json()
@@ -23,8 +25,11 @@ pub fn text_round_trip_with_tombstone_test() {
   let doc =
     text.new(rid("A"))
     |> text.insert(0, "a")
+    |> expect.to_be_ok()
     |> text.insert(1, "b")
+    |> expect.to_be_ok()
     |> text.delete(0)
+    |> expect.to_be_ok()
 
   json.to_string(text.to_json(doc))
   |> text.from_json()
@@ -35,7 +40,9 @@ pub fn text_round_trip_after_replace_range_test() {
   let doc =
     text.new(rid("A"))
     |> text.insert(0, "abcd")
+    |> expect.to_be_ok()
     |> text.replace_range(1, 3, "XY")
+    |> expect.to_be_ok()
 
   json.to_string(text.to_json(doc))
   |> text.from_json()
@@ -43,7 +50,7 @@ pub fn text_round_trip_after_replace_range_test() {
 }
 
 pub fn text_to_json_uses_sequence_envelope_test() {
-  let doc = text.new(rid("A")) |> text.insert(0, "x")
+  let doc = text.new(rid("A")) |> text.insert(0, "x") |> expect.to_be_ok()
 
   text.to_json(doc)
   |> json.to_string()

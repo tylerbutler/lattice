@@ -1,0 +1,6 @@
+package = "lattice_registers"
+kind = "Breaking"
+body = """
+Use the value label for LWW-register writes
+
+Replace val: with value: in labeled calls to lww_register.new, set, and set_with_delta. Positional arguments, timestamp rules, and JSON formats are unchanged."""

@@ -20,27 +20,25 @@
 ////
 //// ## Replica identity
 ////
-//// A sequence carries the replica id it mints node IDs under. `merge` is
-//// order-independent in its node set, order, and counter, but not in that
-//// id: the result keeps the FIRST argument's. Always call it as
-//// `merge(self, other)`, or use `merge_as` to state the local identity
-//// explicitly. Deltas are ordinary `Sequence` values stamped with the
-//// minting replica, so passing an incoming delta first would hand the local
-//// state the sender's identity and make later local edits mint colliding
-//// node IDs.
+//// A sequence carries the replica id it mints node IDs under. Both `merge`
+//// and its alias `merge_as` require that identity explicitly, so operand
+//// order cannot change the identity of later local edits. Each independent
+//// writer must use a distinct identity. Decoded snapshots retain their
+//// serialized identity: merge them with the local identity before editing.
 ////
 //// ## Example
 ////
 //// ```gleam
+//// import gleam/result
 //// import lattice_core/replica_id
 //// import lattice_fugue/sequence
 ////
 //// let list =
 ////   sequence.new(replica_id.new("node-a"))
 ////   |> sequence.insert(0, "hello")
-////   |> sequence.insert(1, "world")
+////   |> result.try(sequence.insert(_, 1, "world"))
 ////
-//// sequence.values(list)  // -> ["hello", "world"]
+//// result.map(list, sequence.values)  // -> Ok(["hello", "world"])
 //// ```
 
 import gleam/bool
@@ -124,6 +122,19 @@ pub type AnchorError {
 /// Create an empty sequence for a replica.
 pub fn new(replica_id: ReplicaId) -> Sequence(a) {
   Sequence(replica_id: replica_id, counter: 0, nodes: dict.new())
+}
+
+/// Return the replica identity used for subsequent local edits.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let local = replica_id.new("A")
+/// replica_id(new(local)) == local
+/// // -> True
+/// ```
+pub fn replica_id(sequence: Sequence(a)) -> ReplicaId {
+  sequence.replica_id
 }
 
 /// Return an empty delta carrying this sequence's replica identity.
@@ -221,37 +232,26 @@ fn visible_ids(nodes: Dict(NodeId, Node(a))) -> List(NodeId) {
 
 /// Insert a value at the visible item index.
 ///
-/// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
-/// `try_insert_with_delta` to handle an untrusted index without crashing.
-pub fn insert(sequence: Sequence(a), index: Int, value: a) -> Sequence(a) {
-  let assert Ok(#(updated, _delta)) =
-    try_insert_with_delta(sequence, index, value)
-  updated
+/// Returns `Error(IndexOutOfBounds)` when `index` is outside `[0, length]`.
+pub fn insert(
+  sequence: Sequence(a),
+  index: Int,
+  value: a,
+) -> Result(Sequence(a), InsertError) {
+  insert_with_delta(sequence, index, value)
+  |> result.map(fn(pair) { pair.0 })
 }
 
 /// Insert a value and return both the updated sequence and insertion delta.
 ///
-/// Panics with `IndexOutOfBounds` when `index` is outside `[0, length]`. Use
-/// `try_insert_with_delta` to handle an untrusted index without crashing.
-pub fn insert_with_delta(
-  sequence: Sequence(a),
-  index: Int,
-  value: a,
-) -> #(Sequence(a), Sequence(a)) {
-  let assert Ok(result) = try_insert_with_delta(sequence, index, value)
-  result
-}
-
-/// Safely insert a value and return both the updated sequence and insertion
-/// delta.
+/// Returns `Error(IndexOutOfBounds)` when `index` is outside `[0, length]`.
 ///
 /// A Fugue delta is always exactly one node, since parent/side never change
 /// after creation.
 ///
 /// The delta is a `Sequence` stamped with this replica's id. Apply it on a
-/// peer as `merge(peer_state, delta)` — local state first — or with
-/// `merge_as`; passing it first hands the peer this replica's identity.
-pub fn try_insert_with_delta(
+/// peer as `merge(peer_state, delta, local_replica)`, in either operand order.
+pub fn insert_with_delta(
   sequence: Sequence(a),
   index: Int,
   value: a,
@@ -329,27 +329,20 @@ fn successor_after(order: List(NodeId), target: NodeId) -> Option(NodeId) {
 
 /// Delete the value at the visible item index.
 ///
-/// Panics with `DeleteIndexOutOfBounds` when `index` is outside `[0, length)`.
-/// Use `try_delete_with_delta` to handle an untrusted index without crashing.
-pub fn delete(sequence: Sequence(a), index: Int) -> Sequence(a) {
-  let assert Ok(#(updated, _delta)) = try_delete_with_delta(sequence, index)
-  updated
+/// Returns `Error(DeleteIndexOutOfBounds)` when `index` is outside
+/// `[0, length)`.
+pub fn delete(
+  sequence: Sequence(a),
+  index: Int,
+) -> Result(Sequence(a), DeleteError) {
+  delete_with_delta(sequence, index)
+  |> result.map(fn(pair) { pair.0 })
 }
 
 /// Delete a value and return both the updated sequence and deletion delta.
 ///
-/// Panics with `DeleteIndexOutOfBounds` when `index` is outside `[0, length)`.
-/// Use `try_delete_with_delta` to handle an untrusted index without crashing.
-pub fn delete_with_delta(
-  sequence: Sequence(a),
-  index: Int,
-) -> #(Sequence(a), Sequence(a)) {
-  let assert Ok(result) = try_delete_with_delta(sequence, index)
-  result
-}
-
-/// Safely delete a value and return both the updated sequence and deletion
-/// delta.
+/// Returns `Error(DeleteIndexOutOfBounds)` when `index` is outside
+/// `[0, length)`.
 ///
 /// Deletes tombstone the node by setting its value to `None`; the node's
 /// identity/parent/side are retained because it may be an ancestor of live
@@ -357,9 +350,8 @@ pub fn delete_with_delta(
 /// parity with the rest of the library's delete-dot convention.
 ///
 /// The delta is a `Sequence` stamped with this replica's id. Apply it on a
-/// peer as `merge(peer_state, delta)` — local state first — or with
-/// `merge_as`; passing it first hands the peer this replica's identity.
-pub fn try_delete_with_delta(
+/// peer as `merge(peer_state, delta, local_replica)`, in either operand order.
+pub fn delete_with_delta(
   sequence: Sequence(a),
   index: Int,
 ) -> Result(#(Sequence(a), Sequence(a)), DeleteError) {
@@ -426,17 +418,9 @@ pub fn end_anchor() -> Anchor {
 /// it to the item at `index - 1`. Boundary positions with no item on the
 /// chosen side degrade to the start / end sentinels.
 ///
-/// Panics with `AnchorIndexOutOfBounds` when `index` is outside `[0, length]`.
-/// Use `try_anchor_at` to handle an untrusted index without crashing.
-pub fn anchor_at(sequence: Sequence(a), index: Int, bias: Bias) -> Anchor {
-  let assert Ok(anchor) = try_anchor_at(sequence, index, bias)
-  anchor
-}
-
-/// Safely create an anchor at the gap before the visible item at `index`.
-///
-/// Valid positions are `0 <= index <= length`.
-pub fn try_anchor_at(
+/// Returns `Error(AnchorIndexOutOfBounds)` when `index` is outside
+/// `[0, length]`.
+pub fn anchor_at(
   sequence: Sequence(a),
   index: Int,
   bias: Bias,
@@ -466,21 +450,13 @@ pub fn try_anchor_at(
 ///
 /// Anchors on deleted items still resolve: both biases collapse to the gap
 /// where the item used to be, because Fugue retains tombstoned nodes in the
-/// tree. Panics with `UnknownAnchorTarget` when the target node has never
-/// been merged into this replica; use `try_resolve` to treat that as
-/// "re-anchor".
-pub fn resolve(sequence: Sequence(a), anchor: Anchor) -> Int {
-  let assert Ok(index) = try_resolve(sequence, anchor)
-  index
-}
-
-/// Safely resolve an anchor to a current visible index in `[0, length]`.
+/// tree.
 ///
 /// Returns `Error(UnknownAnchorTarget)` when the anchor references a node this
 /// replica has never seen (created remotely and not yet merged). Because
 /// Fugue never drops nodes, any node that was ever merged remains resolvable,
 /// so this is the only failure mode.
-pub fn try_resolve(
+pub fn resolve(
   sequence: Sequence(a),
   anchor: Anchor,
 ) -> Result(Int, AnchorError) {
@@ -641,21 +617,23 @@ fn bias_decoder() -> decode.Decoder(Bias) {
 /// Sibling order and traversal order are pure functions of the resulting node
 /// set, so no re-integration pass is needed and convergence is immediate.
 ///
-/// ## Argument order matters
+/// The result uses `replica` for subsequent local edits, independent of
+/// operand order. Pass the local writer's identity, including when applying
+/// an incoming delta or decoded snapshot. Independent writers must not share
+/// an identity. The merged counter is the maximum of both input counters.
 ///
-/// The merged node set, order, and counter are order-independent, but the
-/// replica identity is NOT: the result adopts `a`'s replica id. Call this as
-/// `merge(self, other)` — local state first — or the result takes the remote's
-/// identity and every later local edit mints node IDs under a replica id that
-/// is still minting its own. Those IDs collide silently and merge conflates
-/// two distinct nodes.
+/// ## Examples
 ///
-/// Deltas returned by the `*_with_delta` functions are ordinary `Sequence`
-/// values stamped with the minting replica, so `merge(incoming_delta, state)`
-/// is the easy way to get this wrong. Use `merge_as` when the argument order
-/// is not statically obvious — it takes the local identity explicitly and is
-/// order-independent in every field.
-pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
+/// ```gleam
+/// let local = replica_id.new("A")
+/// merge(new(local), new(replica_id.new("B")), local)
+/// // -> new(local)
+/// ```
+pub fn merge(
+  a: Sequence(a),
+  b: Sequence(a),
+  replica: ReplicaId,
+) -> Sequence(a) {
   let nodes =
     dict.fold(b.nodes, a.nodes, fn(acc, id, b_node) {
       case dict.get(acc, id) {
@@ -664,7 +642,7 @@ pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
       }
     })
   Sequence(
-    replica_id: a.replica_id,
+    replica_id: replica,
     counter: int.max(a.counter, b.counter),
     nodes: nodes,
   )
@@ -672,12 +650,7 @@ pub fn merge(a: Sequence(a), b: Sequence(a)) -> Sequence(a) {
 
 /// Merge two sequence CRDT states under an explicitly named replica identity.
 ///
-/// Same as `merge`, except the merged state is stamped with `replica` instead
-/// of inheriting the first argument's id. That makes the call fully
-/// order-independent — `merge_as(a, b, replica)` equals
-/// `merge_as(b, a, replica)` in every field — so applying an incoming delta
-/// cannot re-mint local edits under the sender's replica id, whichever side
-/// it is passed on.
+/// A safe forwarding alias for `merge(a, b, replica)`.
 ///
 /// Pass the identity this replica edits under. The merged counter is the max
 /// of both sides, so it still dominates every ID `replica` has minted here.
@@ -686,7 +659,7 @@ pub fn merge_as(
   b: Sequence(a),
   replica: ReplicaId,
 ) -> Sequence(a) {
-  Sequence(..merge(a, b), replica_id: replica)
+  merge(a, b, replica)
 }
 
 fn merge_node(a: Node(a), b: Node(a)) -> Node(a) {

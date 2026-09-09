@@ -3,19 +3,21 @@ import lattice_core/replica_id
 import lattice_text/text
 
 pub fn main() {
-  let base = text.new(replica_id.new("base")) |> text.insert(0, "!")
+  let assert Ok(base) = text.new(replica_id.new("base")) |> text.insert(0, "!")
 
-  let alice =
-    text.merge(text.new(replica_id.new("alice")), base)
+  let alice_id = replica_id.new("alice")
+  let bob_id = replica_id.new("bob")
+  let assert Ok(alice) =
+    text.merge(text.new(alice_id), base, alice_id)
     |> text.insert(0, "h")
-    |> text.insert(1, "i")
+  let assert Ok(alice) = text.insert(alice, 1, "i")
 
-  let bob =
-    text.merge(text.new(replica_id.new("bob")), base)
+  let assert Ok(bob) =
+    text.merge(text.new(bob_id), base, bob_id)
     |> text.insert(0, "o")
-    |> text.insert(1, "k")
+  let assert Ok(bob) = text.insert(bob, 1, "k")
 
-  text.merge(alice, bob)
+  text.merge(alice, bob, alice_id)
   |> text.value()
   |> io.println()
 }

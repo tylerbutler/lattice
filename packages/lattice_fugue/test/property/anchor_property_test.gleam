@@ -1,4 +1,5 @@
 import gleam/list
+import gleam/result
 import lattice_core/replica_id
 import lattice_fugue/sequence
 import qcheck
@@ -14,10 +15,13 @@ fn small_test_config() -> qcheck.Config {
   qcheck.config(test_count: 1000, max_retries: 3, seed: qcheck.seed(42))
 }
 
-fn doc_of_length(n: Int) -> sequence.Sequence(Int) {
+fn doc_of_length(
+  n: Int,
+) -> Result(sequence.Sequence(Int), sequence.InsertError) {
   list.repeat(0, n)
-  |> list.index_fold(sequence.new(rid("A")), fn(acc, _v, i) {
-    sequence.insert(acc, i, i)
+  |> list.index_fold(Ok(sequence.new(rid("A"))), fn(acc, _v, i) {
+    use state <- result.try(acc)
+    sequence.insert(state, i, i)
   })
 }
 
@@ -26,15 +30,15 @@ fn doc_of_length(n: Int) -> sequence.Sequence(Int) {
 // the anchor, so its resolved index is unchanged.
 pub fn after_anchor_stable_under_later_inserts__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(1, 8), fn(n) {
-    let seq = doc_of_length(n)
+    let assert Ok(seq) = doc_of_length(n)
     let gap = 1
-    let anchor = sequence.anchor_at(seq, gap, sequence.After)
-    let before = sequence.resolve(seq, anchor)
+    let assert Ok(anchor) = sequence.anchor_at(seq, gap, sequence.After)
+    let assert Ok(before) = sequence.resolve(seq, anchor)
 
     // Insert at the very end, strictly after the anchor gap.
-    let updated = sequence.insert(seq, sequence.length(seq), 99)
+    let assert Ok(updated) = sequence.insert(seq, sequence.length(seq), 99)
     sequence.resolve(updated, anchor)
-    |> expect.to_equal(before)
+    |> expect.to_equal(Ok(before))
     Nil
   })
 }
@@ -43,18 +47,18 @@ pub fn after_anchor_stable_under_later_inserts__test() {
 // exactly the number of items inserted strictly before that gap.
 pub fn before_anchor_shifts_by_earlier_inserts__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(2, 8), fn(n) {
-    let seq = doc_of_length(n)
+    let assert Ok(seq) = doc_of_length(n)
     let gap = 2
-    let anchor = sequence.anchor_at(seq, gap, sequence.Before)
-    let before = sequence.resolve(seq, anchor)
+    let assert Ok(anchor) = sequence.anchor_at(seq, gap, sequence.Before)
+    let assert Ok(before) = sequence.resolve(seq, anchor)
 
     // Insert two items at the front, strictly before the anchor gap.
-    let updated =
+    let assert Ok(updated) =
       seq
       |> sequence.insert(0, 100)
-      |> sequence.insert(0, 101)
+      |> result.try(sequence.insert(_, 0, 101))
     sequence.resolve(updated, anchor)
-    |> expect.to_equal(before + 2)
+    |> expect.to_equal(Ok(before + 2))
     Nil
   })
 }
@@ -63,18 +67,19 @@ pub fn before_anchor_shifts_by_earlier_inserts__test() {
 // against a merge and its reverse yields the same index.
 pub fn anchor_resolution_merge_order_invariant__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(1, 6), fn(n) {
-    let seq_a = doc_of_length(n)
-    let anchor = sequence.anchor_at(seq_a, 1, sequence.After)
+    let assert Ok(seq_a) = doc_of_length(n)
+    let assert Ok(anchor) = sequence.anchor_at(seq_a, 1, sequence.After)
 
-    let seq_b =
+    let assert Ok(seq_b) =
       sequence.new(rid("B"))
       |> sequence.insert(0, 500)
-      |> sequence.insert(1, 501)
+      |> result.try(sequence.insert(_, 1, 501))
 
-    let forward = sequence.merge(seq_a, seq_b)
-    let backward = sequence.merge(seq_b, seq_a)
-    sequence.resolve(forward, anchor)
-    |> expect.to_equal(sequence.resolve(backward, anchor))
+    let forward = sequence.merge(seq_a, seq_b, rid("A"))
+    let backward = sequence.merge(seq_b, seq_a, rid("A"))
+    let assert Ok(index) = sequence.resolve(forward, anchor)
+    sequence.resolve(backward, anchor)
+    |> expect.to_equal(Ok(index))
     Nil
   })
 }

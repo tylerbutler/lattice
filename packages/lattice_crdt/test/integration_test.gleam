@@ -39,18 +39,20 @@ pub fn cross_package_imports_compile_test() {
 
 pub fn or_map_with_g_counter_cross_package_test() {
   // Create an ORMap holding GCounter values across package boundaries
-  let map_a =
+  let assert Ok(map_a) =
     or_map.new(rid("node-a"), crdt.GCounterSpec)
     |> or_map.update("score", fn(c) {
       let assert crdt.CrdtGCounter(gc) = c
-      crdt.CrdtGCounter(g_counter.increment(gc, 10))
+      let assert Ok(gc) = g_counter.increment(gc, 10)
+      crdt.CrdtGCounter(gc)
     })
 
-  let map_b =
+  let assert Ok(map_b) =
     or_map.new(rid("node-b"), crdt.GCounterSpec)
     |> or_map.update("score", fn(c) {
       let assert crdt.CrdtGCounter(gc) = c
-      crdt.CrdtGCounter(g_counter.increment(gc, 5))
+      let assert Ok(gc) = g_counter.increment(gc, 5)
+      crdt.CrdtGCounter(gc)
     })
 
   let assert Ok(merged) = or_map.merge(map_a, map_b)
@@ -63,9 +65,9 @@ pub fn or_map_with_g_counter_cross_package_test() {
 
 pub fn crdt_dispatch_merge_heterogeneous_test() {
   // Verify the dispatch module correctly merges same-type CRDTs
-  let a = crdt.CrdtGCounter(g_counter.new(rid("a")) |> g_counter.increment(3))
-  let b = crdt.CrdtGCounter(g_counter.new(rid("b")) |> g_counter.increment(7))
-  let assert Ok(merged) = crdt.merge(a, b)
+  let assert Ok(a) = g_counter.new(rid("a")) |> g_counter.increment(3)
+  let assert Ok(b) = g_counter.new(rid("b")) |> g_counter.increment(7)
+  let assert Ok(merged) = crdt.merge(crdt.CrdtGCounter(a), crdt.CrdtGCounter(b))
 
   let assert crdt.CrdtGCounter(gc) = merged
   g_counter.value(gc)
