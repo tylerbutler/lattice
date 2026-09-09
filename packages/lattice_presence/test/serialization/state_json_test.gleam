@@ -73,7 +73,7 @@ pub fn roundtrip_state_with_multiple_replicas_test() {
   let b = state.new("node_b")
   let b = state.join(b, "p2", "lobby", "bob", json.null())
 
-  let merged = state.merge(a, b)
+  let assert Ok(merged) = state.merge(a, b)
 
   let json_str = state_json.to_json_string(merged)
   let assert Ok(decoded) = state_json.from_json(json_str)
@@ -96,7 +96,7 @@ pub fn roundtrip_state_with_replica_down_test() {
   let b = state.new("node_b")
   let b = state.join(b, "p1", "lobby", "bob", json.null())
 
-  let a = state.merge(a, b)
+  let assert Ok(a) = state.merge(a, b)
   let #(a, _) = state.replica_down(a, "node_b")
 
   let json_str = state_json.to_json_string(a)
@@ -117,7 +117,7 @@ pub fn roundtrip_preserves_merge_semantics_test() {
   let json_str = state_json.to_json_string(a)
   let assert Ok(a_roundtripped) = state_json.from_json(json_str)
 
-  let #(merged, diff) = state.merge_with_diff(a_roundtripped, b)
+  let assert Ok(#(merged, diff)) = state.merge_with_diff(a_roundtripped, b)
 
   state.get_by_topic(merged, "lobby")
   |> list.length
@@ -235,7 +235,7 @@ pub fn from_json_rejects_deep_metadata_test() {
 pub fn to_json_string_does_not_serialize_local_replica_liveness_test() {
   let a = state.new("node_a")
   let b = state.new("node_b") |> state.join("p1", "lobby", "bob", json.null())
-  let a = state.merge(a, b)
+  let assert Ok(a) = state.merge(a, b)
   let #(a, _) = state.replica_down(a, "node_b")
 
   let encoded = state_json.to_json_string(a)
@@ -260,8 +260,8 @@ pub fn serialize_deserialize_merge_converges_test() {
   let assert Ok(a_from_json) = state_json.from_json(a_json)
   let assert Ok(b_from_json) = state_json.from_json(b_json)
 
-  let a_merged = state.merge(a, b_from_json)
-  let b_merged = state.merge(b, a_from_json)
+  let assert Ok(a_merged) = state.merge(a, b_from_json)
+  let assert Ok(b_merged) = state.merge(b, a_from_json)
 
   state.get_by_topic(a_merged, "lobby")
   |> set.from_list
