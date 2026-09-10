@@ -24,7 +24,7 @@ pub fn lww_register_to_json_simple_test() {
 pub fn lww_register_round_trip_updated_test() {
   let reg =
     lww_register.new("initial", 1, rid("test-replica"))
-    |> lww_register.set("updated", 100)
+    |> lww_register.set("updated", 100, rid("test-replica"))
   let json_str = json.to_string(lww_register.to_json(reg))
   lww_register.from_json(json_str)
   |> expect.to_equal(Ok(reg))
@@ -77,10 +77,11 @@ pub fn lww_register_snapshot_seeds_a_logical_clock_test() {
       let our_clock = 4000
       let stamped = int.max(our_clock, lww_register.timestamp(loaded) + 1)
 
-      let erased = lww_register.set(loaded, "erased", stamped)
+      let erased = lww_register.set(loaded, "erased", stamped, rid("local"))
 
       expect.to_equal(lww_register.value(erased), "erased")
       expect.to_equal(lww_register.timestamp(erased), 5001)
+      expect.to_equal(lww_register.replica_id(erased), rid("local"))
     }
     Error(_) -> expect.to_be_true(False)
   }
@@ -192,9 +193,9 @@ pub fn lww_register_generic_int_and_historical_author_round_trip_test() {
     |> json.to_string()
     |> lww_register.from_json_with(decode.int)
   loaded |> expect.to_equal(original)
-  lww_register.set_as(loaded, 43, 12, rid("new"))
+  lww_register.set(loaded, 43, 12, rid("new"))
   |> expect.to_equal(original)
-  let updated = lww_register.set_as(loaded, 43, 13, rid("new"))
+  let updated = lww_register.set(loaded, 43, 13, rid("new"))
   lww_register.to_json_with(updated, json.int)
   |> json.to_string()
   |> lww_register.from_json_with(decode.int)

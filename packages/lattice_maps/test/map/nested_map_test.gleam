@@ -55,7 +55,7 @@ pub fn recursive_register_default_is_schema_not_current_value_test() {
           lww_register.value(register) |> expect.to_equal(42)
           Ok(
             crdt.StateDelta(
-              crdt.CrdtLwwRegister(lww_register.set_as(
+              crdt.CrdtLwwRegister(lww_register.set(
                 register,
                 100,
                 1,
@@ -181,7 +181,7 @@ pub fn binding_never_rewrites_historical_lww_register_author_test() {
       let assert crdt.CrdtLwwRegister(value) = value
       Ok(
         crdt.StateDelta(
-          crdt.CrdtLwwRegister(lww_register.set_as(
+          crdt.CrdtLwwRegister(lww_register.set(
             value,
             100,
             11,

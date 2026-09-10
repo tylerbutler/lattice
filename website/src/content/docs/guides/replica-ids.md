@@ -87,9 +87,10 @@ the same writer does not restart the old leaf's item namespace.
 LWWMap child replacements use the new outer write identity as part of
 their scope.
 
-Do not alter an LWWRegister's stored author when adopting it. Use an
-explicit-author write to create a new register value under the local
-editing identity.
+Do not alter an LWWRegister's stored author when adopting it. Pass the local
+identity to every `lww_register.set` or `set_with_delta` call. A writer must not
+reuse one timestamp for different values. After a restart, use a fresh replica
+ID or restore a durable logical clock beyond every write made by that ID.
 
 ## Presence incarnations
 

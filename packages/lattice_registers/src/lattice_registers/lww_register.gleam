@@ -51,13 +51,12 @@ pub fn new(
   LWWRegister(value: value, timestamp: timestamp, replica_id: replica_id)
 }
 
-/// Update the register if `timestamp` is strictly greater than the current one.
+/// Write a value as `replica_id` if `timestamp` is strictly greater.
 ///
 /// If `timestamp > register.timestamp`, replaces the stored value and
-/// timestamp with the new ones. Otherwise returns the register unchanged.
-/// This ensures only strictly newer writes are accepted.
-/// The `replica_id` is preserved from the original register. Use `set_as`
-/// to author a new write after adopting another replica's winning value.
+/// write metadata. Otherwise returns the register unchanged. Supplying the
+/// writer explicitly prevents a local write after `merge` from inheriting the
+/// winning remote writer's identity.
 ///
 /// Note that the comparison is *strict*, so a wall clock is not a safe source
 /// on its own: it stalls for a millisecond at a time, and a second write
@@ -66,14 +65,28 @@ pub fn new(
 /// `int.max(wall_clock, timestamp(register) + 1)`, which keeps every local
 /// write ordered while leaving `merge` commutative.
 ///
+/// A writer must not reuse the same `(timestamp, replica_id)` for different
+/// values. After a restart, use a fresh replica ID or restore a durable logical
+/// clock that advances beyond every prior write from that ID.
+///
 /// See `set_with_delta` for the delta-state variant that also returns a
 /// small payload suitable for incremental sync (e.g. over websockets).
+///
+/// ## Examples
+///
+/// ```gleam
+/// let local = replica_id.new("B")
+/// let adopted = lww_register.new("old", 1, replica_id.new("A"))
+/// let updated = lww_register.set(adopted, "new", 2, local)
+/// lww_register.replica_id(updated)  // -> local
+/// ```
 pub fn set(
   register register: LWWRegister(a),
   value value: a,
   timestamp timestamp: Int,
+  replica_id replica_id: ReplicaId,
 ) -> LWWRegister(a) {
-  let #(updated, _) = set_with_delta(register:, value:, timestamp:)
+  let #(updated, _) = set_with_delta(register:, value:, timestamp:, replica_id:)
   updated
 }
 
@@ -88,56 +101,6 @@ pub fn set(
 /// Merging the delta into a remote via `merge` produces the same result as
 /// merging the new local state, preserving convergence.
 pub fn set_with_delta(
-  register register: LWWRegister(a),
-  value value: a,
-  timestamp timestamp: Int,
-) -> #(LWWRegister(a), LWWRegister(a)) {
-  set_as_with_delta(
-    register:,
-    value:,
-    timestamp:,
-    replica_id: register.replica_id,
-  )
-}
-
-/// Write a strictly newer value as the given replica.
-///
-/// Unlike `set`, an accepted write records the supplied author. A rejected
-/// write leaves the value, timestamp, and historical author unchanged.
-/// Equal timestamps are rejected even if the new author sorts higher.
-///
-/// ## Examples
-///
-/// ```gleam
-/// let old = lww_register.new("old", 1, replica_id.new("A"))
-/// let updated = lww_register.set_as(old, "new", 2, replica_id.new("B"))
-/// lww_register.replica_id(updated)  // -> replica_id.new("B")
-/// ```
-pub fn set_as(
-  register register: LWWRegister(a),
-  value value: a,
-  timestamp timestamp: Int,
-  replica_id replica_id: ReplicaId,
-) -> LWWRegister(a) {
-  let #(updated, _) =
-    set_as_with_delta(register:, value:, timestamp:, replica_id:)
-  updated
-}
-
-/// Write as the given replica and return the accepted state and delta.
-///
-/// Both results carry the accepted write. For a rejected timestamp, both
-/// retain the unchanged register, including its historical author.
-///
-/// ## Examples
-///
-/// ```gleam
-/// let old = lww_register.new("old", 1, replica_id.new("A"))
-/// let #(updated, delta) =
-///   lww_register.set_as_with_delta(old, "new", 2, replica_id.new("B"))
-/// lww_register.merge(old, delta) == updated  // -> True
-/// ```
-pub fn set_as_with_delta(
   register register: LWWRegister(a),
   value value: a,
   timestamp timestamp: Int,
@@ -179,10 +142,9 @@ pub fn timestamp(register: LWWRegister(a)) -> Int {
 
 /// Return the replica that owns the value the register currently holds.
 ///
-/// `set` preserves the held author; `set_as` records its supplied author only
-/// for an accepted write. After `merge` this is the replica whose write won,
-/// which makes it useful for provenance and for tie-breaking consistently
-/// with `merge` in downstream code.
+/// `set` records its supplied author only for an accepted write. After `merge`
+/// this is the replica whose write won, which makes it useful for provenance
+/// and for tie-breaking consistently with `merge` in downstream code.
 pub fn replica_id(register: LWWRegister(a)) -> ReplicaId {
   register.replica_id
 }

@@ -166,7 +166,7 @@ pub fn set(
 /// ```
 ///
 /// To edit an existing child instead, use the callback's first argument. For an
-/// LWWRegister, also pass `context.replica_id` to `lww_register.set_as`.
+/// LWWRegister, pass `context.replica_id` to `lww_register.set`.
 pub fn update(
   map: LWWMap(a),
   key: String,

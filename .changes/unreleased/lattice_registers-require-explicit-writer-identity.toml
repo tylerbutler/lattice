@@ -1,0 +1,6 @@
+package = "lattice_registers"
+kind = "Breaking"
+body = """
+Require explicit writer identity for LWWRegister updates
+
+Pass the local ReplicaId as the fourth argument to set and set_with_delta. Replace set_as with set and set_as_with_delta with set_with_delta. Writers must use a fresh replica ID after restart or restore a durable clock so one write stamp is never reused for different values."""

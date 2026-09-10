@@ -21,9 +21,10 @@ import lattice_core/replica_id
 import lattice_registers/lww_register
 
 pub fn main() {
-  let register = lww_register.new("draft", 1, replica_id.new("node-a"))
+  let local = replica_id.new("node-a")
+  let register = lww_register.new("draft", 1, local)
 
-  let updated = lww_register.set(register, "published", 2)
+  let updated = lww_register.set(register, "published", 2, local)
 
   lww_register.value(updated)
   // -> "published"
@@ -37,11 +38,17 @@ Labeled calls to `new`, `set`, and `set_with_delta` use `value:`:
 
 ```gleam
 let updated =
-  lww_register.set(register: register, value: "published", timestamp: 2)
+  lww_register.set(
+    register: register,
+    value: "published",
+    timestamp: 2,
+    replica_id: local,
+  )
 ```
 
-Replace the former `val:` label when upgrading. Positional argument order is
-unchanged.
+Every update requires the local writer ID. When upgrading, add that fourth
+argument to `set` and `set_with_delta`; replace old `set_as` calls with `set`
+and old `set_as_with_delta` calls with `set_with_delta`.
 
 ### Equal-timestamp ties
 
@@ -100,6 +107,10 @@ clock from what the snapshot holds, or its first write to a key can lose to a
 checkpoint written by a replica whose clock ran ahead. Fold `timestamp` over the
 decoded registers to recover that starting point — no JSON round trip needed.
 
+A writer must not reuse one `(timestamp, replica_id)` stamp for different
+values. Generate a fresh replica ID after a process restart, or persist and
+restore a logical clock that advances beyond every write made by the reused ID.
+
 `lww_register.replica_id` reads back the other half of the metadata: the replica
 that wrote the value currently held. After a merge that is the replica whose
 write won, which makes it useful for provenance and for tie-breaking
@@ -150,8 +161,7 @@ Both register modules provide `to_json_with(value, encode)` and
 `from_json_with(input, decoder)` for generic payloads. Existing String
 codec entry points keep their formats.
 
-An adopted LWWRegister retains the author of its winning write. Use
-`set_as(register, value, timestamp, local_id)` or its
-`set_as_with_delta` companion to author a new write. Ordinary `set`
-keeps its existing author behavior. In a map update callback, use the
-provided `context.replica_id` for the new write.
+An adopted LWWRegister retains the author of its winning write. Pass the local
+writer to `set(register, value, timestamp, local_id)` or
+`set_with_delta(register, value, timestamp, local_id)` to author a new write.
+In a map update callback, use the provided `context.replica_id`.

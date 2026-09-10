@@ -21,7 +21,7 @@ pub fn main() {
 
   let register =
     lww_register.new("draft", 1, node_a)
-    |> lww_register.set("published", 2)
+    |> lww_register.set("published", 2, node_a)
 
   lww_register.value(register)
   // -> "published"
@@ -50,10 +50,14 @@ Both register types accept generic payloads. Use `to_json_with` and
 records, or tagged unions. The existing `to_json` and `from_json` entry
 points retain their String formats.
 
-An LWWRegister stores the author of its winning write. Loading a register
-on another replica must not change that author. Use `set_as` to make a
-new write with an explicit local author; ordinary `set` retains its
-existing author behavior.
+An LWWRegister stores the author of its winning write. Loading or merging a
+register on another replica does not change that author. Every `set` and
+`set_with_delta` call requires the local writer ID so a new write cannot inherit
+the remote winner's identity.
+
+Do not reuse the same timestamp and replica ID for different values. After a
+restart, generate a fresh replica ID or restore a durable logical clock that
+advances beyond every prior write from that ID.
 
 ## Links
 

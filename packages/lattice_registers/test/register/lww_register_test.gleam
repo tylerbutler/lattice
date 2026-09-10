@@ -18,12 +18,18 @@ pub fn value_labels_work_for_construction_and_updates_test() {
   let register =
     lww_register.new(value: "initial", timestamp: 1, replica_id: rid("writer"))
   let register =
-    lww_register.set(register: register, value: "updated", timestamp: 2)
+    lww_register.set(
+      register: register,
+      value: "updated",
+      timestamp: 2,
+      replica_id: rid("writer"),
+    )
   let #(updated, delta) =
     lww_register.set_with_delta(
       register: register,
       value: "final",
       timestamp: 3,
+      replica_id: rid("writer"),
     )
 
   lww_register.value(updated) |> expect.to_equal("final")
@@ -39,21 +45,21 @@ pub fn value_returns_current_value_test() {
 
 pub fn set_updates_value_when_timestamp_is_higher_test() {
   lww_register.new("hello", 1, rid("test-replica"))
-  |> lww_register.set("world", 2)
+  |> lww_register.set("world", 2, rid("test-replica"))
   |> lww_register.value
   |> expect.to_equal("world")
 }
 
 pub fn set_keeps_value_when_timestamp_is_lower_test() {
   lww_register.new("hello", 1, rid("test-replica"))
-  |> lww_register.set("world", 0)
+  |> lww_register.set("world", 0, rid("other-replica"))
   |> lww_register.value
   |> expect.to_equal("hello")
 }
 
 pub fn set_keeps_value_when_timestamp_is_equal_test() {
   lww_register.new("hello", 5, rid("test-replica"))
-  |> lww_register.set("world", 5)
+  |> lww_register.set("world", 5, rid("other-replica"))
   |> lww_register.value
   |> expect.to_equal("hello")
 }
@@ -152,21 +158,21 @@ pub fn timestamp_returns_constructed_timestamp_test() {
 
 pub fn timestamp_advances_after_accepted_set_test() {
   lww_register.new("hello", 1, rid("test-replica"))
-  |> lww_register.set("world", 7)
+  |> lww_register.set("world", 7, rid("test-replica"))
   |> lww_register.timestamp
   |> expect.to_equal(7)
 }
 
 pub fn timestamp_unchanged_after_rejected_equal_set_test() {
   lww_register.new("hello", 5, rid("test-replica"))
-  |> lww_register.set("world", 5)
+  |> lww_register.set("world", 5, rid("other-replica"))
   |> lww_register.timestamp
   |> expect.to_equal(5)
 }
 
 pub fn timestamp_unchanged_after_rejected_lower_set_test() {
   lww_register.new("hello", 5, rid("test-replica"))
-  |> lww_register.set("world", 2)
+  |> lww_register.set("world", 2, rid("other-replica"))
   |> lww_register.timestamp
   |> expect.to_equal(5)
 }
@@ -186,11 +192,11 @@ pub fn replica_id_returns_constructed_replica_test() {
   |> expect.to_equal(rid("test-replica"))
 }
 
-pub fn replica_id_survives_set_test() {
+pub fn set_records_the_supplied_writer_test() {
   lww_register.new("hello", 1, rid("owner"))
-  |> lww_register.set("world", 2)
+  |> lww_register.set("world", 2, rid("local-writer"))
   |> lww_register.replica_id
-  |> expect.to_equal(rid("owner"))
+  |> expect.to_equal(rid("local-writer"))
 }
 
 pub fn replica_id_after_tiebreak_merge_is_the_winners_test() {
@@ -213,16 +219,16 @@ pub fn timestamp_seeds_a_logical_clock_test() {
   let wall_clock = 100
   let seeded = int.max(wall_clock, lww_register.timestamp(snapshot) + 1)
 
-  let erased = lww_register.set(snapshot, "erased", seeded)
+  let erased = lww_register.set(snapshot, "erased", seeded, rid("local"))
 
   expect.to_equal(lww_register.value(erased), "erased")
   expect.to_equal(lww_register.timestamp(erased), 101)
 }
 
-pub fn set_as_records_only_an_accepted_new_author_test() {
+pub fn set_records_only_an_accepted_new_author_test() {
   let historical = lww_register.new("original", 10, rid("A"))
   let updated =
-    lww_register.set_as(
+    lww_register.set(
       register: historical,
       value: "new",
       timestamp: 11,
@@ -233,21 +239,20 @@ pub fn set_as_records_only_an_accepted_new_author_test() {
   lww_register.replica_id(updated) |> expect.to_equal(rid("B"))
   lww_register.timestamp(updated) |> expect.to_equal(11)
   lww_register.value(updated) |> expect.to_equal("new")
-  lww_register.set_as(historical, "ignored", 10, rid("Z"))
+  lww_register.set(historical, "ignored", 10, rid("Z"))
   |> expect.to_equal(historical)
-  lww_register.set_as(historical, "ignored", 9, rid("Z"))
+  lww_register.set(historical, "ignored", 9, rid("Z"))
   |> expect.to_equal(historical)
-  lww_register.set(updated, "next", 12)
+  lww_register.set(updated, "next", 12, rid("C"))
   |> lww_register.replica_id()
-  |> expect.to_equal(rid("B"))
+  |> expect.to_equal(rid("C"))
 }
 
-pub fn set_as_delta_preserves_author_and_equal_timestamp_order_test() {
+pub fn set_delta_preserves_author_and_equal_timestamp_order_test() {
   let historical = lww_register.new("original", 10, rid("Z"))
-  let #(a, delta_a) =
-    lww_register.set_as_with_delta(historical, "a", 11, rid("A"))
+  let #(a, delta_a) = lww_register.set_with_delta(historical, "a", 11, rid("A"))
   let #(b, delta_b) =
-    lww_register.set_as_with_delta(
+    lww_register.set_with_delta(
       register: historical,
       value: "b",
       timestamp: 11,
@@ -257,8 +262,42 @@ pub fn set_as_delta_preserves_author_and_equal_timestamp_order_test() {
   lww_register.merge(historical, delta_b) |> expect.to_equal(b)
   lww_register.merge(a, b) |> expect.to_equal(b)
   lww_register.merge(b, a) |> expect.to_equal(b)
-  lww_register.set_as_with_delta(a, "ignored", 11, rid("Z"))
+  lww_register.set_with_delta(a, "ignored", 11, rid("Z"))
   |> expect.to_equal(#(a, a))
-  lww_register.set_as_with_delta(a, "ignored", 0, rid("Z"))
+  lww_register.set_with_delta(a, "ignored", 0, rid("Z"))
   |> expect.to_equal(#(a, a))
+}
+
+pub fn merge_then_write_uses_each_local_writer_and_converges_test() {
+  let shared =
+    lww_register.merge(
+      lww_register.new("initial A", 10, rid("A")),
+      lww_register.new("initial B", 10, rid("B")),
+    )
+  let a = lww_register.set(shared, "A wrote", 11, rid("A"))
+  let b = lww_register.set(shared, "B wrote", 11, rid("B"))
+
+  lww_register.replica_id(a) |> expect.to_equal(rid("A"))
+  lww_register.replica_id(b) |> expect.to_equal(rid("B"))
+  lww_register.merge(a, b) |> expect.to_equal(b)
+  lww_register.merge(b, a) |> expect.to_equal(b)
+}
+
+pub fn repeated_merge_then_write_cycles_keep_local_writer_test() {
+  let shared =
+    lww_register.merge(
+      lww_register.new("A0", 10, rid("A")),
+      lww_register.new("B0", 10, rid("B")),
+    )
+  let first =
+    lww_register.merge(
+      lww_register.set(shared, "A1", 11, rid("A")),
+      lww_register.set(shared, "B1", 11, rid("B")),
+    )
+  let a = lww_register.set(first, "A2", 12, rid("A"))
+  let b = lww_register.set(first, "B2", 12, rid("B"))
+
+  lww_register.replica_id(a) |> expect.to_equal(rid("A"))
+  lww_register.replica_id(b) |> expect.to_equal(rid("B"))
+  lww_register.merge(a, b) |> expect.to_equal(lww_register.merge(b, a))
 }

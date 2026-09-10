@@ -199,7 +199,7 @@ pub fn update_with_delta(
 /// let assert Ok(#(updated, delta)) =
 ///   or_map.update_delta(map, "title", fn(value, context) {
 ///     let assert crdt.CrdtLwwRegister(register) = value
-///     let #(_, change) = lww_register.set_as_with_delta(
+///     let #(_, change) = lww_register.set_with_delta(
 ///       register, "New title", lww_register.timestamp(register) + 1,
 ///       context.replica_id,
 ///     )

@@ -309,7 +309,7 @@ pub fn merge_lww_register_unicode_order_test() {
     or_map.new(rid("\u{e000}"), LwwRegisterSpec(""))
     |> or_map.update("name", fn(value) {
       let assert CrdtLwwRegister(register) = value
-      CrdtLwwRegister(lww_register.set_as(
+      CrdtLwwRegister(lww_register.set(
         register,
         "bmp value",
         5,
@@ -320,7 +320,7 @@ pub fn merge_lww_register_unicode_order_test() {
     or_map.new(rid("\u{10000}"), LwwRegisterSpec(""))
     |> or_map.update("name", fn(value) {
       let assert CrdtLwwRegister(register) = value
-      CrdtLwwRegister(lww_register.set_as(
+      CrdtLwwRegister(lww_register.set(
         register,
         "supplementary value",
         5,
