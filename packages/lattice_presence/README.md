@@ -37,6 +37,36 @@ pub fn main() {
 |--------|---------|
 | `lattice_presence/presence_state` | Presence CRDT state, joins/leaves, merges, diffs, liveness, queries, and JSON encoding/decoding. |
 
+## Cleanup after a peer restarts
+
+After your membership protocol establishes the current incarnation of a peer,
+call `presence_state.supersede(local, current_replica)`. It removes other known
+incarnations of that base and returns one combined leave diff:
+
+```gleam
+case presence_state.supersede(local, current_replica) {
+  Ok(#(state, diff)) -> Ok(#(state, diff.leaves))
+  Error(error) -> Error(error)
+}
+```
+
+Use the returned leaves to notify subscribers. Joins are empty; entries already
+hidden by `replica_down` do not produce another leave. The selected incarnation
+and unrelated bases stay unchanged. The helper does not mark the selected
+incarnation Up or require it to be present.
+
+Incarnation UUIDs do not establish age. Do not select the current incarnation
+from message arrival order: a delayed old sync could otherwise remove the
+current peer's entries. The helper returns
+`CannotSupersedeLocalReplica(local_replica, current_replica)` if the selection
+would retire the local writer. On a local restart, create a fresh state with
+`new_incarnation` instead.
+
+Cleanup retains causal high-water marks, so covered stale tags cannot return.
+It does not ban future data from a retired identity; previously unseen higher
+clocks can still arrive. Without new intervening entries, a repeated call
+returns the same state and an empty diff.
+
 ## Serialization
 
 Use `presence_state.to_json` or `presence_state.to_json_string` to encode state,
@@ -74,7 +104,7 @@ have been removed. Construct serialized fixtures through the public JSON decoder
 
 ## Notes
 
-- `presence_state` exposes `new`, `new_incarnation`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `online_list`, `get_by_topic`, and `get_by_key`.
+- `presence_state` exposes `new`, `new_incarnation`, `join`, `leave`, `leave_by_pid`, `merge`, `merge_with_diff`, `supersede`, `online_list`, `get_by_topic`, and `get_by_key`.
 - `merge` and `merge_with_diff` return `Result`; handle `SameReplica` by rejecting stale restart echoes or fixing duplicate replica names.
 - The check also rejects unseen local-owned tags or causal history carried by another peer, including history whose entries have been removed. Gossip of already-known local tags remains valid; this check is not a substitute for unique incarnation identities.
 - An identical state from the same replica is accepted as an idempotent no-op. Divergent states must use unique replica names.
@@ -82,7 +112,7 @@ have been removed. Construct serialized fixtures through the public JSON decoder
 - Replica identity uniqueness is per process incarnation. Use `new_incarnation` with a stable node name on every process start so peers cannot confuse new joins with causal history retained from an earlier run.
 - A restarted state rejects cached values from earlier incarnations of its stable replica while retaining their causal context, so merging it back removes those stale entries from peers.
 - Replica liveness is local-only: `replica_down` and `replica_up` affect local visibility and are not merged as replicated state.
-- `remove_down_replica` permanently removes a down replica's entries while retaining its replicated causal high-water mark so stale gossip cannot restore them.
+- `remove_down_replica` removes a down replica's entries while retaining its replicated causal high-water mark so stale gossip cannot restore covered tags.
 - Use `presence_state.to_json_string` and `presence_state.from_json` for persistence or transport.
 
 ## Links

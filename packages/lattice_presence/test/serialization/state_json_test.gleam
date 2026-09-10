@@ -35,6 +35,60 @@ pub fn roundtrip_incarnation_identity_test() {
   dict.get(state.compacted_clocks(decoded), replica) |> expect.to_equal(Ok(1))
 }
 
+pub fn supersede_roundtrip_retains_sparse_high_water_against_stale_replay_test() {
+  let old_replica = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAQ==:node"
+  let assert Ok(old) =
+    state.from_json(
+      "{\"replica\":\"stale-peer\",\"context\":{
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAQ==:node\":1
+      },\"clouds\":{
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAQ==:node\":[5]
+      },\"values\":[
+        {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAQ==:node\",\"clock\":5},\"entry\":{\"topic\":\"lobby\",\"key\":\"old-key\",\"pid\":\"old-pid\",\"meta\":null}}
+      ]}",
+    )
+  let current =
+    state.new_incarnation("node")
+    |> state.join("current-pid", "lobby", "current-key", json.null())
+  let assert Ok(stale) = state.merge(state.new("cleaner"), old)
+  let assert Ok(stale) = state.merge(stale, current)
+  let #(local, _) = state.replica_down(stale, state.replica(current))
+  let assert Ok(#(cleaned, _)) = state.supersede(local, state.replica(current))
+  state.online_list(cleaned) |> expect.to_equal([])
+
+  let encoded = state.to_json_string(cleaned)
+  let assert Ok(decoded) = state.from_json(encoded)
+
+  state.replica(decoded) |> expect.to_equal("cleaner")
+  state.compacted_clocks(decoded)
+  |> expect.to_equal(
+    dict.from_list([
+      #(old_replica, 5),
+      #(state.replica(current), 1),
+    ]),
+  )
+  state.internal_clouds(decoded) |> expect.to_equal(dict.new())
+  state.entry_count(decoded) |> expect.to_equal(1)
+  string.contains(encoded, "replicas") |> expect.to_equal(False)
+  state.get_by_topic(decoded, "lobby")
+  |> expect.to_equal([#("current-pid", "current-key", json.null())])
+  state.supersede(decoded, state.replica(current))
+  |> expect.to_equal(
+    Ok(#(decoded, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+
+  let assert Ok(observer) = state.merge(state.new("observer"), stale)
+  let assert Ok(observer) = state.merge(observer, decoded)
+  let assert Ok(#(observer, diff)) = state.merge_with_diff(observer, stale)
+  state.get_by_topic(observer, "lobby")
+  |> expect.to_equal([#("current-pid", "current-key", json.null())])
+  state.entry_count(observer) |> expect.to_equal(1)
+  dict.get(state.compacted_clocks(observer), old_replica)
+  |> expect.to_equal(Ok(5))
+  state.cloud_count(observer) |> expect.to_equal(0)
+  diff |> expect.to_equal(state.Diff(joins: dict.new(), leaves: dict.new()))
+}
+
 pub fn roundtrip_state_with_entries_test() {
   let s = state.new("node1")
   let s =

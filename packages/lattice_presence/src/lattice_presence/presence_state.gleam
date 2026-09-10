@@ -135,6 +135,23 @@ pub type MergeError {
   SameReplica(replica: Replica)
 }
 
+/// Error returned when superseding would retire this state's local writer.
+///
+/// Create a fresh local state after a restart instead of changing the identity
+/// of an existing writer. The error includes the local and selected identities.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let local = new_incarnation("node-a")
+/// let current = new_incarnation("node-a")
+/// let assert Error(CannotSupersedeLocalReplica(local_replica, current_replica)) =
+///   supersede(local, replica(current))
+/// ```
+pub type SupersedeError {
+  CannotSupersedeLocalReplica(local_replica: Replica, current_replica: Replica)
+}
+
 // ── Core operations ─────────────────────────────────────────────────
 
 /// Create a new empty state for a globally unique replica incarnation.
@@ -674,6 +691,83 @@ pub fn remove_down_replica(state: State, replica: Replica) -> State {
     clouds: dict.delete(state.clouds, replica),
     replicas: dict.delete(state.replicas, replica),
   )
+}
+
+/// Retire locally known alternatives to a caller-selected replica identity.
+///
+/// The caller must choose the authoritative `current_replica`, for example
+/// through cluster membership. An inbound sync alone does not establish that
+/// authority; UUIDs and message arrival order do not rank incarnations.
+///
+/// Returns `Error(CannotSupersedeLocalReplica(...))` before any work if the
+/// selected identity differs from the local writer but shares its base. This
+/// applies even when the local writer has no entries, is Down, or has no
+/// liveness entry. Selecting the local identity itself or an identity of
+/// another base is valid.
+///
+/// On `Ok(#(state, diff))`, other known identities with the same base have been
+/// marked Down and pruned using `remove_down_replica`. Leaves are combined by
+/// topic as `#(key, pid, meta)` tuples, preserving duplicates without an ordering
+/// guarantee. Joins are empty, and already-Down identities emit no new leaves.
+/// The selected identity and unrelated bases are unchanged: the selected
+/// identity need not be known and is neither inserted nor marked Up.
+///
+/// Pruning retains the existing context/cloud high-water marks, not clocks
+/// from uncovered value tags. Covered stale tags cannot return, but unseen
+/// higher tags can: this is not a permanent ban on an identity. Repeating the
+/// call without intervening changes leaves the state unchanged with no diff.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let old = new_incarnation("node-a")
+///   |> join("pid-1", "lobby", "alice", json.null())
+/// let current = new_incarnation("node-a")
+/// let assert Ok(peer) = merge(new("observer"), old)
+/// let assert Ok(#(peer, diff)) = supersede(peer, replica(current))
+/// dict.get(diff.leaves, "lobby")
+/// // -> Ok([#("alice", "pid-1", json.null())])
+/// ```
+pub fn supersede(
+  state: State,
+  current_replica: Replica,
+) -> Result(#(State, Diff), SupersedeError) {
+  use <- bool.guard(
+    state.replica != current_replica
+      && same_base(state.replica, current_replica),
+    Error(CannotSupersedeLocalReplica(
+      local_replica: state.replica,
+      current_replica: current_replica,
+    )),
+  )
+
+  let known_replicas =
+    list.flatten([
+      [state.replica],
+      dict.keys(state.replicas),
+      dict.keys(state.context),
+      dict.keys(state.clouds),
+    ])
+    |> set.from_list
+  let known_replicas =
+    dict.fold(state.values, known_replicas, fn(known, tag, _) {
+      set.insert(known, tag.replica)
+    })
+
+  let #(state, leaves) =
+    set.fold(known_replicas, #(state, dict.new()), fn(acc, known) {
+      let #(state, leaves) = acc
+      use <- bool.guard(
+        known == current_replica || !same_base(known, current_replica),
+        acc,
+      )
+      let #(state, diff) = replica_down(state, known)
+      #(
+        remove_down_replica(state, known),
+        dict.combine(leaves, diff.leaves, list.append),
+      )
+    })
+  Ok(#(state, Diff(joins: dict.new(), leaves: leaves)))
 }
 
 // -- JSON serialization --

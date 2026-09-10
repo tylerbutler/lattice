@@ -105,15 +105,59 @@ let state = presence.leave(state, "pid-1", "room:lobby", "alice")
 entries owned by the local replica; foreign entries must be removed by their
 owning replica or hidden with replica liveness.
 
-After a replica is permanently gone, `remove_down_replica` can discard its
-entries and causal context:
+After your application decides that a replica will not return with useful
+state, mark it down and prune its entries:
 
 ```gleam
+let #(state, diff) = presence.replica_down(state, "node-b")
 let state = presence.remove_down_replica(state, "node-b")
 ```
 
-Only call this after the application has decided that the replica will not
-return with useful state.
+Use `diff.leaves` to notify subscribers. `remove_down_replica` requires Down
+status; otherwise it returns the state unchanged. It removes entries, sparse
+clouds, and local liveness, but retains the maximum observed context/cloud clock
+as a causal high-water mark. Stale gossip cannot restore tags covered by that
+mark.
+
+### Superseding a peer incarnation
+
+Use `supersede` after your membership or restart protocol establishes which
+incarnation of a peer is current. Pass that full identity, not just its base
+name. The helper downs and prunes other known identities with the same base,
+including those already marked Down:
+
+```gleam
+case presence.supersede(state, current_replica) {
+  Ok(#(state, diff)) -> Ok(#(state, diff.leaves))
+  Error(error) -> Error(error)
+}
+```
+
+On success, keep the returned state and use the combined leaves for subscriber
+notifications. The diff groups `#(key, pid, meta)` entries by topic. Joins are
+empty, and entries already hidden by `replica_down` do not produce another
+leave. A repeated call with no new intervening entries returns the same state
+and an empty diff.
+
+The selected incarnation need not be present. The helper leaves its data and
+liveness unchanged, so call `replica_up` separately if your membership protocol
+requires it. Replicas with unrelated bases remain unchanged.
+
+The caller must select the current incarnation. UUIDs are random, and message
+arrival order does not establish restart order. Do not call `supersede` with
+each incoming sync identity: a delayed old sync could remove the current
+incarnation's entries.
+
+The helper returns
+`Error(CannotSupersedeLocalReplica(local_replica, current_replica))` if the
+selection would retire the local writer. It cannot change the writer identity
+of an existing state. For a local restart, create a fresh state with
+`new_incarnation` and merge peer snapshots into that state.
+
+Like `remove_down_replica`, this helper retains causal high-water marks rather
+than banning future writes from a retired identity. Previously unseen higher
+clocks can still arrive. Your membership protocol must handle conflicting
+incarnation claims; `supersede` does not elect a current incarnation.
 
 ## Serialization
 
