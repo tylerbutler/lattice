@@ -80,6 +80,12 @@ deltas with modern generation resets. Legacy LWW String imports retain
 their original tie keys. Existing standalone String leaf codecs keep
 their formats.
 
+LWWMap snapshots must contain at most one entry for each exact key.
+Modern decoding and legacy import reject duplicate live entries,
+tombstones, and live/tombstone pairs instead of resolving them by array
+order. Snapshot producers must resolve each key before encoding. Key
+identity is exact and is not Unicode-normalized.
+
 ## Links
 
 - Project site: <https://lattice.tylerbutler.com>
