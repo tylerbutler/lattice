@@ -127,3 +127,23 @@ pub fn empty_deltas_match_new_and_preserve_compacted_moved_state_test() {
     )
   })
 }
+
+pub fn bind_preserves_history_and_counter_without_rebuilding_test() {
+  let assert Ok(base) = text.insert(text.new(rid("A")), 0, "abcd")
+  let assert Ok(base) = text.delete(base, 1)
+  let assert Ok(#(base, delta)) = text.move_with_delta(base, 0, 2)
+  let floor = version_vector.new() |> version_vector.set_max(rid("A"), 6)
+  let #(compacted, _) = text.compact(base, floor)
+  let assert Ok(decoded) =
+    text.to_json(compacted) |> json.to_string() |> text.from_json()
+
+  use state <- list.each([base, compacted, decoded, delta])
+  let bound = text.bind(state, rid("B"))
+  text.bind(bound, rid("A")) |> expect.to_equal(state)
+  text.bind(bound, rid("B")) |> expect.to_equal(bound)
+  text.merge(bound, base, rid("B"))
+  |> expect.to_equal(text.merge(state, base, rid("B")))
+
+  let assert Ok(edited) = text.append(bound, "x")
+  assert_insert_identity(edited, "x", "B", 7)
+}

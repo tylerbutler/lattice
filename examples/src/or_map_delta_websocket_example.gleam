@@ -72,7 +72,7 @@ pub fn main() {
   )
 }
 
-fn increment_by(amount: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
+fn increment_by(amount: Int) -> fn(crdt.Crdt(String)) -> crdt.Crdt(String) {
   fn(value) {
     let assert crdt.CrdtGCounter(counter) = value
     let assert Ok(counter) = g_counter.increment(counter, amount)
@@ -80,7 +80,7 @@ fn increment_by(amount: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
   }
 }
 
-fn render(map: or_map.ORMap) -> String {
+fn render(map: or_map.ORMap(String)) -> String {
   or_map.keys(map)
   |> list.sort(string.compare)
   |> list.map(fn(key) {
@@ -92,6 +92,10 @@ fn render(map: or_map.ORMap) -> String {
       | Ok(crdt.CrdtGSet(_))
       | Ok(crdt.CrdtTwoPSet(_))
       | Ok(crdt.CrdtOrSet(_))
+      | Ok(crdt.CrdtSequence(_))
+      | Ok(crdt.CrdtText(_))
+      | Ok(crdt.CrdtOrMap(_))
+      | Ok(crdt.CrdtLwwMap(_))
       | Ok(crdt.CrdtVersionVector(_))
       | Error(Nil) -> 0
     }
@@ -100,10 +104,10 @@ fn render(map: or_map.ORMap) -> String {
   |> string.join(", ")
 }
 
-fn wire_size(delta: or_map.ORMapDelta) -> Int {
+fn wire_size(delta: or_map.ORMapDelta(String)) -> Int {
   string.length(json.to_string(or_map.delta_to_json(delta)))
 }
 
-fn wire_size_full(map: or_map.ORMap) -> Int {
+fn wire_size_full(map: or_map.ORMap(String)) -> Int {
   string.length(json.to_string(or_map.to_json(map)))
 }

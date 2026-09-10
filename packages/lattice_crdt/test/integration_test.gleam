@@ -2,14 +2,17 @@ import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_counters/g_counter
 import lattice_counters/pn_counter
+import lattice_crdt
 import lattice_maps/crdt
 import lattice_maps/lww_map
 import lattice_maps/or_map
 import lattice_registers/lww_register
 import lattice_registers/mv_register
+import lattice_sequence/sequence
 import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_sets/two_p_set
+import lattice_text/text
 import startest/expect
 
 fn rid(id: String) {
@@ -30,7 +33,7 @@ pub fn cross_package_imports_compile_test() {
   let _gs = g_set.new()
   let _tp = two_p_set.new()
   let _os = or_set.new(rid("a"))
-  let _lm = lww_map.new()
+  let _lm = lww_map.new(rid("a"), crdt.LwwRegisterSpec(""))
   let _om = or_map.new(rid("a"), crdt.GCounterSpec)
 
   // If we got here, all packages import and construct successfully
@@ -55,7 +58,7 @@ pub fn or_map_with_g_counter_cross_package_test() {
       crdt.CrdtGCounter(gc)
     })
 
-  let assert Ok(merged) = or_map.merge(map_a, map_b)
+  let assert Ok(merged) = or_map.merge_as(map_a, map_b, rid("node-a"))
   let assert Ok(crdt.CrdtGCounter(gc)) = or_map.get(merged, "score")
 
   // Both increments should be preserved after merge
@@ -67,7 +70,8 @@ pub fn crdt_dispatch_merge_heterogeneous_test() {
   // Verify the dispatch module correctly merges same-type CRDTs
   let assert Ok(a) = g_counter.new(rid("a")) |> g_counter.increment(3)
   let assert Ok(b) = g_counter.new(rid("b")) |> g_counter.increment(7)
-  let assert Ok(merged) = crdt.merge(crdt.CrdtGCounter(a), crdt.CrdtGCounter(b))
+  let assert Ok(merged) =
+    crdt.merge(crdt.CrdtGCounter(a), crdt.CrdtGCounter(b), rid("a"))
 
   let assert crdt.CrdtGCounter(gc) = merged
   g_counter.value(gc)
@@ -119,4 +123,27 @@ pub fn or_set_add_remove_merge_test() {
   expect.to_be_true(or_set.contains(merged, "x"))
   expect.to_be_true(or_set.contains(merged, "y"))
   expect.to_be_true(or_set.contains(merged, "z"))
+}
+
+pub fn recursive_umbrella_types_compile_test() {
+  let schema: lattice_crdt.CrdtSpec(Int) =
+    crdt.OrMapSpec(crdt.LwwMapSpec(crdt.LwwRegisterSpec(0)))
+  let value: lattice_crdt.Crdt(Int) = crdt.default_crdt(schema, rid("a"))
+  let assert crdt.CrdtOrMap(map) = value
+  let map: lattice_crdt.ORMap(Int) = map
+  or_map.keys(map) |> expect.to_equal([])
+
+  let delta: lattice_crdt.CrdtDelta(Int) = crdt.NoChange(schema)
+  crdt.is_empty_delta(delta) |> expect.to_be_true
+}
+
+pub fn sequence_and_text_dispatch_cross_package_test() {
+  let assert Ok(items) = sequence.new(rid("a")) |> sequence.insert(0, 42)
+  let assert Ok(document) = text.new(rid("b")) |> text.insert(0, "hello")
+
+  let items: lattice_crdt.Crdt(Int) = crdt.CrdtSequence(items)
+  let document: lattice_crdt.Crdt(Int) = crdt.CrdtText(document)
+
+  crdt.matches_spec(items, crdt.SequenceSpec) |> expect.to_be_true
+  crdt.matches_spec(document, crdt.TextSpec) |> expect.to_be_true
 }

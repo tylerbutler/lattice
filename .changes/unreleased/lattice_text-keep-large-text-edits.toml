@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Fixed"
+body = """
+Keep large text edits stack-safe on JavaScript
+
+Text inherits stack-safe Sequence insertion traversal, allowing large documents to compose through map deltas without a JavaScript stack overflow."""

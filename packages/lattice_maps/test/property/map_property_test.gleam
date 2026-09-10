@@ -4,10 +4,10 @@ import gleam/string
 import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
-import lattice_maps/lww_map
 import lattice_maps/or_map
 import qcheck
 import startest/expect
+import support/lww_fixture as lww_map
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -85,11 +85,9 @@ pub fn lww_map_unicode_order_equal_timestamp_merge_laws__test() {
     fn(pair) {
       let #(timestamp, prefix_length) = pair
       let prefix = string.repeat("p", prefix_length)
-      let a =
-        lww_map.new() |> lww_map.set("key", prefix <> "\u{e000}", timestamp)
-      let b =
-        lww_map.new() |> lww_map.set("key", prefix <> "\u{10000}", timestamp)
-      let c = lww_map.new() |> lww_map.set("key", prefix <> "z", timestamp)
+      let a = lww_map.legacy(prefix <> "\u{e000}", timestamp)
+      let b = lww_map.legacy(prefix <> "\u{10000}", timestamp)
+      let c = lww_map.legacy(prefix <> "z", timestamp)
       let ab = lww_map.merge(a, b)
 
       lww_map.get(ab, "key")
@@ -107,7 +105,10 @@ pub fn lww_map_unicode_order_equal_timestamp_merge_laws__test() {
 // OR-Map property tests
 // ---------------------------------------------------------------------------
 
-fn increment_g_counter(crdt_val: crdt.Crdt, delta: Int) -> crdt.Crdt {
+fn increment_g_counter(
+  crdt_val: crdt.Crdt(String),
+  delta: Int,
+) -> crdt.Crdt(String) {
   case crdt_val {
     crdt.CrdtGCounter(gc) -> {
       let assert Ok(gc) = g_counter.increment(gc, delta)
@@ -135,6 +136,8 @@ pub fn or_map_commutativity__test() {
       let assert Ok(merged_ba) = or_map.merge(map_b, map_a)
       set.from_list(or_map.keys(merged_ab))
       |> expect.to_equal(set.from_list(or_map.keys(merged_ba)))
+      or_map.bind(merged_ab, rid("R"))
+      |> expect.to_equal(or_map.bind(merged_ba, rid("R")))
       Nil
     },
   )
@@ -186,6 +189,7 @@ pub fn or_map_associativity__test() {
 
       or_map.get(merged1, "x")
       |> expect.to_equal(or_map.get(merged2, "x"))
+      merged1 |> expect.to_equal(merged2)
       Nil
     },
   )
@@ -196,7 +200,7 @@ pub fn or_map_associativity__test() {
 // Verify the δ-CRDT laws lift through ORMap composition.
 // ----------------------------------------------------------------------------
 
-fn inc_with_delta(n: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
+fn inc_with_delta(n: Int) -> fn(crdt.Crdt(String)) -> crdt.Crdt(String) {
   fn(c) {
     let assert crdt.CrdtGCounter(gc) = c
     let assert Ok(gc) = g_counter.increment(gc, n)
@@ -204,7 +208,7 @@ fn inc_with_delta(n: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
   }
 }
 
-fn gc_value_for(map: or_map.ORMap, key: String) -> Int {
+fn gc_value_for(map: or_map.ORMap(String), key: String) -> Int {
   case or_map.get(map, key) {
     Ok(crdt.CrdtGCounter(gc)) -> g_counter.value(gc)
     _ -> 0

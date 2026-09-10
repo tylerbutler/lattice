@@ -2,108 +2,66 @@ import gleam/int
 import gleam/io
 import gleam/json
 import gleam/list
-import gleam/result
 import gleam/string
+import lattice_core/replica_id.{type ReplicaId}
+import lattice_maps/crdt
 import lattice_maps/lww_map
+import lattice_registers/lww_register
 
 pub fn main() {
-  io.println("=== LWWMap (Last-Writer-Wins Map) ===")
-  io.println("")
+  io.println("=== LWWMap: atomic CRDT child assignments ===")
+  let alice = replica_id.new("alice")
+  let bob = replica_id.new("bob")
+  let schema = crdt.LwwRegisterSpec("")
 
-  // Create two maps simulating user profile settings on different replicas
-  let map_a =
-    lww_map.new()
-    |> lww_map.set("name", "Alice", 1)
-    |> lww_map.set("email", "alice@example.com", 1)
+  let left =
+    lww_map.new(alice, schema)
+    |> assign("name", "Alice", 1, alice)
+    |> assign("theme", "light", 1, alice)
+  let right =
+    lww_map.new(bob, schema)
+    |> assign("name", "Bob", 2, bob)
+    |> assign("theme", "dark", 2, bob)
 
-  let map_b =
-    lww_map.new()
-    |> lww_map.set("name", "Bob", 2)
-    |> lww_map.set("theme", "dark", 1)
-
-  // Print contents of each map
-  io.println("Map A (Alice's replica):")
-  print_map(map_a)
-  io.println("")
-
-  io.println("Map B (Bob's replica):")
-  print_map(map_b)
-  io.println("")
-
-  // Merge the two maps — "name" resolves to "Bob" (higher timestamp wins)
-  let merged = lww_map.merge(map_a, map_b)
-  io.println("Merged map:")
+  let assert Ok(merged) = lww_map.merge_as(left, right, alice)
   print_map(merged)
+  let assert Ok(crdt.CrdtLwwRegister(name)) = lww_map.get(merged, "name")
+  let assert "Bob" = lww_register.value(name)
 
-  let name = result.unwrap(lww_map.get(merged, "name"), "")
-  io.println("  → 'name' resolved to: " <> name <> " (timestamp 2 > 1)")
-  io.println("")
-
-  // Demonstrate remove: remove "theme" at t=3
-  let after_remove = lww_map.remove(merged, "theme", 3)
-  io.println("After removing 'theme' at t=3:")
-  print_map(after_remove)
-
-  let theme_result = lww_map.get(after_remove, "theme")
-  case theme_result {
-    Ok(_) -> io.println("  → 'theme' still present (unexpected)")
-    Error(_) -> io.println("  → 'theme' is gone ✓")
-  }
-  io.println("")
-
-  // --- Tombstone management ---
-  // Removing keys creates tombstones. Monitor growth with tombstone_count
-  // and reclaim space with prune once all replicas have synced.
-  let map_with_tombstones =
-    lww_map.new()
-    |> lww_map.set("a", "1", 1)
-    |> lww_map.set("b", "2", 2)
-    |> lww_map.set("c", "3", 3)
-    |> lww_map.remove("a", 10)
-    |> lww_map.remove("b", 20)
-
-  io.println("--- Tombstone Management ---")
+  let assert Ok(removed) = lww_map.remove(merged, "theme", 3)
+  let assert Error(Nil) = lww_map.get(removed, "theme")
   io.println(
-    "Tombstone count: "
-    <> int.to_string(lww_map.tombstone_count(map_with_tombstones)),
+    "Tombstones before stable pruning: "
+    <> int.to_string(lww_map.tombstone_count(removed)),
   )
 
-  // Prune tombstones at or below timestamp 15
-  // Safety: only prune after ALL replicas have synced past this timestamp
-  let pruned = lww_map.prune(map_with_tombstones, 15)
-  io.println(
-    "After prune(ts=15): "
-    <> int.to_string(lww_map.tombstone_count(pruned))
-    <> " tombstone(s) remain",
-  )
-  io.println(
-    "Active keys after prune: ["
-    <> string.join(list.sort(lww_map.keys(pruned), string.compare), ", ")
-    <> "]",
-  )
-  io.println("")
-
-  // JSON round-trip
-  let json_str = after_remove |> lww_map.to_json |> json.to_string
-  io.println("JSON: " <> json_str)
-
-  case lww_map.from_json(json_str) {
-    Ok(_decoded) -> io.println("✓ JSON round-trip successful")
-    Error(_) -> io.println("✗ JSON round-trip failed")
-  }
-
-  io.println("")
-  io.println("LWWMap example complete!")
+  // The application must establish this timestamp as stable across peers.
+  let pruned = lww_map.prune(removed, 3)
+  let assert Error(Nil) = lww_map.get(pruned, "theme")
+  let encoded = pruned |> lww_map.to_json |> json.to_string
+  let assert Ok(decoded) = lww_map.from_json(encoded)
+  let assert Ok(adopted) =
+    lww_map.merge_as(lww_map.new(bob, schema), decoded, bob)
+  print_map(adopted)
 }
 
-fn print_map(map: lww_map.LWWMap) {
-  let keys = lww_map.keys(map)
-  io.println(
-    "  keys: [" <> string.join(list.sort(keys, string.compare), ", ") <> "]",
-  )
-  list.sort(keys, string.compare)
+fn assign(
+  map: lww_map.LWWMap(String),
+  key: String,
+  value: String,
+  timestamp: Int,
+  author: ReplicaId,
+) -> lww_map.LWWMap(String) {
+  let child = crdt.CrdtLwwRegister(lww_register.new(value, timestamp, author))
+  let assert Ok(updated) = lww_map.set(map, key, child, timestamp)
+  updated
+}
+
+fn print_map(map: lww_map.LWWMap(String)) -> Nil {
+  lww_map.keys(map)
+  |> list.sort(string.compare)
   |> list.each(fn(key) {
-    let value = result.unwrap(lww_map.get(map, key), "")
-    io.println("  " <> key <> " = " <> value)
+    let assert Ok(crdt.CrdtLwwRegister(register)) = lww_map.get(map, key)
+    io.println(key <> "=" <> lww_register.value(register))
   })
 }

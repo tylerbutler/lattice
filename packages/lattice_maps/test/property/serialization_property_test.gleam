@@ -4,10 +4,10 @@ import gleam/set
 import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
-import lattice_maps/lww_map
 import lattice_maps/or_map
 import qcheck
 import startest/expect
+import support/lww_fixture as lww_map
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -72,6 +72,7 @@ pub fn or_map_json_round_trip__test() {
       Ok(d) -> {
         set.from_list(or_map.keys(d))
         |> expect.to_equal(set.from_list(or_map.keys(map)))
+        d |> expect.to_equal(map)
       }
       Error(_) -> expect.to_be_true(False)
     }

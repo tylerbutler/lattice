@@ -164,6 +164,23 @@ pub fn merge(a: MVRegister(el), b: MVRegister(el)) -> MVRegister(el) {
 ///
 /// Use `from_json` to decode the result back into a `MVRegister(String)`.
 pub fn to_json(register: MVRegister(String)) -> json.Json {
+  to_json_with(register, json.string)
+}
+
+/// Encode generic values, write tags, and the full causal clock.
+///
+/// Uses the same v1 envelope as `to_json`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let register = mv_register.new(replica_id.new("A")) |> mv_register.set(42)
+/// mv_register.to_json_with(register, json.int)
+/// ```
+pub fn to_json_with(
+  register: MVRegister(a),
+  encode: fn(a) -> json.Json,
+) -> json.Json {
   let MVRegister(rid, entries, vclock) = register
   let entries_json =
     json.array(dict.to_list(entries), fn(pair) {
@@ -176,7 +193,7 @@ pub fn to_json(register: MVRegister(String)) -> json.Json {
             #("c", json.int(counter)),
           ]),
         ),
-        #("value", json.string(value)),
+        #("value", encode(value)),
       ])
     })
   let vclock_dict = version_vector.to_dict(vclock)
@@ -201,13 +218,31 @@ pub fn to_json(register: MVRegister(String)) -> json.Json {
 pub fn from_json(
   json_string: String,
 ) -> Result(MVRegister(String), json.DecodeError) {
+  from_json_with(json_string, decode.string)
+}
+
+/// Decode generic values and validate their write tags against the causal clock.
+///
+/// Accepts the v1 envelope. Invalid payloads or causal metadata return `Error`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let register = mv_register.new(replica_id.new("A")) |> mv_register.set(42)
+/// let encoded = mv_register.to_json_with(register, json.int) |> json.to_string
+/// mv_register.from_json_with(encoded, decode.int)  // -> Ok(register)
+/// ```
+pub fn from_json_with(
+  json_string: String,
+  decoder: decode.Decoder(a),
+) -> Result(MVRegister(a), json.DecodeError) {
   let entry_decoder = {
     use tag <- decode.field("tag", {
       use r <- decode.field("r", decode.string)
       use c <- decode.field("c", decode.int)
       decode.success(Tag(replica_id: replica_id.new(r), counter: c))
     })
-    use value <- decode.field("value", decode.string)
+    use value <- decode.field("value", decoder)
     decode.success(#(tag, value))
   }
   let state_decoder = {
@@ -226,7 +261,9 @@ pub fn from_json(
       let vclock = version_vector.from_dict(vclock_rid_dict)
 
       let is_valid =
-        list.all(entries_list, fn(pair) {
+        dict.size(entries) == list.length(entries_list)
+        && list.all(dict.values(vclock_dict), fn(counter) { counter >= 0 })
+        && list.all(entries_list, fn(pair) {
           let #(Tag(rid, c), _val) = pair
           let is_positive = c > 0
           let vclock_counter = version_vector.get(vclock, rid)
@@ -246,7 +283,7 @@ pub fn from_json(
         False ->
           decode.failure(
             mvr,
-            "causally consistent entries and positive counters",
+            "unique causally consistent entries and non-negative clocks with positive tag counters",
           )
       }
     })

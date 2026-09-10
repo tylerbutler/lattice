@@ -57,9 +57,31 @@ for later edits. `merge_as` remains an equivalent alias. Counter, sequence,
 and text edits now return `Result` under their plain names; remove the former
 `try_` prefix when upgrading, except for the distinct `try_substring` API.
 
-`ORMap` exposes `update_with_delta`, `remove_with_delta`, `apply_delta`, and `merge_deltas` for the composite case, with a dedicated `ORMapDelta` type for type safety.
+`ORMapDelta(a)` represents changed map keys. `CrdtDelta(a)` keeps nested
+ORMap changes separate from leaf state deltas, so a small Text or Sequence
+edit need not send the whole child.
 
-Delta merge is idempotent, commutative, and associative — safe under at-least-once delivery, reconnects, and out-of-order arrival. This makes delta-state CRDTs the natural foundation for websocket-based replication. See `DEV.md` for the full convention and usage notes, and the `examples/or_map_delta_websocket_example.gleam` example for a runnable demo of two replicas exchanging deltas.
+Sparse replication requires a baseline or eventual delivery of the required
+deltas. Reordered and duplicate messages converge after that history arrives.
+One later delta cannot reconstruct an arbitrary empty receiver. See `DEV.md`
+and `examples/src/or_map_delta_websocket_example.gleam`.
+
+## Typed map composition
+
+The umbrella exports `Crdt(a)`, `CrdtSpec(a)`, `CrdtDelta(a)`, `ORMap(a)`,
+`ORMapDelta(a)`, and `LWWMap(a)`. Both map types support recursive CRDT
+children. A map uses one child specification; applications can use a tagged
+payload union for mixed data.
+
+ORMap joins concurrent child edits. After removal, a re-add starts a fresh
+generation; the newest generation wins over older histories. Concurrent
+update/removal within one generation remains add-wins. LWWMap instead
+selects one complete child assignment by timestamp and writer.
+
+Use the receiving writer's identity when adopting a snapshot. Map key
+pruning does not authorize compaction of child Sequence/Text history.
+Upgrading existing maps requires explicit legacy import and a coordinated
+switch to the new protocol; see the root README migration guide.
 
 Reference: Almeida, Shoker, Baquero — *Delta State Replicated Data Types*.
 

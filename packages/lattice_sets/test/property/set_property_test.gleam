@@ -1,5 +1,8 @@
+import gleam/dynamic/decode
+import gleam/json
 import gleam/set as gleam_set
 import lattice_core/replica_id
+import lattice_core/version_vector
 import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_sets/two_p_set
@@ -146,6 +149,37 @@ pub fn or_set_idempotency__test() {
     |> expect.to_equal(or_set.value(s))
     Nil
   })
+}
+
+pub fn or_set_generic_round_trip_preserves_concurrent_pruned_history__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(qcheck.bounded_int(0, 10), qcheck.bounded_int(0, 10), fn(a, b) {
+      #(a, b)
+    }),
+    fn(values) {
+      let old = or_set.new(rid("A")) |> or_set.add(values.0)
+      let removed =
+        old
+        |> or_set.remove(values.0)
+        |> or_set.prune(
+          version_vector.new() |> version_vector.set_max(rid("A"), 1),
+        )
+      let concurrent = or_set.new(rid("B")) |> or_set.add(values.1)
+      let merged = or_set.merge(removed, concurrent)
+      let assert Ok(loaded) =
+        or_set.to_json_with(merged, json.int)
+        |> json.to_string()
+        |> or_set.from_json_with(decode.int)
+      loaded |> expect.to_equal(merged)
+      or_set.merge(loaded, old) |> expect.to_equal(or_set.merge(merged, old))
+      let #(updated, delta) = or_set.add_with_delta(loaded, values.0)
+      or_set.merge(loaded, delta) |> expect.to_equal(updated)
+      or_set.merge(delta, loaded) |> expect.to_equal(updated)
+      or_set.merge(updated, updated) |> expect.to_equal(updated)
+      Nil
+    },
+  )
 }
 
 // ---------------------------------------------------------------------------

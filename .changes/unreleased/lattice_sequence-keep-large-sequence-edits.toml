@@ -1,0 +1,6 @@
+package = "lattice_sequence"
+kind = "Fixed"
+body = """
+Keep large sequence edits stack-safe on JavaScript
+
+Insertion traversal now handles long stored sequences without overflowing the JavaScript call stack. Item order, identifiers, and sparse deltas are unchanged."""

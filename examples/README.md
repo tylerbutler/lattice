@@ -18,6 +18,8 @@ gleam run -m or_set_example
 gleam run -m lww_map_example
 gleam run -m or_map_example
 gleam run -m or_map_delta_websocket_example
+gleam run -m or_map_sequence_text_example
+gleam run -m nested_map_example
 gleam run -m version_vector_example
 gleam run -m sequence_example
 gleam run -m text_example
@@ -54,9 +56,11 @@ gleam run -m g_counter_example --target javascript
 
 | Example | Description |
 |---------|-------------|
-| `lww_map_example` | Last-writer-wins map — timestamp-based key-value store |
-| `or_map_example` | Observed-remove map — keys tracked via ORSet, values are nested CRDTs |
+| `lww_map_example` | Atomic CRDT child assignments, timestamp/writer order, and snapshot adoption |
+| `or_map_example` | Observed-remove map with typed CRDT children |
 | `or_map_delta_websocket_example` | Two simulated websocket peers exchanging `ORMapDelta` values instead of full state, demonstrating delta-state replication |
+| `or_map_sequence_text_example` | Text and Sequence(Int) leaves, sparse updates, joining-replica edits, and fresh reset generations |
+| `nested_map_example` | A sparse Text edit through two ORMap levels with delta serialization and duplicate delivery |
 
 ### Clocks
 
@@ -81,3 +85,14 @@ Each example demonstrates:
 
 These examples also serve as integration tests — they exercise the public API surface
 and will fail to compile if breaking changes are introduced to the library.
+
+## Composition rules
+
+ORMap uses one child schema and joins concurrent edits within a generation.
+Removing and re-adding a key creates a fresh generation; the newer
+generation replaces older content. LWWMap chooses one whole child
+assignment, so it does not merge competing Text edits.
+
+Sparse replicas need a baseline or eventual delivery of the required
+deltas. Keep outer-map pruning separate from Sequence/Text compaction.
+The examples do not compact inner leaves.

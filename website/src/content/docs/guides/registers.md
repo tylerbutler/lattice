@@ -13,8 +13,8 @@ Registers store a value rather than a collection. lattice provides two flavors:
 
 ## LWWRegister (Last-Writer-Wins Register)
 
-`LWWRegister` stores a `String`, the timestamp of the write that produced it,
-and the replica ID of its creator.
+`LWWRegister(a)` stores a payload, the timestamp of its winning write,
+and that write's author.
 
 ```gleam
 import lattice_core/replica_id
@@ -143,3 +143,15 @@ Each returns both the new register state and a register delta. `MVRegister`
 deltas carry the new value and the writer's vector clock so remote replicas can
 remove values causally superseded by the write. See
 [Delta-State Replication](/advanced/delta-state/) for the shared convention.
+
+## Typed serialization and new authors
+
+Both register modules provide `to_json_with(value, encode)` and
+`from_json_with(input, decoder)` for generic payloads. Existing String
+codec entry points keep their formats.
+
+An adopted LWWRegister retains the author of its winning write. Use
+`set_as(register, value, timestamp, local_id)` or its
+`set_as_with_delta` companion to author a new write. Ordinary `set`
+keeps its existing author behavior. In a map update callback, use the
+provided `context.replica_id` for the new write.

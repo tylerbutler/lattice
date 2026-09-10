@@ -42,13 +42,13 @@
 //// replica identifies the editor that will make subsequent local edits,
 //// regardless of operand order. `merge_as` remains an equivalent alias.
 ////
-//// `ORMap` exposes `update_with_delta`, `remove_with_delta`, `apply_delta`,
-//// and `merge_deltas` for the composite case, with a dedicated `ORMapDelta`
-//// type for type safety.
+//// `ORMap` supports full-value and sparse updates with a dedicated
+//// `ORMapDelta(a)`. `CrdtDelta(a)` distinguishes leaf state deltas from
+//// recursively sparse map changes.
 ////
-//// Delta merge is idempotent, commutative, and associative — safe under
-//// at-least-once delivery, reconnects, and out-of-order arrival. This makes
-//// delta-state CRDTs the natural foundation for websocket-based replication.
+//// Sparse replication requires a baseline or eventual delivery of the
+//// required deltas. Duplicate and reordered delivery converges after those
+//// dependencies arrive; one later edit does not contain the whole document.
 //// See `DEV.md` for the full convention and usage notes, and the
 //// `examples/or_map_delta_websocket_example.gleam` example for a runnable
 //// demo of two replicas exchanging deltas.
@@ -111,21 +111,31 @@ pub type TwoPSet(a) =
 pub type ORSet(a) =
   or_set.ORSet(a)
 
-/// A last-writer-wins map.
-pub type LWWMap =
-  lww_map.LWWMap
+/// A last-writer-wins map of CRDT children with payload type `a`.
+///
+/// Each winning assignment replaces its complete child snapshot.
+pub type LWWMap(a) =
+  lww_map.LWWMap(a)
 
-/// An observed-remove map holding heterogeneous CRDT values.
-pub type ORMap =
-  or_map.ORMap
+/// An observed-remove map of CRDT children with one shared specification.
+pub type ORMap(a) =
+  or_map.ORMap(a)
 
-/// A tagged union over the leaf CRDT types, used for uniform merging.
-pub type Crdt =
-  crdt.Crdt
+/// A tagged union over leaf CRDTs and recursive map values.
+pub type Crdt(a) =
+  crdt.Crdt(a)
 
 /// A specification used to auto-create default CRDT values for new keys.
-pub type CrdtSpec =
-  crdt.CrdtSpec
+pub type CrdtSpec(a) =
+  crdt.CrdtSpec(a)
+
+/// A leaf state delta or a recursively sparse map change.
+pub type CrdtDelta(a) =
+  crdt.CrdtDelta(a)
+
+/// A generation-aware observed-remove map delta.
+pub type ORMapDelta(a) =
+  or_map.ORMapDelta(a)
 
 /// A generic sequence CRDT.
 pub type Sequence(a) =

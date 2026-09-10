@@ -90,7 +90,12 @@ by:
 - `MVRegister` — to track causal history of writes and detect concurrent
   updates
 - `ORSet` — via pruned version vectors for tombstone garbage collection
-- `ORMap` — inherits pruning from the underlying `ORSet` key tracker
+- `ORMap` — prunes membership tags in each key/generation scope
+
+ORMap membership IDs include their key and generation namespace. A
+stability vector must acknowledge those membership tags, not an unrelated
+logical-writer counter. It does not authorize compaction of a child
+Sequence/Text or deletion of generation floors.
 
 ## DotContext
 

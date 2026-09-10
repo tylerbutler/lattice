@@ -92,6 +92,37 @@ pub fn lww_register_idempotency_unicode_order_test() {
   })
 }
 
+pub fn lww_register_set_as_delta_and_author_laws__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(0, 100),
+      qcheck.bounded_int(0, 100),
+      fn(a, b) { #(a, b) },
+    ),
+    fn(clocks) {
+      let original = lww_register.new(0, clocks.0, rid("historical"))
+      let #(a, delta_a) =
+        lww_register.set_as_with_delta(original, 1, clocks.1, rid("A"))
+      let #(b, delta_b) =
+        lww_register.set_as_with_delta(original, 2, clocks.1, rid("B"))
+      lww_register.merge(original, delta_a) |> expect.to_equal(a)
+      lww_register.merge(original, delta_b) |> expect.to_equal(b)
+      lww_register.merge(a, b) |> expect.to_equal(lww_register.merge(b, a))
+      lww_register.merge(a, a) |> expect.to_equal(a)
+      lww_register.replica_id(original) |> expect.to_equal(rid("historical"))
+      let winner = case clocks.1 > clocks.0 {
+        True -> rid("B")
+        False -> rid("historical")
+      }
+      lww_register.merge(a, b)
+      |> lww_register.replica_id()
+      |> expect.to_equal(winner)
+      Nil
+    },
+  )
+}
+
 // ---------------------------------------------------------------------------
 // MV-Register property tests
 // ---------------------------------------------------------------------------

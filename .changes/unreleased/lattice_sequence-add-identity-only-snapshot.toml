@@ -1,0 +1,6 @@
+package = "lattice_sequence"
+kind = "Added"
+body = """
+Add identity-only snapshot binding
+
+Use sequence.bind(state, local_id) to select the next editor without merging or rebuilding the sequence. Binding preserves historical IDs, allocation counters, stored order, and compaction metadata."""

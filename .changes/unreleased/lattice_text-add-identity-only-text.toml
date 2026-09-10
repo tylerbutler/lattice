@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Added"
+body = """
+Add identity-only text binding
+
+Use text.bind(state, local_id) to adopt a snapshot without rebuilding its Sequence. Historical IDs, allocation counters, and compaction metadata remain unchanged."""

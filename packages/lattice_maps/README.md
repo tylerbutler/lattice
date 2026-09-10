@@ -2,7 +2,9 @@
 
 Last-writer-wins and observed-remove CRDT maps for Gleam.
 
-Use this package when replicas need key/value data that can be merged without coordination. `lww_map` stores string values with timestamp conflict resolution; `or_map` stores nested CRDT values with observed-remove key semantics.
+Use this package for typed, recursive CRDT maps. Both `ORMap(a)` and
+`LWWMap(a)` store String keys and `Crdt(a)` children. ORMap joins concurrent
+child edits within a generation; LWWMap selects one complete assignment.
 
 ## Installation
 
@@ -13,16 +15,16 @@ gleam add lattice_maps
 ## Quick example
 
 ```gleam
-import lattice_maps/lww_map
+import lattice_core/replica_id
+import lattice_maps/crdt
+import lattice_maps/or_map
 
 pub fn main() {
-  let map =
-    lww_map.new()
-    |> lww_map.set("status", "draft", 1)
-    |> lww_map.set("status", "published", 2)
+  let documents: or_map.ORMap(String) =
+    or_map.new(replica_id.new("node-a"), crdt.TextSpec)
 
-  lww_map.get(map, "status")
-  // -> Ok("published")
+  or_map.keys(documents)
+  // -> []
 }
 ```
 
@@ -30,18 +32,53 @@ pub fn main() {
 
 | Module | Purpose |
 |--------|---------|
-| `lattice_maps/lww_map` | Last-writer-wins map for string keys and string values. |
-| `lattice_maps/or_map` | Observed-remove map whose values are nested CRDTs. |
-| `lattice_maps/crdt` | Tagged union and specs used by `or_map` to store heterogeneous CRDT values. |
+| `lattice_maps/lww_map` | Last-writer-wins map of recursive CRDT child snapshots. |
+| `lattice_maps/or_map` | Generation-aware observed-remove map of CRDT children. |
+| `lattice_maps/crdt` | Generic state, delta, and recursive schema dispatch. |
 
 ## Notes
 
-- `lww_map` exposes `new`, `set`, `get`, `remove`, `keys`, `values`, `merge`, `prune`, `to_json`, and `from_json`.
-- `or_map` exposes `new`, `update`, `get`, `remove`, `keys`, `values`, `merge`, `prune`, `to_json`, and `from_json`.
-- `or_map.merge` returns a `Result` because maps with incompatible nested CRDT specs cannot be merged.
-- `or_map.update` and `update_with_delta` return `Result`. A callback that returns the wrong CRDT variant produces `Error(crdt.TypeMismatch(expected, found))` without creating or reactivating the key. The callback still takes and returns a `Crdt`; handle any nested counter `Result` inside it.
-- `or_map` supports delta-state replication with `update_with_delta`, `remove_with_delta`, `apply_delta`, `merge_deltas`, `delta_to_json`, and `delta_from_json`.
-- `crdt.CrdtSpec` controls the default nested CRDT created for new keys.
+Each map uses one `CrdtSpec(a)`. `SequenceSpec` creates a generic Sequence;
+`TextSpec` creates Text. `OrMapSpec(child_spec)` and
+`LwwMapSpec(child_spec)` support recursive maps.
+`LwwRegisterSpec(initial_value)` supplies the initial generic value.
+Use an application tagged union for mixed payloads.
+
+Updates and merges return errors for incompatible child schemas.
+Rejected callbacks do not create or reactivate keys. The full-value
+`update_with_delta` path sends the callback's complete child value; use
+the sparse delta callback API for large Text or Sequence children.
+`CrdtDelta(a)` distinguishes `StateDelta` from nested `OrMapChange`.
+
+## Removal and identity
+
+Within one ORMap generation, concurrent update/remove remains add-wins.
+Re-adding a removed key starts a fresh default generation. Newer
+generations replace older values, including concurrent old-generation
+edits; concurrent re-adds choose one deterministic winner.
+
+Bind loaded or received state to the local writer before editing.
+Preserve historical IDs and write authors. Generation floors and current
+inactive leaf history remain after key pruning; outer clocks do not
+authorize inner Sequence/Text compaction.
+An ORMap pruning vector must cover its namespaced membership tags, not
+the logical writer's unrelated leaf counters.
+
+LWWMap assignments use timestamp, tombstone precedence, and writer
+identity. They select a complete child snapshot instead of merging
+competing Text edits. Sparse leaf updates require an ORMap-only path.
+
+## Replication and migration
+
+Sparse receivers need a baseline or eventual delivery of required
+deltas. Later Sequence edits can show an incomplete view until earlier
+origins arrive. Duplicate and reordered complete delivery converges.
+
+Modern maps use versioned schemas and lifecycle metadata. Import an
+agreed legacy baseline and switch writers together; do not mix old map
+deltas with modern generation resets. Legacy LWW String imports retain
+their original tie keys. Existing standalone String leaf codecs keep
+their formats.
 
 ## Links
 

@@ -39,6 +39,28 @@ pub fn insert_appends_at_end_test() {
   |> expect.to_equal(["h", "i"])
 }
 
+pub fn ten_thousand_items_insert_run_and_merge_delta_preserve_order_and_ids_test() {
+  let values = list.repeat(0, 10_000) |> list.index_map(fn(_, index) { index })
+  let assert Ok(base) = sequence.insert_many(sequence.new(rid("A")), 0, values)
+  let assert Ok(old_anchor) = sequence.anchor_at(base, 9999, sequence.Before)
+  let assert Ok(#(updated, delta)) =
+    sequence.insert_many_with_delta(base, 9999, [-1, -2])
+  let expected = list.append(list.take(values, 9999), [-1, -2, 9999])
+  sequence.values(updated) |> expect.to_equal(expected)
+  sequence.values(delta) |> expect.to_equal([-1, -2])
+  sequence.resolve(updated, old_anchor) |> expect.to_equal(Ok(10_001))
+  sequence.anchor_at(updated, 10_001, sequence.Before)
+  |> expect.to_equal(Ok(old_anchor))
+  sequence.merge(base, delta, rid("A")) |> expect.to_equal(updated)
+  sequence.merge(delta, base, rid("A")) |> expect.to_equal(updated)
+
+  let assert Ok(#(appended, append_delta)) =
+    sequence.insert_with_delta(updated, 10_002, -3)
+  sequence.values(appended) |> expect.to_equal(list.append(expected, [-3]))
+  sequence.length(append_delta) |> expect.to_equal(1)
+  sequence.merge(updated, append_delta, rid("A")) |> expect.to_equal(appended)
+}
+
 pub fn insert_in_middle_test() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")

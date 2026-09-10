@@ -86,13 +86,25 @@ pub fn merge(a: GSet(el), b: GSet(el)) -> GSet(el) {
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(g_set: GSet(String)) -> json.Json {
+  to_json_with(g_set, json.string)
+}
+
+/// Encode a set using a custom element encoder and the existing v1 envelope.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let set = g_set.new() |> g_set.add(42)
+/// g_set.to_json_with(set, json.int)
+/// ```
+pub fn to_json_with(g_set: GSet(a), encode: fn(a) -> json.Json) -> json.Json {
   json.object([
     #("type", json.string("g_set")),
     #("v", json.int(1)),
     #(
       "state",
       json.object([
-        #("elements", json.array(set.to_list(g_set.elements), json.string)),
+        #("elements", json.array(set.to_list(g_set.elements), encode)),
       ]),
     ),
   ])
@@ -105,9 +117,27 @@ pub fn to_json(g_set: GSet(String)) -> json.Json {
 pub fn from_json(
   json_string: String,
 ) -> Result(GSet(String), json.DecodeError) {
+  from_json_with(json_string, decode.string)
+}
+
+/// Decode a v1 set using a custom element decoder.
+///
+/// Invalid envelopes or elements return `Error`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let set = g_set.new() |> g_set.add(42)
+/// let encoded = g_set.to_json_with(set, json.int) |> json.to_string
+/// g_set.from_json_with(encoded, decode.int)  // -> Ok(set)
+/// ```
+pub fn from_json_with(
+  json_string: String,
+  decoder: decode.Decoder(a),
+) -> Result(GSet(a), json.DecodeError) {
   let state_decoder = {
     use state <- decode.field("state", {
-      use elements <- decode.field("elements", decode.list(decode.string))
+      use elements <- decode.field("elements", decode.list(decoder))
       decode.success(GSet(elements: set.from_list(elements)))
     })
     decode.success(state)

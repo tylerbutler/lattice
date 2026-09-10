@@ -3,10 +3,10 @@ import gleam/set
 import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
-import lattice_maps/lww_map
 import lattice_maps/or_map
 import qcheck
 import startest/expect
+import support/lww_fixture as lww_map
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -42,6 +42,7 @@ pub fn or_map_bottom_identity__test() {
     let assert Ok(merged) = or_map.merge(m, bottom)
     set.from_list(or_map.keys(merged))
     |> expect.to_equal(set.from_list(or_map.keys(m)))
+    merged |> expect.to_equal(m)
     Nil
   })
 }
@@ -105,4 +106,5 @@ pub fn or_map_target_agnostic_json_round_trip__test() {
   let assert Ok(decoded) = or_map.from_json(encoded)
   set.from_list(or_map.keys(decoded))
   |> expect.to_equal(set.from_list(or_map.keys(map)))
+  decoded |> expect.to_equal(map)
 }

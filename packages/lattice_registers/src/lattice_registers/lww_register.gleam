@@ -56,7 +56,8 @@ pub fn new(
 /// If `timestamp > register.timestamp`, replaces the stored value and
 /// timestamp with the new ones. Otherwise returns the register unchanged.
 /// This ensures only strictly newer writes are accepted.
-/// The `replica_id` is preserved from the original register.
+/// The `replica_id` is preserved from the original register. Use `set_as`
+/// to author a new write after adopting another replica's winning value.
 ///
 /// Note that the comparison is *strict*, so a wall clock is not a safe source
 /// on its own: it stalls for a millisecond at a time, and a second write
@@ -91,13 +92,60 @@ pub fn set_with_delta(
   value value: a,
   timestamp timestamp: Int,
 ) -> #(LWWRegister(a), LWWRegister(a)) {
+  set_as_with_delta(
+    register:,
+    value:,
+    timestamp:,
+    replica_id: register.replica_id,
+  )
+}
+
+/// Write a strictly newer value as the given replica.
+///
+/// Unlike `set`, an accepted write records the supplied author. A rejected
+/// write leaves the value, timestamp, and historical author unchanged.
+/// Equal timestamps are rejected even if the new author sorts higher.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let old = lww_register.new("old", 1, replica_id.new("A"))
+/// let updated = lww_register.set_as(old, "new", 2, replica_id.new("B"))
+/// lww_register.replica_id(updated)  // -> replica_id.new("B")
+/// ```
+pub fn set_as(
+  register register: LWWRegister(a),
+  value value: a,
+  timestamp timestamp: Int,
+  replica_id replica_id: ReplicaId,
+) -> LWWRegister(a) {
+  let #(updated, _) =
+    set_as_with_delta(register:, value:, timestamp:, replica_id:)
+  updated
+}
+
+/// Write as the given replica and return the accepted state and delta.
+///
+/// Both results carry the accepted write. For a rejected timestamp, both
+/// retain the unchanged register, including its historical author.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let old = lww_register.new("old", 1, replica_id.new("A"))
+/// let #(updated, delta) =
+///   lww_register.set_as_with_delta(old, "new", 2, replica_id.new("B"))
+/// lww_register.merge(old, delta) == updated  // -> True
+/// ```
+pub fn set_as_with_delta(
+  register register: LWWRegister(a),
+  value value: a,
+  timestamp timestamp: Int,
+  replica_id replica_id: ReplicaId,
+) -> #(LWWRegister(a), LWWRegister(a)) {
   use <- bool.guard(timestamp <= register.timestamp, #(register, register))
   let updated =
-    LWWRegister(
-      value: value,
-      timestamp: timestamp,
-      replica_id: register.replica_id,
-    )
+    LWWRegister(value: value, timestamp: timestamp, replica_id: replica_id)
   #(updated, updated)
 }
 
@@ -131,10 +179,10 @@ pub fn timestamp(register: LWWRegister(a)) -> Int {
 
 /// Return the replica that owns the value the register currently holds.
 ///
-/// `set` preserves the original replica, so for a locally written register
-/// this is the replica that created it. After `merge` it is the replica whose
-/// write won, which makes it useful for provenance and for tie-breaking
-/// consistently with `merge` in downstream code.
+/// `set` preserves the held author; `set_as` records its supplied author only
+/// for an accepted write. After `merge` this is the replica whose write won,
+/// which makes it useful for provenance and for tie-breaking consistently
+/// with `merge` in downstream code.
 pub fn replica_id(register: LWWRegister(a)) -> ReplicaId {
   register.replica_id
 }
@@ -163,13 +211,30 @@ pub fn merge(a: LWWRegister(a), b: LWWRegister(a)) -> LWWRegister(a) {
 ///
 /// Use `from_json` to decode the result back into a `LWWRegister(String)`.
 pub fn to_json(register: LWWRegister(String)) -> json.Json {
+  to_json_with(register, json.string)
+}
+
+/// Encode a register with a custom payload encoder, preserving write metadata.
+///
+/// Uses the same v2 envelope as `to_json`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let register = lww_register.new(42, 1, replica_id.new("A"))
+/// lww_register.to_json_with(register, json.int)
+/// ```
+pub fn to_json_with(
+  register: LWWRegister(a),
+  encode: fn(a) -> json.Json,
+) -> json.Json {
   json.object([
     #("type", json.string("lww_register")),
     #("v", json.int(2)),
     #(
       "state",
       json.object([
-        #("value", json.string(register.value)),
+        #("value", encode(register.value)),
         #("timestamp", json.int(register.timestamp)),
         #("replica_id", json.string(replica.to_string(register.replica_id))),
       ]),
@@ -186,9 +251,28 @@ pub fn to_json(register: LWWRegister(String)) -> json.Json {
 pub fn from_json(
   json_string: String,
 ) -> Result(LWWRegister(String), json.DecodeError) {
+  from_json_with(json_string, decode.string)
+}
+
+/// Decode a register with a custom payload decoder.
+///
+/// Accepts v1 and v2 envelopes, with the same metadata rules as `from_json`.
+/// Invalid payloads or envelopes return `Error`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let register = lww_register.new(42, 1, replica_id.new("A"))
+/// let encoded = lww_register.to_json_with(register, json.int) |> json.to_string
+/// lww_register.from_json_with(encoded, decode.int)  // -> Ok(register)
+/// ```
+pub fn from_json_with(
+  json_string: String,
+  decoder: decode.Decoder(a),
+) -> Result(LWWRegister(a), json.DecodeError) {
   let v2_state_decoder = {
     use state <- decode.field("state", {
-      use value <- decode.field("value", decode.string)
+      use value <- decode.field("value", decoder)
       use timestamp <- decode.field("timestamp", decode.int)
       use replica_id_str <- decode.optional_field(
         "replica_id",
