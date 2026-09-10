@@ -181,3 +181,47 @@ pub fn timestamp_seeds_a_logical_clock_test() {
   expect.to_equal(lww_register.value(erased), "erased")
   expect.to_equal(lww_register.timestamp(erased), 101)
 }
+
+pub fn set_as_records_only_an_accepted_new_author_test() {
+  let historical = lww_register.new("original", 10, rid("A"))
+  let updated =
+    lww_register.set_as(
+      register: historical,
+      value: "new",
+      timestamp: 11,
+      replica_id: rid("B"),
+    )
+
+  lww_register.replica_id(historical) |> expect.to_equal(rid("A"))
+  lww_register.replica_id(updated) |> expect.to_equal(rid("B"))
+  lww_register.timestamp(updated) |> expect.to_equal(11)
+  lww_register.value(updated) |> expect.to_equal("new")
+  lww_register.set_as(historical, "ignored", 10, rid("Z"))
+  |> expect.to_equal(historical)
+  lww_register.set_as(historical, "ignored", 9, rid("Z"))
+  |> expect.to_equal(historical)
+  lww_register.set(updated, "next", 12)
+  |> lww_register.replica_id()
+  |> expect.to_equal(rid("B"))
+}
+
+pub fn set_as_delta_preserves_author_and_equal_timestamp_order_test() {
+  let historical = lww_register.new("original", 10, rid("Z"))
+  let #(a, delta_a) =
+    lww_register.set_as_with_delta(historical, "a", 11, rid("A"))
+  let #(b, delta_b) =
+    lww_register.set_as_with_delta(
+      register: historical,
+      value: "b",
+      timestamp: 11,
+      replica_id: rid("B"),
+    )
+  lww_register.merge(historical, delta_a) |> expect.to_equal(a)
+  lww_register.merge(historical, delta_b) |> expect.to_equal(b)
+  lww_register.merge(a, b) |> expect.to_equal(b)
+  lww_register.merge(b, a) |> expect.to_equal(b)
+  lww_register.set_as_with_delta(a, "ignored", 11, rid("Z"))
+  |> expect.to_equal(#(a, a))
+  lww_register.set_as_with_delta(a, "ignored", 0, rid("Z"))
+  |> expect.to_equal(#(a, a))
+}

@@ -135,14 +135,29 @@ pub fn merge(a: TwoPSet(el), b: TwoPSet(el)) -> TwoPSet(el) {
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(two_p_set: TwoPSet(String)) -> json.Json {
+  to_json_with(two_p_set, json.string)
+}
+
+/// Encode generic elements and permanent tombstones in the v1 envelope.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let set = two_p_set.new() |> two_p_set.add(42) |> two_p_set.remove(42)
+/// two_p_set.to_json_with(set, json.int)
+/// ```
+pub fn to_json_with(
+  two_p_set: TwoPSet(a),
+  encode: fn(a) -> json.Json,
+) -> json.Json {
   json.object([
     #("type", json.string("two_p_set")),
     #("v", json.int(1)),
     #(
       "state",
       json.object([
-        #("added", json.array(set.to_list(two_p_set.added), json.string)),
-        #("removed", json.array(set.to_list(two_p_set.removed), json.string)),
+        #("added", json.array(set.to_list(two_p_set.added), encode)),
+        #("removed", json.array(set.to_list(two_p_set.removed), encode)),
       ]),
     ),
   ])
@@ -155,10 +170,28 @@ pub fn to_json(two_p_set: TwoPSet(String)) -> json.Json {
 pub fn from_json(
   json_string: String,
 ) -> Result(TwoPSet(String), json.DecodeError) {
+  from_json_with(json_string, decode.string)
+}
+
+/// Decode generic elements and permanent tombstones from the v1 envelope.
+///
+/// Invalid envelopes or elements return `Error`.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let set = two_p_set.new() |> two_p_set.remove(42)
+/// let encoded = two_p_set.to_json_with(set, json.int) |> json.to_string
+/// two_p_set.from_json_with(encoded, decode.int)  // -> Ok(set)
+/// ```
+pub fn from_json_with(
+  json_string: String,
+  decoder: decode.Decoder(a),
+) -> Result(TwoPSet(a), json.DecodeError) {
   let state_decoder = {
     use state <- decode.field("state", {
-      use added <- decode.field("added", decode.list(decode.string))
-      use removed <- decode.field("removed", decode.list(decode.string))
+      use added <- decode.field("added", decode.list(decoder))
+      use removed <- decode.field("removed", decode.list(decoder))
       decode.success(TwoPSet(
         added: set.from_list(added),
         removed: set.from_list(removed),

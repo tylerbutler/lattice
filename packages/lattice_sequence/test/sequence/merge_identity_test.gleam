@@ -128,3 +128,28 @@ pub fn empty_delta_matches_new_and_preserves_compacted_moved_state_test() {
     })
   })
 }
+
+pub fn bind_preserves_history_and_counter_without_rebuilding_test() {
+  let assert Ok(base) =
+    sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c", "d"])
+  let assert Ok(base) = sequence.delete(base, 1)
+  let assert Ok(#(base, delta)) = sequence.move_with_delta(base, 0, 2)
+  let floor = version_vector.new() |> version_vector.set_max(rid("A"), 6)
+  let #(compacted, _) = sequence.compact(base, floor)
+  let assert Ok(decoded) =
+    sequence.to_json(compacted, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+
+  use state <- list.each([base, compacted, decoded, delta])
+  let bound = sequence.bind(state, rid("B"))
+  sequence.replica_id(bound) |> expect.to_equal(rid("B"))
+  sequence.bind(bound, rid("A")) |> expect.to_equal(state)
+  sequence.bind(bound, rid("B")) |> expect.to_equal(bound)
+  sequence.merge(bound, base, rid("B"))
+  |> expect.to_equal(sequence.merge(state, base, rid("B")))
+
+  let assert Ok(edited) =
+    sequence.insert(bound, sequence.length(bound), "local")
+  assert_insert_identity(edited, "local", "B", 7)
+}

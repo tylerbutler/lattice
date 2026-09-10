@@ -1,162 +1,179 @@
 ---
 title: Maps
-description: Using LWWMap and ORMap for distributed key-value storage.
+description: Typed recursive maps with observed-remove or last-writer-wins semantics.
 ---
 
-Maps are provided by the `lattice_maps` package. If you installed the
-`lattice_crdt` umbrella, they are already available.
+The `lattice_maps` package provides `ORMap(a)` and `LWWMap(a)`. Both store
+String keys and `Crdt(a)` children, including nested maps. The
+`lattice_crdt` umbrella includes them.
 
-lattice ships with two map CRDTs:
+Choose the container by its merge behavior:
 
-- `LWWMap` for timestamp-based last-writer-wins key/value storage
-- `ORMap` for add-wins maps whose values are themselves CRDTs
+| Container | Concurrent child changes |
+| --- | --- |
+| ORMap | Join child CRDTs within the same generation. |
+| LWWMap | Select one complete child assignment. |
 
-## LWWMap (Last-Writer-Wins Map)
+## Typed child specifications
 
-`LWWMap` stores `String` keys and `String` values with timestamps.
-
-```gleam
-import lattice_maps/lww_map
-
-pub fn main() {
-  let profile =
-    lww_map.new()
-    |> lww_map.set("name", "Ada", 1)
-    |> lww_map.set("role", "admin", 2)
-
-  lww_map.get(profile, "name")
-  // -> Ok("Ada")
-}
-```
-
-### Update and remove semantics
-
-- `lww_map.set(map, key, value, timestamp)` only replaces an existing entry when
-  `timestamp` is strictly greater than the current timestamp for that key.
-- `lww_map.remove(map, key, timestamp)` inserts a tombstone. Equal or older
-  timestamps are ignored for the same reason.
-
-Tombstones participate in merges, so a remove can still win later if it has the
-newest timestamp.
-
-### Equal-timestamp conflict resolution
-
-`LWWMap` resolves equal timestamps deterministically:
-
-- tombstones win over active values
-- when both sides hold active values, the lexicographically greater string wins
-
-```gleam
-import lattice_maps/lww_map
-
-pub fn main() {
-  let left = lww_map.new() |> lww_map.set("label", "apple", 7)
-  let right = lww_map.new() |> lww_map.set("label", "zebra", 7)
-
-  let merged = lww_map.merge(left, right)
-
-  lww_map.get(merged, "label")
-  // -> Ok("zebra")
-}
-```
-
-This tie-break keeps merges replica-order independent even when timestamps are
-equal.
-
-## ORMap (Observed-Remove Map)
-
-`ORMap` is for maps whose values should also converge as CRDTs. You choose the
-value type up front with a `CrdtSpec`.
-
-Because `ORMap` uses types from multiple lattice packages, it is a good example
-of where the `lattice_crdt` umbrella is convenient.
+Each map has one `CrdtSpec(a)` that defines its children and their initial
+state. Parameterized registers, sets, and sequences share payload type `a`.
+Text has a concrete String/grapheme payload. For mixed application data,
+use a tagged union as `a` and supply its JSON encoder and decoder.
 
 ```gleam
 import lattice_core/replica_id
 import lattice_maps/crdt
 import lattice_maps/or_map
 
-let counters = or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
+let local = replica_id.new("node-a")
+let documents: or_map.ORMap(String) =
+  or_map.new(local, crdt.TextSpec)
+let lists: or_map.ORMap(Int) =
+  or_map.new(local, crdt.SequenceSpec)
+let boards: or_map.ORMap(String) =
+  or_map.new(local, crdt.OrMapSpec(crdt.LwwRegisterSpec("")))
 ```
 
-When you call `or_map.update`, lattice looks up the current value for that key.
-If the key does not exist yet, it creates a default value from the chosen
-`CrdtSpec` and passes that into your update function.
-`update` returns `Ok(updated_map)` when the returned CRDT matches the
-specification, or `Error(TypeMismatch(expected, found))` if it does not. A
-rejected update does not activate a missing or removed key.
+`LwwRegisterSpec(initial_value)` supplies an actual initial payload.
+Nested `OrMapSpec(child_spec)` and `LwwMapSpec(child_spec)` create empty
+maps with the chosen schema. A changed register value need not equal its
+configured initial value.
 
-### Updating nested counters
+Map updates and merges return errors for incompatible child kinds or
+recursive schemas. A rejected update does not activate a missing or
+removed key.
 
-The example below uses known non-negative amounts. Handle counter errors
-before updating the map when amounts come from external input.
+## ORMap updates
+
+The full-value `update` and `update_with_delta` callbacks receive the
+current child. A first update creates the configured default. Within a
+generation, the map joins the returned child through the same apply path
+used for replication.
+
+Use the sparse callback API for large Sequence/Text values. Perform the
+leaf's `*_with_delta` operation and return `StateDelta` containing its
+delta. For a nested ORMap, return `OrMapChange` containing the child map's
+delta. The map computes local state from that change, so local updates
+and remote application use the same payload.
+
+A leaf no-op can still refresh key membership. Callback failures and
+schema errors do not emit a successful map delta.
+
+### Sparse Text example
 
 ```gleam
+import gleam/result
 import lattice_core/replica_id
-import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
-
-fn add_stock(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
-  case value {
-    crdt.CrdtGCounter(counter) -> {
-      let assert Ok(counter) = g_counter.increment(counter, delta)
-      crdt.CrdtGCounter(counter)
-    }
-
-    other -> other
-  }
-}
+import lattice_text/text
 
 pub fn main() {
-  let assert Ok(inventory) =
-    or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
-    |> or_map.update("widgets", fn(value) { add_stock(value, 4) })
-  let assert Ok(inventory) =
-    or_map.update(inventory, "widgets", fn(value) { add_stock(value, 1) })
+  let documents: or_map.ORMap(String) =
+    or_map.new(replica_id.new("node-a"), crdt.TextSpec)
 
-  case or_map.get(inventory, "widgets") {
-    Ok(crdt.CrdtGCounter(counter)) -> g_counter.value(counter)
-    _ -> 0
-  }
-  // -> 5
+  or_map.update_delta(documents, "notes", fn(value, _context) {
+    let assert crdt.CrdtText(document) = value
+    text.insert_with_delta(document, 0, "hello")
+    |> result.map(fn(pair) {
+      let #(_updated, delta) = pair
+      crdt.StateDelta(crdt.CrdtText(delta))
+    })
+  })
 }
 ```
 
-Because the map was created with `crdt.GCounterSpec`, the `"widgets"` key starts
-at the default `GCounter` value of zero.
+The result contains the updated map and its transport delta. For ordered
+lists, select `SequenceSpec` and wrap the Sequence operation's delta in
+`CrdtSequence`. The runnable
+[Sequence/Text example](https://github.com/tylerbutler/lattice/blob/main/examples/src/or_map_sequence_text_example.gleam)
+also covers typed snapshot adoption and moves.
 
-### Merge behavior
+### Removal and re-addition
 
-`or_map.merge` returns a `Result` because it checks that both maps use the same
-`CrdtSpec`:
+Within one generation, removal retracts observed membership tags. An
+unobserved concurrent update survives under add-wins semantics.
 
-```gleam
-let assert Ok(merged) = or_map.merge(map_a, map_b)
-```
+Re-adding a removed key starts a fresh empty/default generation. A newer
+generation replaces the old generation's membership and child state.
+This also replaces old-generation edits concurrent with the reset.
+Concurrent re-adds choose one winner by generation clock, then replica
+ID.
 
-The merge combines two pieces of state:
+The map retains a generation floor even after removal. A delayed older
+snapshot cannot reactivate an older value when the newer generation is
+absent. It must not supply fallback content for a newer generation.
 
-1. the key tracker, using add-wins observed-remove semantics
-2. the value at each key, using `crdt.merge`
+### Identity and pruning
 
-That means a concurrent `update` and `remove` of the same key keeps the key in
-the merged map, and concurrent updates to the nested CRDT converge using that
-CRDT's own merge rules.
+Map operations bind child editing identities to the local writer,
+enclosing path, and generation. They preserve historical item IDs and
+write authors. Adopt received snapshots under your local identity before
+editing, including keys that existed only on the sender.
+Use `or_map.bind(map, local_id)` or
+`or_map.merge_as(local, received, local_id)`. The two-argument `merge`
+retains the left map's identity.
 
-## ORMap delta-state replication
+The current generation's inactive leaf history remains until a newer
+generation supersedes it. Pruning can discard superseded payloads but
+must retain generation and allocation floors. Outer key clocks do not
+authorize Sequence/Text compaction or forwarding expiry.
 
-`ORMap` exposes a dedicated `ORMapDelta` API for incremental sync:
+## LWWMap assignments
 
-- `or_map.update_with_delta`
-- `or_map.remove_with_delta`
-- `or_map.apply_delta`
-- `or_map.merge_deltas`
-- `or_map.empty_delta`
-- `or_map.delta_to_json`
-- `or_map.delta_from_json`
+LWWMap has the same recursive child schema model, but each assignment
+stores one complete child snapshot. A map can contain Text, Sequence, or
+another map without changing this atomic replacement rule.
 
-Use `update_with_delta` or `remove_with_delta` for local changes, send the
-returned delta to peers, and apply it remotely with `apply_delta`. `merge_deltas`
-can batch multiple pending deltas before transmission. See
-[Delta-State Replication](/advanced/delta-state/) for examples.
+Accepted sets and removals must advance the key's timestamp and pruning
+threshold. Merge orders writes by:
+
+1. Greater timestamp.
+2. Tombstone over active value at equal timestamps.
+3. Greater writer identity for modern writes.
+
+Different payloads claiming the same modern write identity are invalid.
+They do not become an operand-order tie. Child snapshots remain immutable
+under their outer write identity; preparing a new child edit uses a fresh
+assignment editing scope.
+
+Two concurrent edits to a Text assigned through LWWMap do not both
+survive. Use an ORMap-only path to that Text when collaborative child
+merge and sparse leaf updates are required.
+
+## Delta delivery
+
+`ORMapDelta(a)` carries touched keys, generations, membership changes, and
+child deltas. `CrdtDelta(a)` separates leaf/full-state payloads from nested
+ORMap changes. Batching sparse ORMap changes preserves their sparse form;
+an explicit full snapshot can produce a full-state batch.
+
+Receivers need a baseline or eventual delivery of the required history.
+A later Sequence edit alone cannot reconstruct prior items. Duplicate
+and reordered delivery converges after required origins arrive, but an
+intermediate view can be incomplete.
+
+LWWMap uses full-state payloads. Its atomic boundary is outside the sparse
+ORMap leaf-size guarantee.
+
+## Migrating legacy maps
+
+The modern map formats include recursive schemas and generation or
+write metadata. Import an agreed legacy baseline and distribute the
+modern snapshot before switching writers. Do not send legacy map deltas
+into modern generation-aware replication.
+
+Legacy ORMap entries start in the initial generation. Supply an explicit
+schema/default where an old String spec cannot determine the new payload
+type. Previously pruned allocation history cannot be recovered; use a
+fresh writer identity if that history is unavailable.
+
+Legacy LWWMap String imports wrap values as register children and retain
+the old String tie keys. Legacy entries keep their original comparison
+rule; modern writes use writer identity and outrank legacy entries at
+equal timestamp and tombstone status.
+
+See [Delta-State Replication](/advanced/delta-state/),
+[JSON Serialization](/advanced/serialization/), and
+[Replica IDs](/guides/replica-ids/).

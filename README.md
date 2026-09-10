@@ -34,7 +34,7 @@ Conflict-free replicated data types (CRDTs) for Gleam. Tested with property-base
 | | `mv_register` | MVRegister — multi-value register |
 | lattice_maps | `lww_map` | LWWMap — last-writer-wins map |
 | | `or_map` | ORMap — observed-remove map |
-| | `crdt` | Crdt — tagged union for heterogeneous ORMap values |
+| | `crdt` | Crdt(a) — typed leaves and recursive map values |
 | lattice_sequence | `sequence` | Sequence — generic ordered-list CRDT with insert, delete, and move |
 | lattice_text | `text` | Text — plain-text CRDT backed by Sequence |
 | lattice_core | `version_vector` | VersionVector — logical clocks for causality tracking |
@@ -89,6 +89,41 @@ increments and decrements, use `lattice_counters/pn_counter`; its `increment` an
 
 ## Breaking API migration
 
+### Typed map composition
+
+`Crdt(a)`, `CrdtSpec(a)`, `ORMap(a)`, and `LWWMap(a)` share one payload
+type. Both maps can contain CRDT children, including other maps.
+`SequenceSpec` creates a `Sequence(a)` and `TextSpec` creates a concrete
+`Text`. Supply the initial value in `LwwRegisterSpec(initial_value)`.
+Update type annotations and exhaustive matches for the new union variants.
+Construct either map with `new(local_id, child_spec)`. Map `merge(left,
+right)` keeps the left map's local identity; use `merge_as(left, right,
+local_id)` or `bind(map, local_id)` to adopt remote state. Dispatch
+`crdt.merge(left, right, local_id)` requires the explicit identity.
+
+ORMap merges concurrent child edits within a generation. Removing and
+re-adding a key creates a fresh generation. A newer generation replaces
+older content, including edits concurrent with the reset; concurrent
+re-adds choose a deterministic winner. A concurrent edit still keeps a key
+when only removal, without a reset, races with it.
+
+LWWMap replaces each child snapshot atomically. A Text child in LWWMap
+does not preserve both concurrent assignments. Use ORMap for collaborative
+child edits and sparse Sequence/Text updates.
+
+Map snapshots and deltas use new protocol versions. Import an agreed
+legacy baseline before switching writers; do not mix legacy deltas with
+generation-aware replication. Existing leaf formats remain available
+through their String codec entry points. Keep local editing identity
+separate from the author stored in a received snapshot.
+
+Use `or_map.update_delta` with `CrdtDelta(a)` for sparse child edits.
+`update_with_delta` remains the full-value convenience path. LWWMap
+`set`, `remove`, and `update` now return `Result`; use `update` and its
+editing context for Sequence/Text replacements.
+
+### Fallible edits and explicit identity
+
 Counter, sequence, and text operations that previously panicked now return
 `Result` under their plain names. Replace calls such as `try_increment` and
 `try_insert_with_delta` with `increment` and `insert_with_delta`; handle or
@@ -123,7 +158,7 @@ import lattice_sets/or_set
 
 ### API changes
 
-- **All types are opaque.** You can no longer pattern-match on CRDT type constructors. Use the public API functions (`value`, `get`, `keys`, etc.) instead.
+- **CRDT state types are opaque.** Use public query functions (`value`, `get`, `keys`, etc.) instead of state constructors. Dispatch and specification unions remain public for pattern matching.
 - **Replica IDs are opaque.** Functions that identify a replica now take `replica_id.ReplicaId`; create one with `replica_id.new("node-a")`.
 - **`lww_register.new`** now takes a third argument `replica_id: ReplicaId` for commutative merge on equal timestamps.
 - **Two-phase set imports** use `lattice_sets/two_p_set`.
@@ -137,8 +172,8 @@ See the [full import mapping](#packages) above.
 - Property-based tested merge semantics (commutativity, associativity, idempotency)
 - Erlang and JavaScript target support
 - Delta-state mutators for efficient incremental replication
-- JSON serialization for all types with backward-compatible deserialization
-- All types are opaque for safe API evolution
+- JSON serialization with typed payload codecs and explicit legacy map migration
+- Opaque CRDT state with public dispatch and specification unions
 - Independent versioning — update only the packages you need
 - Comprehensive documentation with examples
 

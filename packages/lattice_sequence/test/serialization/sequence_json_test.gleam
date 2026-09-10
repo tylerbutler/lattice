@@ -1,5 +1,6 @@
 import gleam/dynamic/decode
 import gleam/json
+import gleam/list
 import gleam/string
 import lattice_core/replica_id
 import lattice_core/version_vector
@@ -218,4 +219,150 @@ pub fn sequence_from_json_v1_with_compacted_move_rejected_test() {
     Error(_) -> expect.to_be_true(True)
     Ok(_) -> expect.to_be_true(False)
   }
+}
+
+fn id_json(counter: Int) -> json.Json {
+  json.object([
+    #("replica_id", json.string("B")),
+    #("counter", json.int(counter)),
+  ])
+}
+
+fn item_json(
+  id: json.Json,
+  left: json.Json,
+  right: json.Json,
+  deleted: json.Json,
+  move: json.Json,
+) -> json.Json {
+  json.object([
+    #("kind", json.string("item")),
+    #("id", id),
+    #("origin_left", left),
+    #("origin_right", right),
+    #("value", json.string("old")),
+    #("deleted", deleted),
+    #("move", move),
+  ])
+}
+
+fn move_json(op: Int, left: json.Json, right: json.Json) -> json.Json {
+  json.object([
+    #("op_id", id_json(op)),
+    #("origin_left", left),
+    #("origin_right", right),
+  ])
+}
+
+fn forwarding_json(id: Int, left: json.Json, right: json.Json) -> json.Json {
+  json.object([
+    #("id", id_json(id)),
+    #("left", left),
+    #("right", right),
+  ])
+}
+
+fn allocation_snapshot(
+  version: Int,
+  segments: List(json.Json),
+  forwardings: List(json.Json),
+  frontier: version_vector.VersionVector,
+) -> String {
+  json.object([
+    #("type", json.string("sequence")),
+    #("v", json.int(version)),
+    #(
+      "state",
+      json.object([
+        #("self_id", json.string("A")),
+        #("counter", json.int(0)),
+        #("segments", json.array(segments, fn(x) { x })),
+        #("forwardings", json.array(forwardings, fn(x) { x })),
+        #("frontier", version_vector.to_json(frontier)),
+      ]),
+    ),
+  ])
+  |> json.to_string()
+}
+
+fn assert_safe_allocation(encoded: String, expected_counter: Int) {
+  let assert Ok(loaded) = sequence.from_json(encoded, decode.string)
+  sequence.to_json(loaded, json.string)
+  |> json.to_string()
+  |> json.parse(decode.at(["state", "counter"], decode.int))
+  |> expect.to_equal(Ok(expected_counter))
+  sequence.to_json(loaded, json.string)
+  |> json.to_string()
+  |> sequence.from_json(decode.string)
+  |> expect.to_equal(Ok(loaded))
+
+  let rebound = sequence.merge(sequence.new(rid("B")), loaded, rid("B"))
+  let assert Ok(#(_, delta)) = sequence.insert_with_delta(rebound, 0, "new")
+  let assert Ok(anchor) = sequence.anchor_at(delta, 0, sequence.Before)
+  let id_decoder = {
+    use replica <- decode.field("replica_id", decode.string)
+    use counter <- decode.field("counter", decode.int)
+    decode.success(#(replica, counter))
+  }
+  sequence.anchor_to_json(anchor)
+  |> json.to_string()
+  |> json.parse(decode.at(["anchor", "id"], id_decoder))
+  |> expect.to_equal(Ok(#("B", expected_counter + 1)))
+}
+
+pub fn sequence_load_reconstructs_counter_from_items_operations_and_origins_test() {
+  let nil = json.null()
+  let cases = [
+    item_json(id_json(5), nil, nil, nil, nil),
+    item_json(id_json(1), nil, nil, id_json(5), nil),
+    item_json(id_json(1), nil, nil, nil, move_json(5, nil, nil)),
+    item_json(id_json(1), id_json(5), nil, nil, nil),
+    item_json(id_json(1), nil, id_json(5), nil, nil),
+    item_json(id_json(1), nil, nil, nil, move_json(2, id_json(5), nil)),
+    item_json(id_json(1), nil, nil, nil, move_json(2, nil, id_json(5))),
+  ]
+  use version <- list.each([1, 2])
+  use item <- list.each(cases)
+  allocation_snapshot(version, [item], [], version_vector.new())
+  |> assert_safe_allocation(5)
+}
+
+pub fn sequence_load_reconstructs_counter_from_compacted_block_range_test() {
+  let block =
+    json.object([
+      #("kind", json.string("block")),
+      #("first_id", id_json(3)),
+      #("values", json.array(["a", "b", "c"], json.string)),
+    ])
+  use version <- list.each([1, 2])
+  allocation_snapshot(version, [block], [], version_vector.new())
+  |> assert_safe_allocation(5)
+}
+
+pub fn sequence_load_reconstructs_counter_from_forwarding_history_test() {
+  let nil = json.null()
+  use version <- list.each([1, 2])
+  use forwarding <- list.each([
+    forwarding_json(5, nil, nil),
+    forwarding_json(1, id_json(5), nil),
+    forwarding_json(1, nil, id_json(5)),
+  ])
+  allocation_snapshot(version, [], [forwarding], version_vector.new())
+  |> assert_safe_allocation(5)
+}
+
+pub fn sequence_load_reconstructs_counter_from_frontier_without_retained_ids_test() {
+  let frontier = version_vector.new() |> version_vector.set_max(rid("B"), 5)
+  use version <- list.each([1, 2])
+  allocation_snapshot(version, [], [], frontier)
+  |> assert_safe_allocation(5)
+}
+
+pub fn sequence_load_never_reduces_a_higher_allocation_counter_test() {
+  allocation_snapshot(2, [], [], version_vector.new())
+  |> string.replace(
+    "\"self_id\":\"A\",\"counter\":0",
+    "\"self_id\":\"A\",\"counter\":100",
+  )
+  |> assert_safe_allocation(100)
 }

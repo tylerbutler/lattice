@@ -233,8 +233,8 @@ pub fn diff(before: ORSet(a), after: ORSet(a)) -> Diff(a) {
 /// pruned vector that are not live on the side that pruned them (zombie
 /// detection). An element is present if it has at least one surviving tag.
 ///
-/// The merged counter is the maximum of both sides, ensuring future adds on
-/// either replica generate unique tags.
+/// The merged counter covers both sides and the merged pruning frontier,
+/// ensuring future adds remain above retained allocation history.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
@@ -242,7 +242,8 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
   let merged_tombstones =
     set.union(a.tombstones, b.tombstones)
     |> set.filter(fn(tag) { not_dominated(tag, merged_pruned) })
-  let merged_counter = int.max(a.counter, b.counter)
+  let merged_counter =
+    counter_with_pruned_floor(int.max(a.counter, b.counter), merged_pruned)
 
   let a_keys = dict.keys(a.entries)
   let b_keys = dict.keys(b.entries)
@@ -291,6 +292,13 @@ pub fn merge_with_diff(
 fn not_dominated(tag: Tag, pruned: VersionVector) -> Bool {
   let Tag(replica, counter) = tag
   version_vector.get(pruned, replica) < counter
+}
+
+fn counter_with_pruned_floor(counter: Int, pruned: VersionVector) -> Int {
+  pruned
+  |> version_vector.to_dict()
+  |> dict.values()
+  |> list.fold(counter, int.max)
 }
 
 fn is_pruned_zombie(
@@ -365,7 +373,12 @@ pub fn prune(orset: ORSet(a), stable_vv: VersionVector) -> ORSet(a) {
   let pruned_tombstones =
     set.filter(orset.tombstones, fn(tag) { not_dominated(tag, new_pruned) })
 
-  ORSet(..orset, tombstones: pruned_tombstones, pruned: new_pruned)
+  ORSet(
+    ..orset,
+    counter: counter_with_pruned_floor(orset.counter, new_pruned),
+    tombstones: pruned_tombstones,
+    pruned: new_pruned,
+  )
 }
 
 /// Encode an `ORSet(String)` as a self-describing JSON value.
@@ -379,20 +392,55 @@ pub fn prune(orset: ORSet(a), stable_vv: VersionVector) -> ORSet(a) {
 ///
 /// The encoded value can be restored with `from_json`.
 pub fn to_json(orset: ORSet(String)) -> json.Json {
+  encode_envelope(
+    orset,
+    2,
+    json.dict(orset.entries, fn(k) { k }, fn(tags) {
+      json.array(set.to_list(tags), encode_tag)
+    }),
+  )
+}
+
+/// Encode generic elements and all causal metadata in a v3 envelope.
+///
+/// `entries` is an array of `{"value": ..., "tags": [...]}` objects, so
+/// elements need not be JSON object keys. String `to_json` continues to
+/// write the legacy v2 object representation.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let set = or_set.new(replica_id.new("A")) |> or_set.add(42)
+/// or_set.to_json_with(set, json.int)
+/// ```
+pub fn to_json_with(orset: ORSet(a), encode: fn(a) -> json.Json) -> json.Json {
+  encode_envelope(
+    orset,
+    3,
+    json.array(dict.to_list(orset.entries), fn(entry) {
+      let #(value, tags) = entry
+      json.object([
+        #("value", encode(value)),
+        #("tags", json.array(set.to_list(tags), encode_tag)),
+      ])
+    }),
+  )
+}
+
+fn encode_envelope(
+  orset: ORSet(a),
+  version: Int,
+  entries: json.Json,
+) -> json.Json {
   json.object([
     #("type", json.string("or_set")),
-    #("v", json.int(2)),
+    #("v", json.int(version)),
     #(
       "state",
       json.object([
         #("replica_id", replica_id.to_json(orset.replica_id)),
         #("counter", json.int(orset.counter)),
-        #(
-          "entries",
-          json.dict(orset.entries, fn(k) { k }, fn(tag_set) {
-            json.array(set.to_list(tag_set), encode_tag)
-          }),
-        ),
+        #("entries", entries),
         #("tombstones", json.array(set.to_list(orset.tombstones), encode_tag)),
         #("pruned", version_vector.to_json(orset.pruned)),
       ]),
@@ -495,6 +543,102 @@ pub fn from_json(
           }
       }
   }
+}
+
+/// Decode generic elements and all causal metadata from a v3 envelope.
+///
+/// Rejects non-positive tags, repeated elements or live tags, and tags that
+/// are both live and tombstoned. The allocation counter is raised when
+/// retained tags or pruned clocks prove that higher counters were used.
+/// This prevents ID reuse after loading or rebinding a snapshot.
+/// Use String `from_json` to read legacy v1/v2 object-key envelopes.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let set = or_set.new(replica_id.new("A")) |> or_set.add(42)
+/// let encoded = or_set.to_json_with(set, json.int) |> json.to_string
+/// or_set.from_json_with(encoded, decode.int)  // -> Ok(set)
+/// ```
+pub fn from_json_with(
+  json_string: String,
+  decoder: decode.Decoder(a),
+) -> Result(ORSet(a), json.DecodeError) {
+  let tag_decoder = {
+    use r <- decode.field("r", replica_id.decoder())
+    use c <- decode.field("c", decode.int)
+    let tag = Tag(replica_id: r, counter: c)
+    case c > 0 {
+      True -> decode.success(tag)
+      False -> decode.failure(tag, "a positive tag counter")
+    }
+  }
+  let entry_decoder = {
+    use value <- decode.field("value", decoder)
+    use tags <- decode.field("tags", decode.list(tag_decoder))
+    decode.success(#(value, tags))
+  }
+  let envelope_decoder = {
+    use type_tag <- decode.field("type", decode.string)
+    use version <- decode.field("v", decode.int)
+    case type_tag == "or_set" && version == 3 {
+      False -> decode.failure(Nil, "type=or_set and v=3")
+      True -> decode.success(Nil)
+    }
+  }
+  use _ <- result.try(json.parse(json_string, envelope_decoder))
+  json.parse(json_string, {
+    use state <- decode.field("state", {
+      use rid <- decode.field("replica_id", replica_id.decoder())
+      use counter <- decode.field("counter", decode.int)
+      use entries_list <- decode.field("entries", decode.list(entry_decoder))
+      use tombstone_list <- decode.field("tombstones", decode.list(tag_decoder))
+      use pruned <- decode.field("pruned", {
+        use type_tag <- decode.field("type", decode.string)
+        use version <- decode.field("v", decode.int)
+        case type_tag == "version_vector" && version == 1 {
+          True -> version_vector.decoder()
+          False ->
+            decode.failure(version_vector.new(), "type=version_vector and v=1")
+        }
+      })
+      let live_tags = list.flat_map(entries_list, fn(entry) { entry.1 })
+      let tombstones = set.from_list(tombstone_list)
+      let entries =
+        entries_list
+        |> list.map(fn(entry) { #(entry.0, set.from_list(entry.1)) })
+        |> dict.from_list()
+      let clocks = version_vector.to_dict(pruned) |> dict.values()
+      let allocated =
+        list.fold(list.append(live_tags, tombstone_list), counter, fn(max, tag) {
+          int.max(max, tag.counter)
+        })
+      let state =
+        ORSet(
+          replica_id: rid,
+          counter: counter_with_pruned_floor(allocated, pruned),
+          entries: entries,
+          tombstones: tombstones,
+          pruned: pruned,
+        )
+      let valid =
+        counter >= 0
+        && list.all(clocks, fn(clock) { clock >= 0 })
+        && dict.size(entries) == list.length(entries_list)
+        && list.all(entries_list, fn(entry) { !list.is_empty(entry.1) })
+        && set.size(set.from_list(live_tags)) == list.length(live_tags)
+        && list.all(live_tags, fn(tag) { !set.contains(tombstones, tag) })
+      case valid {
+        True -> decode.success(state)
+        False ->
+          decode.failure(
+            state,
+            "non-negative clocks, unique non-empty entries, and disjoint live and removed tags",
+          )
+      }
+    })
+    decode.success(state)
+  })
 }
 
 fn encode_tag(tag: Tag) -> json.Json {

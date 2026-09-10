@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Fixed"
+body = """
+Preserve safe allocation after snapshot load
+
+Text inherits Sequence counter restoration from retained history, so later edits cannot reuse identifiers present in a loaded snapshot. The standalone Text wire format remains the Sequence envelope."""

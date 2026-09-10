@@ -1,6 +1,6 @@
 import gleam/json
-import lattice_maps/lww_map
 import startest/expect
+import support/lww_fixture as lww_map
 
 // LWW-Map JSON round-trip tests
 
@@ -60,7 +60,7 @@ pub fn lww_map_round_trip_mixed_active_and_tombstoned_test() {
   }
 }
 
-pub fn lww_map_round_trip_v2_with_pruned_timestamp_test() {
+pub fn lww_map_round_trip_v3_with_pruned_timestamp_test() {
   let map =
     lww_map.new()
     |> lww_map.set("name", "Alice", 1)
@@ -82,11 +82,11 @@ pub fn lww_map_round_trip_v2_with_pruned_timestamp_test() {
   lww_map.get(merged, "old") |> expect.to_equal(Error(Nil))
 }
 
-pub fn lww_map_from_json_v1_backward_compatible_test() {
+pub fn lww_map_v1_explicit_import_test() {
   // v1 JSON (no pruned_timestamp) should decode with pruned_timestamp=0
   let v1_json =
     "{\"type\":\"lww_map\",\"v\":1,\"state\":{\"entries\":[{\"key\":\"a\",\"value\":\"1\",\"timestamp\":5}]}}"
-  let assert Ok(decoded) = lww_map.from_json(v1_json)
+  let assert Ok(decoded) = lww_map.import_legacy(v1_json)
   lww_map.get(decoded, "a") |> expect.to_equal(Ok("1"))
   lww_map.pruned_timestamp(decoded) |> expect.to_equal(0)
 }

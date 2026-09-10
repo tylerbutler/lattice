@@ -354,7 +354,7 @@ fn splice_run_after(
 ) -> List(Element(a)) {
   case after {
     None -> list.append(run, elements)
-    Some(id) -> insert_run_after_id(elements, id, run)
+    Some(id) -> insert_run_after_id(elements, id, run, [])
   }
 }
 
@@ -362,13 +362,20 @@ fn insert_run_after_id(
   elements: List(Element(a)),
   after: ItemId,
   run: List(Element(a)),
+  prefix_reversed: List(Element(a)),
 ) -> List(Element(a)) {
   case elements {
-    [] -> run
+    [] -> list.fold(prefix_reversed, run, fn(tail, el) { [el, ..tail] })
     [first, ..rest] ->
       case element_id(first) == after {
-        True -> [first, ..list.append(run, rest)]
-        False -> [first, ..insert_run_after_id(rest, after, run)]
+        True ->
+          list.fold(
+            prefix_reversed,
+            [first, ..list.append(run, rest)],
+            fn(tail, el) { [el, ..tail] },
+          )
+        False ->
+          insert_run_after_id(rest, after, run, [first, ..prefix_reversed])
       }
   }
 }
@@ -743,8 +750,8 @@ pub fn values(sequence: Sequence(a)) -> List(a) {
 
 /// Return the replica identity used for subsequent local edits.
 ///
-/// This accessor does not change the state. Use `merge` to select a local
-/// identity when receiving a remote snapshot or delta.
+/// This accessor does not change the state. Use `bind` to adopt a snapshot
+/// without merging, or `merge` when combining state or deltas.
 ///
 /// ## Examples
 ///
@@ -755,6 +762,24 @@ pub fn values(sequence: Sequence(a)) -> List(a) {
 /// ```
 pub fn replica_id(sequence: Sequence(a)) -> ReplicaId {
   sequence.replica_id
+}
+
+/// Select the identity for subsequent edits without rebuilding the sequence.
+///
+/// Preserves item IDs, counters, stored order, and compaction metadata.
+/// Independent writers must use distinct replica IDs.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let local = replica_id.new("B")
+/// sequence.new(replica_id.new("A"))
+/// |> sequence.bind(local)
+/// |> sequence.replica_id()
+/// // -> local
+/// ```
+pub fn bind(sequence: Sequence(a), replica: ReplicaId) -> Sequence(a) {
+  Sequence(..sequence, replica_id: replica)
 }
 
 /// Return the count of visible values.
@@ -1681,7 +1706,9 @@ pub fn to_json(
 /// Returns `Ok(Sequence)` on success, or `Error(json.DecodeError)` if the
 /// input is not a valid sequence JSON envelope. Live items are reordered
 /// deterministically from their stable origins before the `Sequence` is
-/// returned.
+/// returned. If retained IDs or the compaction frontier exceed the encoded
+/// allocation counter, the counter is raised to that high-water mark. This
+/// prevents ID reuse when the snapshot is edited under any replica identity.
 pub fn from_json(
   json_string: String,
   value_decoder: decode.Decoder(a),
@@ -1699,6 +1726,7 @@ pub fn from_json(
         "segments",
         decode.list(segment_decoder(value_decoder)),
       )
+      let counter = allocation_counter(counter, segments, forwardings, frontier)
       let forwarding_map = dict.from_list(forwardings)
       case base_order_segments(version, segments, forwarding_map) {
         Ok(base) ->
@@ -1746,6 +1774,55 @@ pub fn from_json(
             ]),
           )
       }
+  }
+}
+
+fn allocation_counter(
+  counter: Int,
+  segments: List(Segment(a)),
+  forwardings: List(#(ItemId, Forwarding)),
+  frontier: VersionVector,
+) -> Int {
+  let counter =
+    version_vector.to_dict(frontier)
+    |> dict.values()
+    |> list.fold(counter, int.max)
+  let counter =
+    list.fold(segments, counter, fn(max, segment) {
+      case segment {
+        Block(first_id, values) ->
+          int.max(max, first_id.counter + int.max(0, list.length(values) - 1))
+        Live(item) -> {
+          let max =
+            int.max(max, item.id.counter)
+            |> include_origin_counter(item.origin_left)
+            |> include_origin_counter(item.origin_right)
+          let max = case item.deleted {
+            None -> max
+            Some(op) -> int.max(max, op.counter)
+          }
+          case item.move {
+            None -> max
+            Some(move) ->
+              int.max(max, move.op_id.counter)
+              |> include_origin_counter(move.origin_left)
+              |> include_origin_counter(move.origin_right)
+          }
+        }
+      }
+    })
+  list.fold(forwardings, counter, fn(max, entry) {
+    let #(id, forwarding) = entry
+    int.max(max, id.counter)
+    |> include_origin_counter(forwarding.left)
+    |> include_origin_counter(forwarding.right)
+  })
+}
+
+fn include_origin_counter(counter: Int, origin: Option(ItemId)) -> Int {
+  case origin {
+    None -> counter
+    Some(id) -> int.max(counter, id.counter)
   }
 }
 
@@ -2402,7 +2479,7 @@ fn integrate_element(
       dict.new(),
     )
 
-  insert_element_at(elements, left_pos + 1 + offset, LiveEl(item))
+  insert_element_at(elements, left_pos + 1 + offset, LiveEl(item), [])
 }
 
 type ScanEntry {
@@ -2579,13 +2656,19 @@ fn insert_element_at(
   elements: List(Element(a)),
   index: Int,
   el: Element(a),
+  prefix_reversed: List(Element(a)),
 ) -> List(Element(a)) {
   case index <= 0 {
-    True -> [el, ..elements]
+    True ->
+      list.fold(prefix_reversed, [el, ..elements], fn(tail, first) {
+        [first, ..tail]
+      })
     False ->
       case elements {
-        [] -> [el]
-        [first, ..rest] -> [first, ..insert_element_at(rest, index - 1, el)]
+        [] ->
+          list.fold(prefix_reversed, [el], fn(tail, first) { [first, ..tail] })
+        [first, ..rest] ->
+          insert_element_at(rest, index - 1, el, [first, ..prefix_reversed])
       }
   }
 }

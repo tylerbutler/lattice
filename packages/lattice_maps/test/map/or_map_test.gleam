@@ -415,7 +415,9 @@ pub fn update_rejects_mismatch_for_existing_key_test() {
   or_map.update_with_delta(map, "x", wrong_type)
   |> expect.to_equal(Error(crdt.TypeMismatch("g_counter", "g_set")))
   map |> expect.to_equal(original)
-  or_map.get(map, "x") |> expect.to_equal(Ok(CrdtGCounter(counter)))
+  or_map.get(map, "x") |> expect.to_equal(or_map.get(original, "x"))
+  let assert Ok(CrdtGCounter(bound)) = or_map.get(map, "x")
+  g_counter.value(bound) |> expect.to_equal(7)
 }
 
 pub fn update_rejects_mismatch_for_removed_key_test() {

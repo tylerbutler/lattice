@@ -32,7 +32,7 @@ pub fn default_crdt_pn_counter_test() {
 }
 
 pub fn default_crdt_lww_register_test() {
-  crdt.default_crdt(LwwRegisterSpec, rid("A"))
+  crdt.default_crdt(LwwRegisterSpec(""), rid("A"))
   |> expect.to_equal(CrdtLwwRegister(lww_register.new("", 0, rid("A"))))
 }
 
@@ -63,7 +63,7 @@ pub fn merge_g_counter_dispatches_test() {
   let assert Ok(b) = g_counter.new(rid("B")) |> g_counter.increment(5)
   let a = CrdtGCounter(a)
   let b = CrdtGCounter(b)
-  let assert Ok(merged) = crdt.merge(a, b)
+  let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtGCounter(c) -> g_counter.value(c) |> expect.to_equal(8)
     _ -> expect.to_be_true(False)
@@ -75,7 +75,7 @@ pub fn merge_pn_counter_dispatches_test() {
   let assert Ok(b) = pn_counter.new(rid("B")) |> pn_counter.increment(7)
   let a = CrdtPnCounter(a)
   let b = CrdtPnCounter(b)
-  let assert Ok(merged) = crdt.merge(a, b)
+  let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtPnCounter(c) -> pn_counter.value(c) |> expect.to_equal(10)
     _ -> expect.to_be_true(False)
@@ -85,7 +85,7 @@ pub fn merge_pn_counter_dispatches_test() {
 pub fn merge_lww_register_dispatches_test() {
   let a = CrdtLwwRegister(lww_register.new("hello", 1, rid("A")))
   let b = CrdtLwwRegister(lww_register.new("world", 5, rid("B")))
-  let assert Ok(merged) = crdt.merge(a, b)
+  let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtLwwRegister(r) -> lww_register.value(r) |> expect.to_equal("world")
     _ -> expect.to_be_true(False)
@@ -95,7 +95,7 @@ pub fn merge_lww_register_dispatches_test() {
 pub fn merge_g_set_dispatches_test() {
   let a = CrdtGSet(g_set.new() |> g_set.add("x"))
   let b = CrdtGSet(g_set.new() |> g_set.add("y"))
-  let assert Ok(merged) = crdt.merge(a, b)
+  let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtGSet(s) -> {
       g_set.contains(s, "x") |> expect.to_be_true
@@ -108,7 +108,7 @@ pub fn merge_g_set_dispatches_test() {
 pub fn merge_or_set_dispatches_test() {
   let a = CrdtOrSet(or_set.new(rid("A")) |> or_set.add("x"))
   let b = CrdtOrSet(or_set.new(rid("B")) |> or_set.add("y"))
-  let assert Ok(merged) = crdt.merge(a, b)
+  let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtOrSet(s) -> {
       or_set.contains(s, "x") |> expect.to_be_true
@@ -127,7 +127,7 @@ pub fn merge_version_vector_dispatches_test() {
     CrdtVersionVector(
       version_vector.new() |> version_vector.increment(rid("B")),
     )
-  let assert Ok(merged) = crdt.merge(a, b)
+  let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtVersionVector(vv) -> {
       version_vector.get(vv, rid("A")) |> expect.to_equal(1)
@@ -141,7 +141,7 @@ pub fn merge_type_mismatch_returns_error_test() {
   let a = CrdtGCounter(g_counter.new(rid("A")))
   let b = CrdtGSet(g_set.new())
 
-  crdt.merge(a, b)
+  crdt.merge(a, b, rid("A"))
   |> expect.to_equal(
     Error(crdt.TypeMismatch(expected: "g_counter", found: "g_set")),
   )

@@ -1,0 +1,6 @@
+package = "lattice_registers"
+kind = "Added"
+body = """
+Add generic register codecs and explicit authors
+
+Use to_json_with and from_json_with for typed register payloads while retaining existing String formats. LWWRegister set_as and set_as_with_delta record a new local author without rewriting the author of the prior winning write."""

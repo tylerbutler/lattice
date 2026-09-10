@@ -1,3 +1,4 @@
+import gleam/string
 import lattice_core/replica_id
 import lattice_sequence/sequence
 import lattice_text/text
@@ -35,6 +36,20 @@ pub fn insert_appends_at_end_test() {
   |> expect.to_be_ok()
   |> text.value()
   |> expect.to_equal("hi")
+}
+
+pub fn ten_thousand_graphemes_append_and_merge_delta_preserve_order_test() {
+  let value = string.repeat("x", 10_000)
+  let assert Ok(base) = text.append(text.new(rid("A")), value)
+  let assert Ok(old_anchor) = text.anchor_at(base, 9999, sequence.Before)
+  let assert Ok(#(updated, delta)) = text.append_with_delta(base, "!?")
+  text.value(updated) |> expect.to_equal(value <> "!?")
+  text.value(delta) |> expect.to_equal("!?")
+  text.length(delta) |> expect.to_equal(2)
+  text.anchor_at(updated, 9999, sequence.Before)
+  |> expect.to_equal(Ok(old_anchor))
+  text.merge(base, delta, rid("A")) |> expect.to_equal(updated)
+  text.merge(delta, base, rid("A")) |> expect.to_equal(updated)
 }
 
 pub fn insert_in_middle_test() {

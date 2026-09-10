@@ -1,5 +1,10 @@
+import gleam/dynamic/decode
 import gleam/int
+import gleam/json
+import gleam/list
+import gleam/string
 import lattice_core/replica_id
+import lattice_core/version_vector
 import lattice_sequence/sequence
 import qcheck
 import startest/expect
@@ -131,6 +136,39 @@ pub fn sequence_move_delta_correctness__test() {
       sequence.move_with_delta(base, 0, to_index) |> expect.to_be_ok()
 
     sequence.merge(base, delta, rid("A")) |> expect.to_equal(direct)
+    Nil
+  })
+}
+
+pub fn sequence_snapshot_reconstructs_operation_high_water_mark__test() {
+  qcheck.run(small_test_config(), qcheck.bounded_int(0, 2), fn(index) {
+    let assert Ok(inserted) =
+      sequence.insert_many(sequence.new(rid("A")), 0, [1, 2, 3])
+    let assert Ok(deleted) = sequence.delete(inserted, index)
+    let assert Ok(moved) = sequence.move(deleted, 0, 1)
+    let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 5)
+    let #(compacted, forwardings) = sequence.compact(moved, frontier)
+    let expired = sequence.remove_forwardings(compacted, forwardings)
+    list.each(
+      [
+        #(inserted, 3),
+        #(deleted, 4),
+        #(moved, 5),
+        #(compacted, 5),
+        #(expired, 5),
+      ],
+      fn(pair) {
+        let #(state, counter) = pair
+        sequence.to_json(state, json.int)
+        |> json.to_string()
+        |> string.replace(
+          "\"self_id\":\"A\",\"counter\":" <> int.to_string(counter),
+          "\"self_id\":\"A\",\"counter\":0",
+        )
+        |> sequence.from_json(decode.int)
+        |> expect.to_equal(Ok(state))
+      },
+    )
     Nil
   })
 }

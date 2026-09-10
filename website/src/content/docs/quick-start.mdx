@@ -114,9 +114,10 @@ the current one.
 	description="Track add-wins keys while merging a nested CRDT value for each key."
 >
 
-`ORMap` tracks keys with add-wins semantics and stores a CRDT value at each
-key. The `CrdtSpec` you choose when creating the map determines the default
-value used when `or_map.update` sees a missing key.
+`ORMap(a)` tracks keys with add-wins semantics within a generation and
+stores a CRDT child at each key. `CrdtSpec(a)` determines its initial
+value. Re-adding a removed key starts a fresh generation; the newer
+generation wins over older content.
 
 ```gleam
 import lattice_core/replica_id
@@ -124,7 +125,7 @@ import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
 
-fn add_points(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
+fn add_points(value: crdt.Crdt(String), delta: Int) -> crdt.Crdt(String) {
   case value {
     crdt.CrdtGCounter(counter) -> {
       let assert Ok(counter) = g_counter.increment(counter, delta)

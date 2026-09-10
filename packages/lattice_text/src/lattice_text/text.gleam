@@ -487,6 +487,23 @@ pub fn frontier(text: Text) -> VersionVector {
   sequence.frontier(seq)
 }
 
+/// Select the local editor without rebuilding the underlying sequence.
+///
+/// Preserves historical item IDs, counters, and compaction metadata.
+/// Independent writers must use distinct replica IDs.
+///
+/// ## Examples
+///
+/// ```gleam
+/// let assert Ok(remote) = text.insert(text.new(replica_id.new("A")), 0, "hello")
+/// text.bind(remote, replica_id.new("B")) |> text.value()
+/// // -> "hello"
+/// ```
+pub fn bind(text: Text, replica: ReplicaId) -> Text {
+  let Text(seq) = text
+  Text(sequence.bind(seq, replica))
+}
+
 /// Merge two text CRDT states.
 ///
 /// Pass the identity used for subsequent local edits. Operand order does not
@@ -527,6 +544,10 @@ pub fn to_json(text: Text) -> json.Json {
 }
 
 /// Decode text from the canonical sequence JSON envelope.
+///
+/// Retains historical IDs and raises an understated allocation counter to
+/// cover retained IDs and the compaction frontier, as `sequence.from_json`
+/// does. Use `bind` with the local identity before editing an adopted state.
 pub fn from_json(json_string: String) -> Result(Text, json.DecodeError) {
   case sequence.from_json(json_string, decode.string) {
     Ok(seq) -> Ok(Text(seq))

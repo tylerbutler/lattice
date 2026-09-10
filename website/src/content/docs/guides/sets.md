@@ -133,3 +133,14 @@ Sets expose `*_with_delta` variants for incremental replication:
 Each returns both the new set state and a compact set delta. OR-Set deltas carry
 the changed causal tags or tombstones needed for remote replicas to converge.
 See [Delta-State Replication](/advanced/delta-state/) for the shared convention.
+
+## Typed serialization
+
+All set modules provide `to_json_with(value, encode)` and
+`from_json_with(input, decoder)` for integer, record, and tagged-union
+payloads. Existing String codecs retain their formats.
+
+Generic ORSet uses version 3 with value/tag entries instead of arbitrary
+JSON object keys. Its generic decoder accepts that version; the String
+decoder retains version 1/2 support. Both paths preserve causal history,
+not just visible members.

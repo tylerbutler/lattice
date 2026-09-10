@@ -3,10 +3,10 @@ import gleam/set
 import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
-import lattice_maps/lww_map
 import lattice_maps/or_map
 import qcheck
 import startest/expect
+import support/lww_fixture as lww_map
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -77,7 +77,10 @@ pub fn lww_map_associativity__test() {
 // OR-Map property tests
 // ---------------------------------------------------------------------------
 
-fn increment_g_counter(crdt_val: crdt.Crdt, delta: Int) -> crdt.Crdt {
+fn increment_g_counter(
+  crdt_val: crdt.Crdt(String),
+  delta: Int,
+) -> crdt.Crdt(String) {
   case crdt_val {
     crdt.CrdtGCounter(gc) -> {
       let assert Ok(gc) = g_counter.increment(gc, delta)
@@ -105,6 +108,8 @@ pub fn or_map_commutativity__test() {
       let assert Ok(merged_ba) = or_map.merge(map_b, map_a)
       set.from_list(or_map.keys(merged_ab))
       |> expect.to_equal(set.from_list(or_map.keys(merged_ba)))
+      or_map.bind(merged_ab, rid("R"))
+      |> expect.to_equal(or_map.bind(merged_ba, rid("R")))
       Nil
     },
   )
@@ -156,6 +161,7 @@ pub fn or_map_associativity__test() {
 
       or_map.get(merged1, "x")
       |> expect.to_equal(or_map.get(merged2, "x"))
+      merged1 |> expect.to_equal(merged2)
       Nil
     },
   )
@@ -166,7 +172,7 @@ pub fn or_map_associativity__test() {
 // Verify the δ-CRDT laws lift through ORMap composition.
 // ----------------------------------------------------------------------------
 
-fn inc_with_delta(n: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
+fn inc_with_delta(n: Int) -> fn(crdt.Crdt(String)) -> crdt.Crdt(String) {
   fn(c) {
     let assert crdt.CrdtGCounter(gc) = c
     let assert Ok(gc) = g_counter.increment(gc, n)
@@ -174,7 +180,7 @@ fn inc_with_delta(n: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
   }
 }
 
-fn gc_value_for(map: or_map.ORMap, key: String) -> Int {
+fn gc_value_for(map: or_map.ORMap(String), key: String) -> Int {
   case or_map.get(map, key) {
     Ok(crdt.CrdtGCounter(gc)) -> g_counter.value(gc)
     _ -> 0

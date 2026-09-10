@@ -47,6 +47,17 @@ pub fn main() {
 - Delta-state operations are available with `add_with_delta` and `remove_with_delta`.
 - `or_set` also supports `diff`, `merge_with_diff`, `remove_all`, `remove_where`, `remove_with_bound`, and `prune`.
 
+## Typed serialization
+
+Use `to_json_with` and `from_json_with` with a payload encoder and decoder
+to serialize sets of integers, records, or tagged unions. The String
+`to_json` and `from_json` entry points retain their existing formats.
+
+The generic ORSet format stores values with their causal tags in entries.
+It does not convert arbitrary values into JSON object keys. Serialization
+preserves tombstones, allocation state, and pruning metadata as well as
+visible members.
+
 ## Links
 
 - Project site: <https://lattice.tylerbutler.com>

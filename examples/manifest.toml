@@ -13,7 +13,7 @@ packages = [
   { name = "lattice_core", version = "1.0.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib"], source = "local", path = "../packages/lattice_core" },
   { name = "lattice_counters", version = "1.1.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../packages/lattice_counters" },
   { name = "lattice_crdt", version = "3.0.2", build_tools = ["gleam"], requirements = ["lattice_core", "lattice_counters", "lattice_maps", "lattice_registers", "lattice_sequence", "lattice_sets", "lattice_text"], source = "local", path = "../packages/lattice_crdt" },
-  { name = "lattice_maps", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core", "lattice_counters", "lattice_registers", "lattice_sets"], source = "local", path = "../packages/lattice_maps" },
+  { name = "lattice_maps", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core", "lattice_counters", "lattice_registers", "lattice_sequence", "lattice_sets", "lattice_text"], source = "local", path = "../packages/lattice_maps" },
   { name = "lattice_registers", version = "1.2.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../packages/lattice_registers" },
   { name = "lattice_sequence", version = "1.1.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../packages/lattice_sequence" },
   { name = "lattice_sets", version = "1.1.0", build_tools = ["gleam"], requirements = ["gleam_json", "gleam_stdlib", "lattice_core"], source = "local", path = "../packages/lattice_sets" },

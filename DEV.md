@@ -70,27 +70,29 @@ graph TD
     lattice_registers --> lattice_core
     lattice_sequence --> lattice_core
     lattice_sets --> lattice_core
-    lattice_maps --> lattice_core
-    lattice_maps --> lattice_counters
-    lattice_maps --> lattice_registers
-    lattice_maps --> lattice_sets
     lattice_text --> lattice_core
     lattice_text --> lattice_sequence
     lattice_text --> lattice_text_core
+    lattice_maps --> lattice_core
+    lattice_maps --> lattice_counters
+    lattice_maps --> lattice_registers
+    lattice_maps --> lattice_sequence
+    lattice_maps --> lattice_sets
+    lattice_maps --> lattice_text
     lattice_crdt --> lattice_core
     lattice_crdt --> lattice_counters
     lattice_crdt --> lattice_registers
     lattice_crdt --> lattice_sequence
     lattice_crdt --> lattice_sets
-    lattice_crdt --> lattice_maps
     lattice_crdt --> lattice_text
+    lattice_crdt --> lattice_maps
     examples --> lattice_core
     examples --> lattice_counters
     examples --> lattice_registers
     examples --> lattice_sequence
     examples --> lattice_sets
-    examples --> lattice_maps
     examples --> lattice_text
+    examples --> lattice_maps
     examples --> lattice_crdt
     lattice_text_fugue --> lattice_core
     lattice_text_fugue --> lattice_fugue
@@ -180,14 +182,15 @@ just test-js
 just test-pkg lattice_counters
 
 # Single test by name
-cd packages/lattice_counters && gleam test -- --filter "test_name"
+cd packages/lattice_counters && gleam test -- --test-name-filter="test_name"
 ```
 
 Tests use the `startest` framework with `startest/expect`. Property-based tests use `qcheck`.
 
 ## Delta-State CRDTs
 
-Every leaf CRDT in this library exposes both a state-based and a delta-state mutator API.
+Leaf CRDTs expose state-based and delta-state mutators. Composite dispatch
+uses `CrdtDelta(a)` to distinguish a leaf state delta from an ORMap delta.
 
 ### Convention
 
@@ -219,7 +222,11 @@ let remote_new = g_counter.merge(remote, delta)
 // remote_new is equivalent to merge(remote, local_new)
 ```
 
-Delta merge is **idempotent, commutative, and associative**, just like full-state merge. This is what makes deltas safe over unreliable transports (websockets with reconnects, at-least-once delivery, out-of-order arrival).
+Delta merge is **idempotent, commutative, and associative**, like full-state
+merge. Sparse synchronization still requires a baseline or eventual delivery
+of the required deltas. A later Sequence edit alone does not contain all
+earlier items. A receiver can show an incomplete view until missing origins
+arrive; the transport must retain that history or supply a snapshot.
 
 Both sequence backends and their text wrappers require explicit output identity:
 
@@ -239,16 +246,71 @@ State-based replication ships the full CRDT on every sync, which is wasteful —
 
 ### Composite types
 
-`ORMap` composes the delta APIs of its key-set (`ORSet`) and value CRDTs to produce an `ORMapDelta` that carries only touched keys. `apply_delta(map, delta)` performs the merge:
+`ORMap(a)` combines generation-qualified key membership with child CRDTs.
+`ORMapDelta(a)` carries touched keys and their generations.
+`CrdtDelta(a)` distinguishes `NoChange`, leaf/full-state `StateDelta`, and
+recursive `OrMapChange` values.
+
+The full-value `update_with_delta` callback returns a complete per-key
+value. Use the sparse delta callback API for large Text or Sequence values:
+perform the leaf's `*_with_delta` operation and return its delta, not its
+updated full state. The map applies the callback's delta to compute the
+local result and packages the same change for receivers. Nested ORMaps
+retain their child `ORMapDelta` instead of converting it into a snapshot.
 
 ```gleam
 let assert Ok(#(local_new, delta)) = or_map.update_with_delta(local, "score", inc)
 let assert Ok(remote_new) = or_map.apply_delta(remote, delta)
 ```
 
+Both maps have one recursive `CrdtSpec(a)`. Parameterized leaves share `a`;
+Text remains grapheme-based. A `LwwRegisterSpec(initial_value)` supplies the
+default for absent entries. Schema mismatches and callback failures return
+errors without activating a key.
+
+### Map removal and local identity
+
+Removing a key retracts observed membership tags. A concurrent update
+within the same generation remains add-wins. Re-adding a removed key
+starts a fresh generation and fresh editing namespace. A newer generation
+replaces older content, even if an old-generation edit races with the reset.
+Concurrent re-adds use a deterministic generation-clock/replica order.
+
+Generation floors remain after pruning so delayed old messages cannot
+reactivate a superseded value. Keep the current generation's inactive leaf
+history until a newer generation replaces it. An outer key clock does not
+describe inner Sequence/Text operations: never derive child compaction or
+forwarding expiry from map pruning.
+
+Bind received state to the local writer before further edits, including
+incoming-only keys and nested maps. Preserve historical item IDs and LWW
+write authors. A snapshot's sender identity does not authorize a new
+independent writer to reuse it.
+
+LWWMap stores recursive CRDT children but chooses one complete assignment.
+Its timestamp/writer ordering does not merge competing Text edits. Use an
+ORMap-only path to a leaf when concurrent child edits and sparse leaf
+deltas are required.
+
+### Map protocol migration
+
+Map snapshots and deltas carry recursive schemas and generation or write
+metadata. Import legacy maps as an agreed baseline and distribute the
+modern snapshot before enabling the new writers. Old flat states cannot
+recover previously pruned allocation history; use a fresh writer identity
+where that history is unavailable. Do not mix legacy map deltas with
+modern reset semantics.
+
+Generic leaf codecs accept caller-supplied encoders/decoders. Existing
+String codec entry points retain their formats. Text dispatch adds a
+distinct envelope around the standalone Text codec's Sequence payload.
+
 ### Operationalizing over websockets
 
-The delta API is the foundation for websocket replication. Each local mutation produces a delta to broadcast on the socket; receivers `apply_delta` (or `merge`) the delta into their state. Because delta merge is idempotent and commutative, at-least-once delivery is sufficient — there is no need for exactly-once causal broadcast as op-based CRDTs require.
+Each local mutation produces a delta to broadcast; receivers apply or
+merge it into their state. At-least-once delivery handles duplicates, but
+the transport must supply the baseline and required prior deltas. A lost
+dependency needs replay or a snapshot, not a later unrelated delta.
 
 A complete websocket layer additionally needs:
 
@@ -309,7 +371,7 @@ just clean
 just deps && just build
 
 # Run a specific test
-cd packages/<pkg> && gleam test -- --filter "test_name"
+cd packages/<pkg> && gleam test -- --test-name-filter="test_name"
 ```
 
 ## Getting Help

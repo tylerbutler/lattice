@@ -1,3 +1,4 @@
+import gleam/dynamic/decode
 import gleam/json
 import gleam/set
 import lattice_core/replica_id
@@ -199,7 +200,7 @@ pub fn or_map_from_json_invalid_test() {
   }
 }
 
-fn inc(c: crdt.Crdt, amount: Int) -> crdt.Crdt {
+fn inc(c: crdt.Crdt(String), amount: Int) -> crdt.Crdt(String) {
   case c {
     CrdtGCounter(counter) -> {
       let assert Ok(counter) = g_counter.increment(counter, amount)
@@ -209,10 +210,9 @@ fn inc(c: crdt.Crdt, amount: Int) -> crdt.Crdt {
   }
 }
 
-// --- v2 serialization with remove_bounds ---
+// --- Versioned snapshots and explicit legacy baseline imports ---
 
-pub fn or_map_v2_round_trip_with_remove_bounds_test() {
-  // Create map, add key, remove key → has remove_bound
+pub fn or_map_v3_round_trip_preserves_inactive_generation_history_test() {
   let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
@@ -221,16 +221,16 @@ pub fn or_map_v2_round_trip_with_remove_bounds_test() {
   let json_str = json.to_string(or_map.to_json(m))
   let assert Ok(decoded) = or_map.from_json(json_str)
 
-  // After round-trip, prune with stable VV should compact the value
+  // Prune membership only; the current generation's baseline must survive.
   let stable =
     version_vector.new()
     |> version_vector.increment(rid("A"))
   let pruned = or_map.prune(decoded, stable)
 
-  or_map.internal_value_count(pruned) |> expect.to_equal(0)
+  or_map.internal_value_count(pruned) |> expect.to_equal(1)
 }
 
-pub fn or_map_v1_backward_compat_no_compaction_test() {
+pub fn or_map_v1_explicit_import_retains_history_test() {
   // Construct a v1 JSON string manually (no remove_bounds field)
   let key_set =
     or_set.new(rid("A"))
@@ -268,15 +268,15 @@ pub fn or_map_v1_backward_compat_no_compaction_test() {
       ]),
     )
 
-  let assert Ok(decoded) = or_map.from_json(v1_json)
+  let assert Ok(decoded) =
+    or_map.import_legacy(v1_json, GCounterSpec, decode.string, rid("A"))
 
-  // v1 has no remove_bounds, so prune should NOT compact the value
+  // Membership stability does not authorize current-generation compaction.
   let stable =
     version_vector.new()
     |> version_vector.increment(rid("A"))
   let pruned = or_map.prune(decoded, stable)
 
-  // Value is retained (no bound to check against)
   or_map.internal_value_count(pruned) |> expect.to_equal(1)
 
   // Merge with concurrent add still works
@@ -292,13 +292,11 @@ pub fn or_map_v1_backward_compat_no_compaction_test() {
   }
 }
 
-pub fn or_map_v2_from_json_reads_v1_test() {
-  // A v1-encoded map should decode successfully and work correctly
+pub fn or_map_v3_counter_snapshot_round_trip_test() {
   let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("y", fn(c) { inc(c, 10) })
 
-  // Current to_json produces v2, but we should still be able to read v1
   let json_str = json.to_string(or_map.to_json(m))
   let assert Ok(decoded) = or_map.from_json(json_str)
 

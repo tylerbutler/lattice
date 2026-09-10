@@ -47,10 +47,25 @@ pub fn main() {
 - `substring` still clamps bounds; `try_substring` retains its strict `Result` contract.
 - Delta-state variants (`*_with_delta`) return `Ok(#(updated, delta))`; apply a delta with `merge(state, delta, local_replica)`.
 - `merge(a, b, replica)` requires the identity for subsequent local edits. `merge_as` is a forwarding alias. Either operand order produces the same full state for a fixed output identity. Independent writers must use distinct replica IDs.
-- Decoded remote snapshots retain their serialized identity. Merge them under your local identity before editing.
+- Decoded remote snapshots retain their serialized identity. Use `bind(state, local_id)` to adopt a snapshot without rebuilding it, or `merge` to combine it with local history.
 - Cursor anchors: `anchor_at` creates a stable position that survives concurrent edits and merges, `resolve_anchor` maps it back to a current grapheme index, and `anchor_to_json`/`anchor_from_json` let anchors travel between replicas (e.g. shared cursors).
 - `merge`, `to_json`, and `from_json` round-trip the full CRDT state using the canonical sequence JSON envelope.
 - Backed by `lattice_sequence` stable item IDs, so concurrent edits converge deterministically on both Erlang and JavaScript targets.
+
+## Map composition
+
+`lattice_maps/crdt.TextSpec` creates an empty Text child. Use ORMap when
+concurrent child edits must merge; use its sparse callback with the delta
+from a Text `*_with_delta` operation to avoid sending the full document.
+This remains sparse through nested ORMap paths.
+
+Map re-addition creates a fresh generation with a new editing namespace.
+Newer generations replace older content. A LWWMap Text assignment instead
+replaces a whole snapshot and does not merge losing concurrent edits.
+
+Text dispatch uses a distinct wrapper around this package's unchanged
+Sequence JSON envelope. Do not infer Text from a bare Sequence envelope.
+Outer map clocks do not authorize inner sequence compaction.
 
 ## Links
 

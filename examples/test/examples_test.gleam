@@ -7,8 +7,10 @@ import g_set_example
 import lww_map_example
 import lww_register_example
 import mv_register_example
+import nested_map_example
 import or_map_delta_websocket_example
 import or_map_example
+import or_map_sequence_text_example
 import or_set_example
 import pn_counter_example
 import sequence_example
@@ -27,6 +29,8 @@ pub fn main() {
   lww_map_example.main()
   or_map_example.main()
   or_map_delta_websocket_example.main()
+  or_map_sequence_text_example.main()
+  nested_map_example.main()
   version_vector_example.main()
   sequence_example.main()
   text_example.main()

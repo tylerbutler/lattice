@@ -45,7 +45,8 @@ pub fn main() {
   io.println("")
 
   // Merge — "page-views" counters merge (5 + 3 = 8), "api-calls" appears
-  let assert Ok(merged) = or_map.merge(map_a, map_b)
+  let assert Ok(merged) =
+    or_map.merge_as(map_a, map_b, replica_id.new("node-a"))
   io.println("Merged map:")
   io.println(
     "  keys: ["
@@ -86,7 +87,7 @@ pub fn main() {
 
 /// Increment a GCounter value; the map is created with `crdt.GCounterSpec`,
 /// so every other variant is left untouched.
-fn increment_by(value: crdt.Crdt, amount: Int) -> crdt.Crdt {
+fn increment_by(value: crdt.Crdt(String), amount: Int) -> crdt.Crdt(String) {
   case value {
     crdt.CrdtGCounter(counter) -> {
       let assert Ok(updated) = g_counter.increment(counter, amount)
@@ -98,11 +99,15 @@ fn increment_by(value: crdt.Crdt, amount: Int) -> crdt.Crdt {
     | crdt.CrdtGSet(_)
     | crdt.CrdtTwoPSet(_)
     | crdt.CrdtOrSet(_)
+    | crdt.CrdtSequence(_)
+    | crdt.CrdtText(_)
+    | crdt.CrdtOrMap(_)
+    | crdt.CrdtLwwMap(_)
     | crdt.CrdtVersionVector(_) -> value
   }
 }
 
-fn get_counter_value(map: or_map.ORMap, key: String) -> Int {
+fn get_counter_value(map: or_map.ORMap(String), key: String) -> Int {
   case or_map.get(map, key) {
     Ok(crdt.CrdtGCounter(counter)) -> g_counter.value(counter)
     Ok(crdt.CrdtPnCounter(_))
@@ -111,11 +116,15 @@ fn get_counter_value(map: or_map.ORMap, key: String) -> Int {
     | Ok(crdt.CrdtGSet(_))
     | Ok(crdt.CrdtTwoPSet(_))
     | Ok(crdt.CrdtOrSet(_))
+    | Ok(crdt.CrdtSequence(_))
+    | Ok(crdt.CrdtText(_))
+    | Ok(crdt.CrdtOrMap(_))
+    | Ok(crdt.CrdtLwwMap(_))
     | Ok(crdt.CrdtVersionVector(_))
     | Error(Nil) -> 0
   }
 }
 
-fn print_counter(map: or_map.ORMap, key: String) {
+fn print_counter(map: or_map.ORMap(String), key: String) {
   io.println("  " <> key <> " = " <> int.to_string(get_counter_value(map, key)))
 }

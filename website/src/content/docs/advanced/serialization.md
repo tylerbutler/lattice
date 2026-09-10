@@ -44,7 +44,7 @@ import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
 
-fn add_points(value: crdt.Crdt) -> crdt.Crdt {
+fn add_points(value: crdt.Crdt(String)) -> crdt.Crdt(String) {
   case value {
     crdt.CrdtGCounter(counter) -> {
       let assert Ok(counter) = g_counter.increment(counter, 1)
@@ -73,13 +73,22 @@ pub fn main() {
 }
 ```
 
-Internally, `ORMap` encodes its key-set tracker and nested CRDT values as JSON
-strings inside the outer envelope so they can reuse the existing per-type
-decoders.
+Modern map snapshots include recursive child schemas and the metadata
+needed to preserve generations or LWW assignment order. Typed leaves
+retain their causal state rather than encoding only visible values.
+
+Use caller-supplied payload encoders and decoders for `Crdt(a)` values
+such as integers or records. Existing String leaf codec entry points
+retain their formats. A register's configured initial value belongs to
+the schema so newly created keys after load use the same default.
+
+Dispatch distinguishes Text from `Sequence(String)` with a Text wrapper.
+The standalone Text codec still uses its canonical Sequence envelope;
+a bare Sequence envelope decodes as Sequence.
 
 ## ORMap delta serialization
 
-`ORMapDelta` has dedicated JSON helpers because it is not itself an `ORMap`:
+`ORMapDelta(a)` has dedicated JSON helpers because it is not a full map:
 
 ```gleam
 import gleam/json
@@ -93,9 +102,54 @@ let encoded =
 let decoded = or_map.delta_from_json(encoded)
 ```
 
-Use these helpers for map-level delta messages. Leaf CRDT deltas use the normal
-`to_json` and `from_json` functions for their type because leaf deltas are values
-of the same type as the full state.
+Use the delta helpers for map-level messages. Nested `OrMapChange`
+payloads remain deltas rather than full child snapshots. Preserve
+generation floors even for removed keys, plus leaf counters, item IDs,
+move/delete records, frontiers, and forwarding metadata.
+
+## Legacy map import
+
+Modern map formats require a coordinated migration. Import an agreed
+legacy baseline, distribute the modern snapshot, then switch writers.
+Do not mix legacy map deltas with generation-aware replication.
+ORMap snapshots use version 3 and deltas use version 2; LWWMap snapshots
+use version 3.
+
+Legacy ORMap entries enter the initial generation. Supply an explicit
+payload schema/default when the old String spec cannot determine it.
+An importer cannot recover history that an old writer already pruned;
+use a fresh writer identity where allocation history is unavailable.
+
+Legacy String LWWMap imports wrap scalar values as register children and
+retain the original String tie keys. Modern entries use writer identity.
+At equal timestamp and tombstone status, modern entries outrank legacy
+entries; legacy-versus-legacy comparisons keep the old rule.
+
+The import APIs require an explicit schema and receiving identity:
+
+```gleam
+import gleam/dynamic/decode
+import lattice_core/replica_id
+import lattice_maps/crdt
+import lattice_maps/or_map
+
+pub fn import_string_register_map(legacy_snapshot: String) {
+  or_map.import_legacy(
+    legacy_snapshot,
+    crdt.LwwRegisterSpec(""),
+    decode.string,
+    replica_id.new("new-writer"),
+  )
+}
+```
+
+For a scalar String LWWMap baseline, call
+`lww_map.import_legacy(snapshot, crdt.LwwRegisterSpec(""), local_id)`.
+Its modern children are LWWRegisters rather than raw strings.
+
+Decoding rejects unsupported versions, incompatible schemas, unsafe
+allocation metadata, and conflicting immutable write identities. Use
+the receiving editor's identity when adopting decoded state for edits.
 
 ## Presence serialization
 
