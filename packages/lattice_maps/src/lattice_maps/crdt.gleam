@@ -159,7 +159,8 @@ pub opaque type LWWMap(a) {
 /// Invalid schemas and immutable writes are reported rather than replaced.
 ///
 /// `AtKey` identifies the affected nested key. A `ConflictingWrite` means two
-/// different payloads claim the same immutable modern LWW write identity.
+/// different active payloads claim the same immutable modern LWW write identity.
+/// An active assignment and tombstone at the same identity select the tombstone.
 ///
 /// ## Examples
 ///
@@ -908,26 +909,22 @@ pub fn lww_set(
   use _ <- result.try(
     check_spec(value, map.spec) |> result.map_error(AtKey(key, _)),
   )
-  use _ <- result.try(
-    lww.check_timestamp(map.state, key, timestamp)
-    |> result.map_error(lww_error),
-  )
   // Loading an ORMap binds it to its stored identity and normalizes membership.
   // Freeze that same representation without changing historical IDs or authors.
   let value = case value {
     CrdtOrMap(child) -> CrdtOrMap(or_bind(child, child.replica))
     other -> other
   }
-  Ok(
-    LWWMap(
-      ..map,
-      state: lww.put(
-        map.state,
-        key,
-        lww.Entry(Some(value), timestamp, lww.Modern(map.replica)),
-      ),
-    ),
+  use state <- result.try(
+    lww.put(
+      map.state,
+      key,
+      lww.Entry(Some(value), timestamp, lww.Modern(map.replica)),
+      fn(a, b) { a == b },
+    )
+    |> result.map_error(lww_error),
   )
+  Ok(LWWMap(..map, state: state))
 }
 
 @internal
@@ -959,20 +956,16 @@ pub fn lww_remove(
   key: String,
   timestamp: Int,
 ) -> Result(LWWMap(a), MergeError) {
-  use _ <- result.try(
-    lww.check_timestamp(map.state, key, timestamp)
+  use state <- result.try(
+    lww.put(
+      map.state,
+      key,
+      lww.Entry(None, timestamp, lww.Modern(map.replica)),
+      fn(a, b) { a == b },
+    )
     |> result.map_error(lww_error),
   )
-  Ok(
-    LWWMap(
-      ..map,
-      state: lww.put(
-        map.state,
-        key,
-        lww.Entry(None, timestamp, lww.Modern(map.replica)),
-      ),
-    ),
-  )
+  Ok(LWWMap(..map, state: state))
 }
 
 @internal

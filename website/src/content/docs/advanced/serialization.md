@@ -147,6 +147,13 @@ For a scalar String LWWMap baseline, call
 `lww_map.import_legacy(snapshot, crdt.LwwRegisterSpec(""), local_id)`.
 Its modern children are LWWRegisters rather than raw strings.
 
+LWWMap snapshots must contain one entry at most for each exact key.
+Modern decoding and legacy v1/v2 import reject repeated live entries,
+tombstones, and live/tombstone pairs rather than selecting an array-order
+winner. Producers of previously accepted duplicate entries must resolve
+each key before encoding or before calling `import_legacy`. Key identity
+is exact and is not Unicode-normalized.
+
 Decoding rejects unsupported versions, incompatible schemas, unsafe
 allocation metadata, and conflicting immutable write identities. Use
 the receiving editor's identity when adopting decoded state for edits.

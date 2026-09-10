@@ -343,7 +343,7 @@ pub fn protocol_rejects_unsupported_versions_schema_and_allocator_corruption_tes
   )
 }
 
-pub fn direct_dispatch_rejects_same_immutable_lww_write_payload_conflict_test() {
+pub fn direct_dispatch_handles_same_immutable_lww_stamp_conflicts_test() {
   let map = lww_map.new(rid("A"), crdt.LwwRegisterSpec(0))
   let child = fn(n) { crdt.CrdtLwwRegister(lww_register.new(n, 1, rid("A"))) }
   let assert Ok(a) = lww_map.set(map, "key", child(1), 1)
@@ -356,8 +356,10 @@ pub fn direct_dispatch_rejects_same_immutable_lww_write_payload_conflict_test() 
   crdt.merge(crdt.CrdtLwwMap(a), b, rid("R"))
   |> expect.to_equal(Error(crdt.ConflictingWrite("key", 1)))
   let assert Ok(tombstone) = lww_map.remove(map, "key", 1)
-  lww_map.merge(a, tombstone)
-  |> expect.to_equal(Error(crdt.ConflictingWrite("key", 1)))
+  let assert Ok(merged) = lww_map.merge(a, tombstone)
+  let assert Ok(reverse) = lww_map.merge(tombstone, a)
+  merged |> expect.to_equal(reverse)
+  lww_map.get(merged, "key") |> expect.to_equal(Error(Nil))
 }
 
 pub fn legacy_string_leaf_dispatch_fixture_keeps_original_format_test() {

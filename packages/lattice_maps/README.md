@@ -65,8 +65,12 @@ An ORMap pruning vector must cover its namespaced membership tags, not
 the logical writer's unrelated leaf counters.
 
 LWWMap assignments use timestamp, tombstone precedence, and writer
-identity. They select a complete child snapshot instead of merging
-competing Text edits. Sparse leaf updates require an ORMap-only path.
+identity for both local writes and merge. Equal timestamps are accepted
+only above the prune floor: tombstones win, then the greater writer ID
+selects a complete child snapshot. Generic child payloads are not ordered.
+Use increasing timestamps for successive writes; reusing one timestamp
+and writer for different active children returns `ConflictingWrite`.
+Sparse leaf updates require an ORMap-only path.
 
 ## Replication and migration
 
@@ -79,6 +83,12 @@ agreed legacy baseline and switch writers together; do not mix old map
 deltas with modern generation resets. Legacy LWW String imports retain
 their original tie keys. Existing standalone String leaf codecs keep
 their formats.
+
+LWWMap snapshots must contain at most one entry for each exact key.
+Modern decoding and legacy import reject duplicate live entries,
+tombstones, and live/tombstone pairs instead of resolving them by array
+order. Snapshot producers must resolve each key before encoding. Key
+identity is exact and is not Unicode-normalized.
 
 ## Links
 

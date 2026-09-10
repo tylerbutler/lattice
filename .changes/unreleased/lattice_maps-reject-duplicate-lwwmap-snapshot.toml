@@ -1,0 +1,6 @@
+package = "lattice_maps"
+kind = "Breaking"
+body = """
+Reject duplicate LWWMap snapshot keys
+
+Modern decoding and legacy v1/v2 import now reject repeated keys. Resolve each exact key before encoding or import; keys are not Unicode-normalized."""

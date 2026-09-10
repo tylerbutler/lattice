@@ -1,0 +1,6 @@
+package = "lattice_maps"
+kind = "Breaking"
+body = """
+Align equal-time LWWMap local writes with merge
+
+At equal timestamps, removals now win, while active assignments use writer identity and never generic child-value ordering. `set("k", value, 10)` followed by `remove("k", 10)` now removes `"k"`; use increasing timestamps for successive writes. Reusing one timestamp and writer for different active children returns `ConflictingWrite`, and prune-floor rejections are unchanged."""

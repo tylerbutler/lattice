@@ -126,17 +126,25 @@ LWWMap has the same recursive child schema model, but each assignment
 stores one complete child snapshot. A map can contain Text, Sequence, or
 another map without changing this atomic replacement rule.
 
-Accepted sets and removals must advance the key's timestamp and pruning
-threshold. Merge orders writes by:
+Sets and removals must not precede the key's timestamp and must be strictly
+above the pruning threshold. Local writes and merge use the same order:
 
 1. Greater timestamp.
 2. Tombstone over active value at equal timestamps.
 3. Greater writer identity in lexicographic UTF-8 byte order for modern writes.
 
-Different payloads claiming the same modern write identity are invalid.
-They do not become an operand-order tie. Child snapshots remain immutable
-under their outer write identity; preparing a new child edit uses a fresh
-assignment editing scope.
+Generic child payloads are never compared to break a tie. Different active
+payloads claiming the same modern timestamp and writer are invalid and return
+`ConflictingWrite`; an active/tombstone conflict at that stamp selects the
+tombstone. A timestamp at or below the prune floor remains rejected, including
+for a key whose tombstone was pruned.
+
+Use increasing timestamps to express successive writes. Equal timestamps
+represent competing assignments: a local set can lose to the stored writer,
+and an equal-time remove wins. Before writing received state, use `bind` or
+`merge_as` to set the intended local writer identity. Child snapshots remain
+immutable under their outer write identity; preparing a new child edit uses a
+fresh assignment editing scope.
 
 Two concurrent edits to a Text assigned through LWWMap do not both
 survive. Use an ORMap-only path to that Text when collaborative child
