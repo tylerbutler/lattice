@@ -101,6 +101,44 @@ pub fn lww_register_from_json_v1_compat_test() {
   }
 }
 
+pub fn lww_register_v2_missing_replica_id_returns_precise_error_test() {
+  let payload =
+    "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
+
+  lww_register.from_json(payload)
+  |> expect.to_equal(
+    Error(
+      json.UnableToDecode([
+        decode.DecodeError(expected: "Field", found: "Nothing", path: [
+          "state",
+          "replica_id",
+        ]),
+      ]),
+    ),
+  )
+}
+
+pub fn lww_register_v2_rejects_null_and_non_string_replica_ids_test() {
+  use replica_id <- list.each(["null", "42", "true", "[]", "{}"])
+  let payload =
+    "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"hello\",\"timestamp\":42,\"replica_id\":"
+    <> replica_id
+    <> "}}"
+
+  lww_register.from_json(payload) |> expect.to_be_error()
+}
+
+pub fn lww_register_v2_preserves_present_replica_ids_test() {
+  use writer <- list.each(["writer", "", "\u{1f680} replica"])
+  let original = lww_register.new("hello", 42, rid(writer))
+
+  original
+  |> lww_register.to_json()
+  |> json.to_string()
+  |> lww_register.from_json()
+  |> expect.to_equal(Ok(original))
+}
+
 // MV-Register round-trip tests
 
 pub fn mv_register_to_json_simple_test() {
