@@ -1,5 +1,6 @@
 import gleam/dynamic/decode
 import gleam/json
+import gleam/list
 import gleam/string
 import lattice_core/replica_id
 import lattice_fugue/sequence
@@ -51,6 +52,26 @@ pub fn round_trip_preserves_values_test() {
   let assert Ok(decoded) = round_trip(seq)
   sequence.values(decoded)
   |> expect.to_equal(sequence.values(seq))
+}
+
+pub fn decoded_snapshots_unicode_order_and_anchor_test() {
+  let bmp = sequence.new(rid("\u{e000}")) |> sequence.insert(0, "b")
+  let supplementary = sequence.new(rid("\u{10000}")) |> sequence.insert(0, "s")
+  let anchor = sequence.anchor_at(bmp, 0, sequence.Before)
+  let assert Ok(decoded_bmp) = round_trip(bmp)
+  let assert Ok(decoded_supplementary) = round_trip(supplementary)
+
+  [
+    sequence.merge(decoded_bmp, decoded_supplementary),
+    sequence.merge(decoded_supplementary, decoded_bmp),
+  ]
+  |> list.each(fn(merged) {
+    let assert Ok(decoded) = round_trip(merged)
+    sequence.values(merged) |> expect.to_equal(["b", "s"])
+    sequence.resolve(merged, anchor) |> expect.to_equal(0)
+    sequence.values(decoded) |> expect.to_equal(["b", "s"])
+    sequence.resolve(decoded, anchor) |> expect.to_equal(0)
+  })
 }
 
 pub fn wrong_type_tag_fails_test() {

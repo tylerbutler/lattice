@@ -185,6 +185,21 @@ pub fn resolution_agrees_across_replicas_after_merge_test() {
   |> expect.to_equal(sequence.resolve(sequence.merge(bob, alice), anchor))
 }
 
+pub fn unicode_order_anchor_before_concurrent_first_insert_test() {
+  let bmp =
+    sequence.new(rid("\u{e000}"))
+    |> sequence.insert(0, "b")
+  let supplementary =
+    sequence.new(rid("\u{10000}"))
+    |> sequence.insert(0, "s")
+  let anchor = sequence.anchor_at(bmp, 0, Before)
+
+  sequence.resolve(sequence.merge(bmp, supplementary), anchor)
+  |> expect.to_equal(0)
+  sequence.resolve(sequence.merge(supplementary, bmp), anchor)
+  |> expect.to_equal(0)
+}
+
 pub fn anchor_creation_and_resolution_do_not_mutate_state_test() {
   let seq = abc()
   let anchor = sequence.anchor_at(seq, 1, Before)

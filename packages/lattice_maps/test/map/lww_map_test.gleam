@@ -215,6 +215,92 @@ pub fn merge_equal_timestamp_tombstone_wins_test() {
   |> expect.to_equal(lww_map.get(merged_ba, "key"))
 }
 
+pub fn merge_unicode_order_equal_timestamp_test() {
+  let a = lww_map.new() |> lww_map.set("key", "\u{e000}", 10)
+  let b = lww_map.new() |> lww_map.set("key", "\u{10000}", 10)
+
+  lww_map.get(lww_map.merge(a, b), "key")
+  |> expect.to_equal(Ok("\u{10000}"))
+  lww_map.get(lww_map.merge(b, a), "key")
+  |> expect.to_equal(Ok("\u{10000}"))
+}
+
+pub fn merge_unicode_order_shared_prefix_test() {
+  list.each(["prefix:", "\u{10000}:"], fn(prefix) {
+    let a = lww_map.new() |> lww_map.set("key", prefix <> "\u{e000}", 10)
+    let b = lww_map.new() |> lww_map.set("key", prefix <> "\u{10000}", 10)
+
+    lww_map.get(lww_map.merge(a, b), "key")
+    |> expect.to_equal(Ok(prefix <> "\u{10000}"))
+    lww_map.get(lww_map.merge(b, a), "key")
+    |> expect.to_equal(Ok(prefix <> "\u{10000}"))
+  })
+}
+
+pub fn merge_unicode_order_lexical_controls_test() {
+  list.each(
+    [
+      #("", "", ""),
+      #("", "\u{10000}", "\u{10000}"),
+      #("\u{10000}", "\u{10000}", "\u{10000}"),
+      #("\u{10000}", "\u{10000}a", "\u{10000}a"),
+      #("a", "aa", "aa"),
+      #("a", "z", "z"),
+      #("z", "aa", "z"),
+    ],
+    fn(values) {
+      let #(left, right, expected) = values
+      let a = lww_map.new() |> lww_map.set("key", left, 10)
+      let b = lww_map.new() |> lww_map.set("key", right, 10)
+
+      lww_map.get(lww_map.merge(a, b), "key")
+      |> expect.to_equal(Ok(expected))
+      lww_map.get(lww_map.merge(b, a), "key")
+      |> expect.to_equal(Ok(expected))
+    },
+  )
+}
+
+pub fn merge_unicode_order_greater_timestamp_wins_test() {
+  let newer = lww_map.new() |> lww_map.set("key", "\u{e000}", 11)
+  let older = lww_map.new() |> lww_map.set("key", "\u{10000}", 10)
+
+  lww_map.get(lww_map.merge(newer, older), "key")
+  |> expect.to_equal(Ok("\u{e000}"))
+  lww_map.get(lww_map.merge(older, newer), "key")
+  |> expect.to_equal(Ok("\u{e000}"))
+}
+
+pub fn merge_unicode_order_equal_timestamp_tombstone_wins_test() {
+  let tombstone = lww_map.new() |> lww_map.remove("key", 10)
+  list.each(["\u{e000}", "\u{10000}"], fn(value) {
+    let live = lww_map.new() |> lww_map.set("key", value, 10)
+    list.each(
+      [lww_map.merge(live, tombstone), lww_map.merge(tombstone, live)],
+      fn(merged) {
+        lww_map.get(merged, "key") |> expect.to_equal(Error(Nil))
+        lww_map.tombstone_count(merged) |> expect.to_equal(1)
+      },
+    )
+  })
+}
+
+pub fn set_unicode_order_equal_timestamp_keeps_first_value_test() {
+  let a = lww_map.new() |> lww_map.set("key", "\u{e000}", 10)
+  let b = lww_map.new() |> lww_map.set("key", "\u{10000}", 10)
+
+  a
+  |> lww_map.set("key", "\u{10000}", 10)
+  |> lww_map.get("key")
+  |> expect.to_equal(Ok("\u{e000}"))
+  b
+  |> lww_map.set("key", "\u{e000}", 10)
+  |> lww_map.get("key")
+  |> expect.to_equal(Ok("\u{10000}"))
+  lww_map.get(lww_map.merge(a, b), "key")
+  |> expect.to_equal(Ok("\u{10000}"))
+}
+
 pub fn merge_commutativity_test() {
   // merge(a, b) and merge(b, a) produce same value for active keys
   let a =

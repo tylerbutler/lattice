@@ -3,8 +3,12 @@ import gleam/set
 import gleam/string
 import lattice_core/replica_id
 import lattice_counters/g_counter
-import lattice_maps/crdt.{CrdtGCounter, GCounterSpec, GSetSpec, OrSetSpec}
+import lattice_maps/crdt.{
+  CrdtGCounter, CrdtLwwRegister, GCounterSpec, GSetSpec, LwwRegisterSpec,
+  OrSetSpec,
+}
 import lattice_maps/or_map
+import lattice_registers/lww_register
 import lattice_sets/g_set
 import startest/expect
 
@@ -270,6 +274,33 @@ pub fn merge_nested_values_combined_test() {
     Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
     _ -> expect.to_be_true(False)
   }
+}
+
+pub fn merge_lww_register_unicode_order_test() {
+  let assert Ok(bmp) =
+    or_map.new(rid("\u{e000}"), LwwRegisterSpec)
+    |> or_map.update("name", fn(value) {
+      let assert CrdtLwwRegister(register) = value
+      CrdtLwwRegister(lww_register.set(register, "bmp value", 5))
+    })
+  let assert Ok(supplementary) =
+    or_map.new(rid("\u{10000}"), LwwRegisterSpec)
+    |> or_map.update("name", fn(value) {
+      let assert CrdtLwwRegister(register) = value
+      CrdtLwwRegister(lww_register.set(register, "supplementary value", 5))
+    })
+
+  list.each(
+    [or_map.merge(bmp, supplementary), or_map.merge(supplementary, bmp)],
+    fn(result) {
+      let assert Ok(merged) = result
+      or_map.keys(merged) |> expect.to_equal(["name"])
+      let assert Ok(CrdtLwwRegister(register)) = or_map.get(merged, "name")
+      lww_register.value(register) |> expect.to_equal("supplementary value")
+      lww_register.replica_id(register) |> expect.to_equal(rid("\u{10000}"))
+      lww_register.timestamp(register) |> expect.to_equal(5)
+    },
+  )
 }
 
 pub fn merge_preserves_active_keys_from_both_sides_test() {

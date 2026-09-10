@@ -1,4 +1,5 @@
 import gleam/int
+import gleam/list
 import lattice_core/replica_id
 import lattice_registers/lww_register
 import startest/expect
@@ -76,6 +77,42 @@ pub fn merge_tiebreak_is_commutative_test() {
   let merged_ba = lww_register.merge(reg_b, reg_a) |> lww_register.value
 
   expect.to_equal(merged_ab, merged_ba)
+}
+
+pub fn merge_unicode_order_equal_timestamp_test() {
+  let bmp = lww_register.new("bmp value", 5, rid("\u{e000}"))
+  let supplementary =
+    lww_register.new("supplementary value", 5, rid("\u{10000}"))
+
+  list.each(
+    [
+      lww_register.merge(bmp, supplementary),
+      lww_register.merge(supplementary, bmp),
+    ],
+    fn(merged) {
+      lww_register.value(merged) |> expect.to_equal("supplementary value")
+      lww_register.replica_id(merged) |> expect.to_equal(rid("\u{10000}"))
+      lww_register.timestamp(merged) |> expect.to_equal(5)
+    },
+  )
+}
+
+pub fn merge_unicode_order_greater_timestamp_takes_precedence_test() {
+  let bmp = lww_register.new("newer bmp value", 6, rid("\u{e000}"))
+  let supplementary =
+    lww_register.new("older supplementary value", 5, rid("\u{10000}"))
+
+  list.each(
+    [
+      lww_register.merge(bmp, supplementary),
+      lww_register.merge(supplementary, bmp),
+    ],
+    fn(merged) {
+      lww_register.value(merged) |> expect.to_equal("newer bmp value")
+      lww_register.replica_id(merged) |> expect.to_equal(rid("\u{e000}"))
+      lww_register.timestamp(merged) |> expect.to_equal(6)
+    },
+  )
 }
 
 pub fn merge_commutativity_on_different_timestamps_test() {

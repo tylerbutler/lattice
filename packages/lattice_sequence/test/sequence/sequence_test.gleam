@@ -1,3 +1,6 @@
+import gleam/dynamic/decode
+import gleam/json
+import gleam/list
 import lattice_core/replica_id
 import lattice_sequence/sequence
 import startest/expect
@@ -99,6 +102,26 @@ pub fn merge_concurrent_insert_same_position_is_deterministic_test() {
 
   ab |> expect.to_equal(ba)
   ab |> expect.to_equal(["a", "b", "X", "c"])
+}
+
+pub fn unicode_order_concurrent_first_inserts_and_deltas_test() {
+  // UTF-8 orders U+E000 before U+10000, unlike UTF-16 code units.
+  let #(bmp, bmp_delta) =
+    sequence.new(rid("\u{e000}"))
+    |> sequence.insert_with_delta(0, "b")
+  let #(supplementary, supplementary_delta) =
+    sequence.new(rid("\u{10000}"))
+    |> sequence.insert_with_delta(0, "s")
+
+  use pair <- list.each([
+    #(bmp, supplementary),
+    #(supplementary, bmp),
+    #(bmp, supplementary_delta),
+    #(supplementary, bmp_delta),
+  ])
+  sequence.merge(pair.0, pair.1)
+  |> sequence.values()
+  |> expect.to_equal(["b", "s"])
 }
 
 pub fn merge_delete_and_insert_after_deleted_anchor_test() {
@@ -350,6 +373,78 @@ pub fn concurrent_moves_of_same_item_converge_test() {
 
   ab |> expect.to_equal(ba)
   ab |> expect.to_equal(["a", "c", "b", "d"])
+}
+
+pub fn unicode_order_competing_moves_of_same_item_test() {
+  let base =
+    sequence.new(rid("base"))
+    |> sequence.insert_many(0, ["a", "b", "c", "d"])
+  let #(bmp, bmp_delta) =
+    sequence.merge(sequence.new(rid("\u{e000}")), base)
+    |> sequence.move_with_delta(1, 0)
+  let #(supplementary, supplementary_delta) =
+    sequence.merge(sequence.new(rid("\u{10000}")), base)
+    |> sequence.move_with_delta(1, 2)
+
+  sequence.values(bmp) |> expect.to_equal(["b", "a", "c", "d"])
+  sequence.values(supplementary) |> expect.to_equal(["a", "c", "b", "d"])
+  let move_counters =
+    decode.at(
+      ["state", "segments"],
+      decode.list(decode.at(["move", "op_id", "counter"], decode.int)),
+    )
+  list.each([bmp_delta, supplementary_delta], fn(delta) {
+    sequence.to_json(delta, json.string)
+    |> json.to_string()
+    |> json.parse(move_counters)
+    |> expect.to_equal(Ok([5]))
+  })
+
+  use pair <- list.each([
+    #(bmp, supplementary),
+    #(supplementary, bmp),
+    #(bmp, supplementary_delta),
+    #(supplementary, bmp_delta),
+  ])
+  sequence.merge(pair.0, pair.1)
+  |> sequence.values()
+  |> expect.to_equal(["a", "c", "b", "d"])
+}
+
+pub fn unicode_order_different_item_moves_into_same_gap_test() {
+  let base =
+    sequence.new(rid("base"))
+    |> sequence.insert_many(0, ["L", "R", "b", "s"])
+  let #(bmp, bmp_delta) =
+    sequence.merge(sequence.new(rid("\u{e000}")), base)
+    |> sequence.move_with_delta(2, 1)
+  let #(supplementary, supplementary_delta) =
+    sequence.merge(sequence.new(rid("\u{10000}")), base)
+    |> sequence.move_with_delta(3, 1)
+
+  sequence.values(bmp) |> expect.to_equal(["L", "b", "R", "s"])
+  sequence.values(supplementary) |> expect.to_equal(["L", "s", "R", "b"])
+  let move_counters =
+    decode.at(
+      ["state", "segments"],
+      decode.list(decode.at(["move", "op_id", "counter"], decode.int)),
+    )
+  list.each([bmp_delta, supplementary_delta], fn(delta) {
+    sequence.to_json(delta, json.string)
+    |> json.to_string()
+    |> json.parse(move_counters)
+    |> expect.to_equal(Ok([5]))
+  })
+
+  use pair <- list.each([
+    #(bmp, supplementary),
+    #(supplementary, bmp),
+    #(bmp, supplementary_delta),
+    #(supplementary, bmp_delta),
+  ])
+  sequence.merge(pair.0, pair.1)
+  |> sequence.values()
+  |> expect.to_equal(["L", "b", "s", "R"])
 }
 
 pub fn causal_later_move_wins_test() {

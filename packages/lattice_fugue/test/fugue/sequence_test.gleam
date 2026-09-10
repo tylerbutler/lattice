@@ -1,3 +1,4 @@
+import gleam/list
 import lattice_core/replica_id
 import lattice_fugue/sequence
 import startest/expect
@@ -174,6 +175,47 @@ pub fn merge_adopts_the_first_arguments_replica_identity_test() {
   sequence.merge(a_state, b_state)
   |> sequence.length()
   |> expect.to_equal(3)
+}
+
+pub fn concurrent_insert_unicode_order_and_anchor_test() {
+  let bmp = sequence.new(rid("\u{e000}")) |> sequence.insert(0, "b")
+  let supplementary = sequence.new(rid("\u{10000}")) |> sequence.insert(0, "s")
+  let anchor = sequence.anchor_at(bmp, 0, sequence.Before)
+
+  [sequence.merge(bmp, supplementary), sequence.merge(supplementary, bmp)]
+  |> list.each(fn(merged) {
+    sequence.values(merged) |> expect.to_equal(["b", "s"])
+    sequence.resolve(merged, anchor) |> expect.to_equal(0)
+  })
+}
+
+pub fn concurrent_insert_delta_unicode_order_test() {
+  let bmp_id = rid("\u{e000}")
+  let supplementary_id = rid("\u{10000}")
+  let #(bmp, bmp_delta) =
+    sequence.new(bmp_id) |> sequence.insert_with_delta(0, "b")
+  let #(supplementary, supplementary_delta) =
+    sequence.new(supplementary_id) |> sequence.insert_with_delta(0, "s")
+  let anchor = sequence.anchor_at(bmp, 0, sequence.Before)
+  let local = rid("local")
+  let empty = sequence.new(local)
+
+  [
+    sequence.merge(bmp, supplementary_delta),
+    sequence.merge(supplementary_delta, bmp),
+    sequence.merge(supplementary, bmp_delta),
+    sequence.merge(bmp_delta, supplementary),
+    empty
+      |> sequence.merge(bmp_delta)
+      |> sequence.merge(supplementary_delta),
+    empty
+      |> sequence.merge(supplementary_delta)
+      |> sequence.merge(bmp_delta),
+  ]
+  |> list.each(fn(merged) {
+    sequence.values(merged) |> expect.to_equal(["b", "s"])
+    sequence.resolve(merged, anchor) |> expect.to_equal(0)
+  })
 }
 
 pub fn merge_as_keeps_local_identity_whatever_the_argument_order_test() {

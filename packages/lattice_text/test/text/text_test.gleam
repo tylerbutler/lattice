@@ -1,3 +1,5 @@
+import gleam/json
+import gleam/list
 import lattice_core/replica_id
 import lattice_sequence/sequence
 import lattice_text/text
@@ -117,6 +119,37 @@ pub fn merge_concurrent_insert_same_position_is_deterministic_test() {
 
   ab |> expect.to_equal(ba)
   ab |> expect.to_equal("abXc")
+}
+
+pub fn unicode_order_concurrent_first_inserts_deltas_and_snapshots_test() {
+  let #(bmp, bmp_delta) =
+    text.new(rid("\u{e000}"))
+    |> text.insert_with_delta(0, "b")
+  let #(supplementary, supplementary_delta) =
+    text.new(rid("\u{10000}"))
+    |> text.insert_with_delta(0, "s")
+  let decoded_bmp =
+    text.to_json(bmp)
+    |> json.to_string()
+    |> text.from_json()
+    |> expect.to_be_ok()
+  let decoded_supplementary =
+    text.to_json(supplementary)
+    |> json.to_string()
+    |> text.from_json()
+    |> expect.to_be_ok()
+
+  use pair <- list.each([
+    #(bmp, supplementary),
+    #(supplementary, bmp),
+    #(bmp, supplementary_delta),
+    #(supplementary, bmp_delta),
+    #(decoded_bmp, decoded_supplementary),
+    #(decoded_supplementary, decoded_bmp),
+  ])
+  text.merge(pair.0, pair.1)
+  |> text.value()
+  |> expect.to_equal("bs")
 }
 
 pub fn merge_delete_and_insert_after_deleted_anchor_test() {
