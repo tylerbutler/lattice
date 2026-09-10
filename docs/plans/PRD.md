@@ -170,13 +170,14 @@ A register that resolves conflicts by timestamp, keeping the most recent write.
 import lattice_core/replica_id
 import lattice_registers/lww_register
 
-let r = lww_register.new("initial_value", 1000, replica_id.new("node1"))
-let r = lww_register.set(r, "updated", 2000)
+let node1 = replica_id.new("node1")
+let r = lww_register.new("initial_value", 1000, node1)
+let r = lww_register.set(r, "updated", 2000, node1)
 lww_register.value(r)  // => "updated"
 
 // Concurrent writes: higher timestamp wins
-let r1 = lww_register.set(r, "from_node_a", 3000)
-let r2 = lww_register.set(r, "from_node_b", 3001)
+let r1 = lww_register.set(r, "from_node_a", 3000, replica_id.new("node-a"))
+let r2 = lww_register.set(r, "from_node_b", 3001, replica_id.new("node-b"))
 let merged = lww_register.merge(r1, r2)
 lww_register.value(merged)  // => "from_node_b"
 ```

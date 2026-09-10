@@ -92,7 +92,7 @@ pub fn lww_register_idempotency_unicode_order_test() {
   })
 }
 
-pub fn lww_register_set_as_delta_and_author_laws__test() {
+pub fn lww_register_set_delta_and_author_laws__test() {
   qcheck.run(
     small_test_config(),
     qcheck.map2(
@@ -103,9 +103,9 @@ pub fn lww_register_set_as_delta_and_author_laws__test() {
     fn(clocks) {
       let original = lww_register.new(0, clocks.0, rid("historical"))
       let #(a, delta_a) =
-        lww_register.set_as_with_delta(original, 1, clocks.1, rid("A"))
+        lww_register.set_with_delta(original, 1, clocks.1, rid("A"))
       let #(b, delta_b) =
-        lww_register.set_as_with_delta(original, 2, clocks.1, rid("B"))
+        lww_register.set_with_delta(original, 2, clocks.1, rid("B"))
       lww_register.merge(original, delta_a) |> expect.to_equal(a)
       lww_register.merge(original, delta_b) |> expect.to_equal(b)
       lww_register.merge(a, b) |> expect.to_equal(lww_register.merge(b, a))
@@ -118,6 +118,32 @@ pub fn lww_register_set_as_delta_and_author_laws__test() {
       lww_register.merge(a, b)
       |> lww_register.replica_id()
       |> expect.to_equal(winner)
+      Nil
+    },
+  )
+}
+
+pub fn lww_register_merge_then_equal_clock_writes_converge__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(0, 100),
+      qcheck.bounded_int(0, 100),
+      fn(timestamp, value) { #(timestamp, value) },
+    ),
+    fn(input) {
+      let #(timestamp, value) = input
+      let shared =
+        lww_register.merge(
+          lww_register.new(value, timestamp, rid("A")),
+          lww_register.new(value + 1, timestamp, rid("B")),
+        )
+      let a = lww_register.set(shared, value + 2, timestamp + 1, rid("A"))
+      let b = lww_register.set(shared, value + 3, timestamp + 1, rid("B"))
+
+      lww_register.replica_id(a) |> expect.to_equal(rid("A"))
+      lww_register.replica_id(b) |> expect.to_equal(rid("B"))
+      lww_register.merge(a, b) |> expect.to_equal(lww_register.merge(b, a))
       Nil
     },
   )
@@ -203,8 +229,8 @@ pub fn lww_register_delta_correctness__test() {
     fn(pair) {
       let #(ts1, ts2) = pair
       let r = lww_register.new("v0", ts1, rid("A"))
-      let direct = lww_register.set(r, "v1", ts2)
-      let #(_, delta) = lww_register.set_with_delta(r, "v1", ts2)
+      let direct = lww_register.set(r, "v1", ts2, rid("B"))
+      let #(_, delta) = lww_register.set_with_delta(r, "v1", ts2, rid("B"))
       lww_register.value(lww_register.merge(r, delta))
       |> expect.to_equal(lww_register.value(direct))
       Nil
@@ -226,8 +252,9 @@ pub fn lww_register_delta_sufficiency_on_remote_unicode_order_test() {
       list.each(lww_replica_id_cases(), fn(ids) {
         let #(id_local, id_remote, _) = ids
         let local = lww_register.new("local", ts_local, rid(id_local))
-        let local_after = lww_register.set(local, "new", ts_new)
-        let #(_, delta) = lww_register.set_with_delta(local, "new", ts_new)
+        let local_after = lww_register.set(local, "new", ts_new, rid(id_local))
+        let #(_, delta) =
+          lww_register.set_with_delta(local, "new", ts_new, rid(id_local))
         let remote = lww_register.new("remote", ts_remote, rid(id_remote))
         lww_register.merge(remote, delta)
         |> expect.to_equal(lww_register.merge(remote, local_after))

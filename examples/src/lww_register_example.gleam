@@ -13,9 +13,10 @@ pub fn main() {
 
   // Simulate two replicas diverging
   // Replica A: set to "bob" at timestamp 2
-  let replica_a = lww_register.set(register, "bob", 2)
+  let replica_a = lww_register.set(register, "bob", 2, replica_id.new("node-a"))
   // Replica B: set to "charlie" at timestamp 3
-  let replica_b = lww_register.set(register, "charlie", 3)
+  let replica_b =
+    lww_register.set(register, "charlie", 3, replica_id.new("node-b"))
 
   io.println("Replica A value: " <> lww_register.value(replica_a))
   io.println("Replica B value: " <> lww_register.value(replica_b))

@@ -207,7 +207,7 @@ pub type UpdateError(e) {
 /// let assert Ok(#(updated, _)) =
 ///   or_map.update_delta(map, "title", fn(value, context) {
 ///     let assert crdt.CrdtLwwRegister(register) = value
-///     let written = lww_register.set_as(
+///     let written = lww_register.set(
 ///       register, "Ready", lww_register.timestamp(register) + 1,
 ///       context.replica_id,
 ///     )
@@ -371,7 +371,7 @@ pub fn is_empty_delta(value: CrdtDelta(a)) -> Bool {
 /// Bind local editing identity without changing historical IDs or write authors.
 ///
 /// Use this after loading or adopting a remote state. It does not author a new
-/// LWWRegister write; use `lww_register.set_as` for that operation.
+/// LWWRegister write; use `lww_register.set` for that operation.
 ///
 /// ## Examples
 ///
