@@ -1,6 +1,6 @@
 package = "lattice_sequence"
 kind = "Added"
 body = """
-Add identity-only snapshot binding
+Bind a loaded sequence to a local replica
 
-Use sequence.bind(state, local_id) to select the next editor without merging or rebuilding the sequence. Binding preserves historical IDs, allocation counters, stored order, and compaction metadata."""
+Use `sequence.bind(state, local_id)` before editing a snapshot under a new local identity. It preserves existing item IDs, stored order, and compaction state."""

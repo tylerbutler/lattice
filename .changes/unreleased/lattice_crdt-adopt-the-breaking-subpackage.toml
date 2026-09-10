@@ -3,4 +3,4 @@ kind = "Breaking"
 body = """
 Adopt the breaking subpackage APIs
 
-Counter, sequence, and text edits use plain Result-returning APIs, sequence/text merge requires an explicit replica identity, and ORMap update reports type mismatches. LWW-register labeled writes use value: instead of val:. Update callers when upgrading the umbrella package."""
+Counter, sequence, and text edits now return `Result`, and sequence and text merges require a replica ID. LWWRegister updates require a writer ID, the `set_as` aliases are removed, and version 2 snapshots require `replica_id`. ORMap updates now report type mismatches. Labeled LWWRegister calls use `value:` instead of `val:`."""

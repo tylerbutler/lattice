@@ -1,6 +1,6 @@
 package = "lattice_presence"
 kind = "Added"
 body = """
-Add supersede for caller-selected incarnation cleanup
+Remove old presence incarnations
 
-Use `presence_state.supersede` to remove other known incarnations of the selected base and receive one combined leave diff while retaining causal high-water marks. The function returns `Result` and rejects attempts to retire the local writer with `CannotSupersedeLocalReplica`; callers must establish the current incarnation through their membership protocol."""
+Use `presence_state.supersede` to remove other known incarnations of a replica name and return one combined leave diff. The function keeps the history needed to reject stale updates. It returns `CannotSupersedeLocalReplica` when asked to remove the local writer; the membership protocol must select the current incarnation."""

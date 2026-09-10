@@ -1,6 +1,6 @@
 package = "lattice_sets"
 kind = "Fixed"
 body = """
-Keep allocation counters above pruning history
+Prevent ORSet ID reuse after pruning
 
-ORSet merge and prune retain a counter floor from the pruning frontier. Generic round trips no longer change valid allocator metadata, and a rebound writer can add values above retained pruning clocks."""
+ORSet merge and prune keep enough counter history for a rebound writer to create new IDs. JSON round trips preserve this value."""
