@@ -3,4 +3,4 @@ kind = "Fixed"
 body = """
 Resolve Unicode LWWMap ties the same way on both targets
 
-Equal-timestamp live values now use UTF-8 byte order, preserving the previous Erlang winner and fixing JavaScript disagreement for values such as U+E000 and U+10000. Timestamp and tombstone precedence are unchanged. Upgrade peers together; previously discarded values cannot be recovered."""
+Equal-time ties now compare writer IDs and imported legacy tie keys by UTF-8 byte order on both Erlang and JavaScript. Timestamp and removal precedence are unchanged. Upgrade all peers together. Values discarded before the upgrade cannot be recovered."""

@@ -1,3 +1,6 @@
 package = "lattice_registers"
 kind = "Breaking"
-body = "Require replica_id in v2 LWWRegister snapshots. Producers must persist the actual winning writer identity; migrate incomplete v2 history with an explicit application policy. V1 snapshots without replica_id retain the legacy empty placeholder."
+body = """
+Require `replica_id` in version 2 LWWRegister snapshots
+
+Snapshot producers must store the winning writer ID. Version 1 snapshots still use the legacy empty ID. Applications must define how to migrate incomplete version 2 snapshots."""

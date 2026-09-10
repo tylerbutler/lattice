@@ -1,6 +1,6 @@
 package = "lattice_core"
-kind = "Fixed"
+kind = "Breaking"
 body = """
-Use the same Unicode replica order on Erlang and JavaScript
+Use the same replica ID order on Erlang and JavaScript
 
-Compare replica IDs by UTF-8 byte order so equal-time register winners, Sequence/Fugue and text order, and anchor positions agree across targets. This changes affected JavaScript Unicode ties; upgrade peers together. The change does not recover discarded winners or migrate historical compacted sequence snapshots."""
+Replica IDs now use UTF-8 byte order on both targets. This keeps equal-time register writes, sequence and text ordering, and anchors consistent. Upgrade all peers together because some JavaScript ties can select a different winner. This change cannot restore values that an older peer discarded."""
