@@ -1,3 +1,4 @@
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import lattice_core/replica_id
@@ -190,6 +191,23 @@ pub fn to_json_from_json_lww_register_test() {
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
   |> expect.to_equal(Ok(c))
+}
+
+pub fn from_json_lww_register_requires_v2_replica_id_test() {
+  let input =
+    "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
+
+  crdt.from_json(input)
+  |> expect.to_equal(
+    Error(
+      json.UnableToDecode([
+        decode.DecodeError(expected: "Field", found: "Nothing", path: [
+          "state",
+          "replica_id",
+        ]),
+      ]),
+    ),
+  )
 }
 
 pub fn to_json_from_json_g_set_test() {

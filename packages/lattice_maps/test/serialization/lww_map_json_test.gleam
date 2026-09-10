@@ -1,6 +1,8 @@
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import lattice_maps/crdt
+import lattice_maps/lww_map as lww_map_module
 import startest/expect
 import support/lww_fixture as lww_map
 
@@ -155,6 +157,65 @@ pub fn lww_map_unicode_order_v2_merge_round_trip_preserves_pruning_test() {
       },
     )
   })
+}
+
+pub fn lww_map_rejects_nested_v2_register_without_replica_id_test() {
+  let child =
+    "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
+  let input =
+    json.object([
+      #("type", json.string("lww_map")),
+      #("v", json.int(3)),
+      #(
+        "state",
+        json.object([
+          #("replica_id", json.string("map")),
+          #(
+            "spec",
+            json.string(
+              crdt.spec_to_json_with(crdt.LwwRegisterSpec(""), json.string)
+              |> json.to_string,
+            ),
+          ),
+          #("pruned_timestamp", json.int(0)),
+          #(
+            "entries",
+            json.array(
+              [
+                json.object([
+                  #("key", json.string("title")),
+                  #("timestamp", json.int(42)),
+                  #(
+                    "provenance",
+                    json.object([
+                      #("kind", json.string("modern")),
+                      #("writer", json.string("map")),
+                    ]),
+                  ),
+                  #("value", json.string(child)),
+                ]),
+              ],
+              fn(entry) { entry },
+            ),
+          ),
+        ]),
+      ),
+    ])
+    |> json.to_string
+
+  lww_map_module.from_json_with(input, decode.string)
+  |> expect.to_equal(
+    Error(
+      json.UnableToDecode([
+        decode.DecodeError(expected: "Field", found: "Nothing", path: [
+          "entries",
+          "title",
+          "state",
+          "replica_id",
+        ]),
+      ]),
+    ),
+  )
 }
 
 pub fn lww_map_from_json_invalid_test() {

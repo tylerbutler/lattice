@@ -55,6 +55,13 @@ register on another replica does not change that author. Every `set` and
 `set_with_delta` call requires the local writer ID so a new write cannot inherit
 the remote winner's identity.
 
+Version 2 LWWRegister snapshots must contain a string `replica_id`. Version 1
+snapshots without that field still decode with `""` as a legacy placeholder,
+but the placeholder does not establish the historical writer's identity. Pass
+the local replica ID to every subsequent write. Producers of incomplete version
+2 snapshots must migrate them with an application-specific policy that recovers
+the actual winning writer; the decoder does not invent provenance.
+
 Do not reuse the same timestamp and replica ID for different values. After a
 restart, generate a fresh replica ID or restore a durable logical clock that
 advances beyond every prior write from that ID.

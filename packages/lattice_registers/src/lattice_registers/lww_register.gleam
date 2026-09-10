@@ -206,8 +206,10 @@ pub fn to_json_with(
 
 /// Decode a LWWRegister(String) from a JSON string produced by `to_json`.
 ///
-/// Supports both v1 (no replica_id, defaults to "") and v2 (with replica_id)
-/// envelopes. Returns `Ok(LWWRegister(String))` on success, or
+/// Supports both v1 (no replica_id, uses the legacy `""` placeholder) and v2
+/// (requires a string replica_id) envelopes. The v1 placeholder does not prove
+/// the identity of the historical writer; pass the local replica ID to `set`
+/// for every subsequent write. Returns `Ok(LWWRegister(String))` on success, or
 /// `Error(json.DecodeError)` if the input is not a valid LWW-Register JSON
 /// envelope.
 pub fn from_json(
@@ -219,7 +221,8 @@ pub fn from_json(
 /// Decode a register with a custom payload decoder.
 ///
 /// Accepts v1 and v2 envelopes, with the same metadata rules as `from_json`.
-/// Invalid payloads or envelopes return `Error`.
+/// V2 requires `replica_id` to be present and contain a string, including when
+/// that string is empty. Invalid payloads or envelopes return `Error`.
 ///
 /// ## Examples
 ///
@@ -232,7 +235,7 @@ pub fn from_json_with(
   json_string: String,
   decoder: decode.Decoder(a),
 ) -> Result(LWWRegister(a), json.DecodeError) {
-  let v2_state_decoder = {
+  let v1_state_decoder = {
     use state <- decode.field("state", {
       use value <- decode.field("value", decoder)
       use timestamp <- decode.field("timestamp", decode.int)
@@ -249,6 +252,19 @@ pub fn from_json_with(
     })
     decode.success(state)
   }
+  let v2_state_decoder = {
+    use state <- decode.field("state", {
+      use value <- decode.field("value", decoder)
+      use timestamp <- decode.field("timestamp", decode.int)
+      use replica_id_str <- decode.field("replica_id", decode.string)
+      decode.success(LWWRegister(
+        value: value,
+        timestamp: timestamp,
+        replica_id: replica.new(replica_id_str),
+      ))
+    })
+    decode.success(state)
+  }
   let envelope_decoder = {
     use type_tag <- decode.field("type", decode.string)
     use version <- decode.field("v", decode.int)
@@ -257,9 +273,12 @@ pub fn from_json_with(
   case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
-      case type_tag == "lww_register" && { version == 1 || version == 2 } {
-        True -> json.parse(from: json_string, using: v2_state_decoder)
-        False ->
+      case type_tag, version {
+        "lww_register", 1 ->
+          json.parse(from: json_string, using: v1_state_decoder)
+        "lww_register", 2 ->
+          json.parse(from: json_string, using: v2_state_decoder)
+        _, _ ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
