@@ -277,13 +277,13 @@ pub fn merge_nested_values_combined_test() {
 }
 
 pub fn merge_lww_register_unicode_order_test() {
-  let assert Ok(bmp) =
+  let bmp =
     or_map.new(rid("\u{e000}"), LwwRegisterSpec)
     |> or_map.update("name", fn(value) {
       let assert CrdtLwwRegister(register) = value
       CrdtLwwRegister(lww_register.set(register, "bmp value", 5))
     })
-  let assert Ok(supplementary) =
+  let supplementary =
     or_map.new(rid("\u{10000}"), LwwRegisterSpec)
     |> or_map.update("name", fn(value) {
       let assert CrdtLwwRegister(register) = value
