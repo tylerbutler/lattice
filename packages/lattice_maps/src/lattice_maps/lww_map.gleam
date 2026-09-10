@@ -1,7 +1,8 @@
 //// Recursive last-writer-wins maps of atomic child snapshots.
 ////
 //// Greater timestamps win; ties select tombstones, then modern provenance,
-//// then writer identity. Equal modern write IDs cannot name different payloads.
+//// then writer identity in UTF-8 byte order. Equal modern write IDs cannot name
+//// different payloads.
 //// Competing child snapshots are not merged. Use ORMap for collaborative edits.
 
 import gleam/dynamic/decode.{type Decoder}
@@ -263,6 +264,9 @@ pub fn prune(map: LWWMap(a), stable: Int) -> LWWMap(a) {
 /// Merge atomic assignments using the left map's local identity.
 ///
 /// Child snapshots from competing assignments are never merged together.
+/// At equal timestamps, tombstones win; otherwise modern writes use writer
+/// identity and imported legacy writes use their original String tie keys.
+/// Both comparisons use lexicographic UTF-8 byte order on both targets.
 ///
 /// ## Examples
 ///
@@ -370,7 +374,8 @@ pub fn from_json_with(
 /// Import old scalar String entries as LWWRegister children.
 ///
 /// Requires an explicit register schema/default. Original String tie keys are
-/// persisted as legacy provenance. Import an agreed baseline before cutover.
+/// persisted as legacy provenance and compared in lexicographic UTF-8 byte
+/// order, without Unicode normalization. Import an agreed baseline before cutover.
 /// Distribute the resulting modern snapshot before accepting modern writes;
 /// importing old messages repeatedly is not a mixed-version replication scheme.
 ///

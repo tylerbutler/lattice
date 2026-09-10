@@ -6,7 +6,6 @@ import gleam/list
 import gleam/option.{type Option, None}
 import gleam/order.{type Order, Eq, Gt, Lt}
 import gleam/result
-import gleam/string
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
 import lattice_sets/or_set.{type ORSet}
@@ -37,7 +36,7 @@ pub fn compare(a: Generation, b: Generation) -> Order {
     _, Initial -> Gt
     Generation(ac, ar), Generation(bc, br) ->
       case int.compare(ac, bc) {
-        Eq -> string.compare(replica_id.to_string(ar), replica_id.to_string(br))
+        Eq -> replica_id.compare(ar, br)
         other -> other
       }
   }

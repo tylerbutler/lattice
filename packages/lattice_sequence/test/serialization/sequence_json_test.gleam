@@ -26,6 +26,95 @@ pub fn sequence_string_round_trip_simple_test() {
   |> expect.to_equal(Ok(seq))
 }
 
+pub fn unicode_order_concurrent_first_insert_snapshots_test() {
+  let bmp =
+    sequence.new(rid("\u{e000}"))
+    |> sequence.insert(0, "b")
+    |> expect.to_be_ok()
+  let supplementary =
+    sequence.new(rid("\u{10000}"))
+    |> sequence.insert(0, "s")
+    |> expect.to_be_ok()
+  let anchor = sequence.anchor_at(bmp, 0, sequence.Before) |> expect.to_be_ok()
+  let decoded_bmp =
+    sequence.to_json(bmp, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+    |> expect.to_be_ok()
+  let decoded_supplementary =
+    sequence.to_json(supplementary, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+    |> expect.to_be_ok()
+
+  use pair <- list.each([
+    #(decoded_bmp, decoded_supplementary),
+    #(decoded_supplementary, decoded_bmp),
+  ])
+  let merged = sequence.merge(pair.0, pair.1, rid("observer"))
+  let decoded =
+    sequence.to_json(merged, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+    |> expect.to_be_ok()
+  use state <- list.each([merged, decoded])
+  sequence.values(state) |> expect.to_equal(["b", "s"])
+  sequence.resolve(state, anchor) |> expect.to_equal(Ok(0))
+}
+
+pub fn unicode_order_concurrent_deletes_retain_minimum_op_id_test() {
+  let base =
+    sequence.new(rid("base"))
+    |> sequence.insert(0, "x")
+    |> expect.to_be_ok()
+  let #(bmp, bmp_delta) =
+    sequence.merge(sequence.new(rid("\u{e000}")), base, rid("\u{e000}"))
+    |> sequence.delete_with_delta(0)
+    |> expect.to_be_ok()
+  let #(supplementary, supplementary_delta) =
+    sequence.merge(sequence.new(rid("\u{10000}")), base, rid("\u{10000}"))
+    |> sequence.delete_with_delta(0)
+    |> expect.to_be_ok()
+  let op_id_decoder = {
+    use replica <- decode.field("replica_id", decode.string)
+    use counter <- decode.field("counter", decode.int)
+    decode.success(#(replica, counter))
+  }
+  let deleted_ops =
+    decode.at(
+      ["state", "segments"],
+      decode.list(decode.at(["deleted"], op_id_decoder)),
+    )
+  list.each(
+    [#(bmp_delta, "\u{e000}"), #(supplementary_delta, "\u{10000}")],
+    fn(pair) {
+      sequence.to_json(pair.0, json.string)
+      |> json.to_string()
+      |> json.parse(deleted_ops)
+      |> expect.to_equal(Ok([#(pair.1, 2)]))
+    },
+  )
+
+  use pair <- list.each([
+    #(bmp, supplementary),
+    #(supplementary, bmp),
+    #(bmp, supplementary_delta),
+    #(supplementary, bmp_delta),
+  ])
+  let merged = sequence.merge(pair.0, pair.1, rid("observer"))
+  let decoded =
+    sequence.to_json(merged, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+    |> expect.to_be_ok()
+  use state <- list.each([merged, decoded])
+  sequence.values(state) |> expect.to_equal([])
+  sequence.to_json(state, json.string)
+  |> json.to_string()
+  |> json.parse(deleted_ops)
+  |> expect.to_equal(Ok([#("\u{e000}", 2)]))
+}
+
 pub fn sequence_int_round_trip_with_tombstone_test() {
   let seq =
     sequence.new(rid("A"))

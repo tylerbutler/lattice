@@ -1,3 +1,4 @@
+import gleam/list
 import gleam/result
 import lattice_core/replica_id
 import lattice_fugue/sequence
@@ -161,6 +162,52 @@ pub fn insert_delta_replicates_single_node_test() {
   sequence.merge(other, delta, rid("B"))
   |> sequence.values()
   |> expect.to_equal(["x"])
+}
+
+pub fn concurrent_insert_unicode_order_and_anchor_test() {
+  let assert Ok(bmp) = sequence.new(rid("\u{e000}")) |> sequence.insert(0, "b")
+  let assert Ok(supplementary) =
+    sequence.new(rid("\u{10000}")) |> sequence.insert(0, "s")
+  let assert Ok(anchor) = sequence.anchor_at(bmp, 0, sequence.Before)
+  let local = rid("local")
+
+  [
+    sequence.merge(bmp, supplementary, local),
+    sequence.merge(supplementary, bmp, local),
+  ]
+  |> list.each(fn(merged) {
+    sequence.values(merged) |> expect.to_equal(["b", "s"])
+    sequence.resolve(merged, anchor) |> expect.to_equal(Ok(0))
+  })
+}
+
+pub fn concurrent_insert_delta_unicode_order_test() {
+  let bmp_id = rid("\u{e000}")
+  let supplementary_id = rid("\u{10000}")
+  let assert Ok(#(bmp, bmp_delta)) =
+    sequence.new(bmp_id) |> sequence.insert_with_delta(0, "b")
+  let assert Ok(#(supplementary, supplementary_delta)) =
+    sequence.new(supplementary_id) |> sequence.insert_with_delta(0, "s")
+  let assert Ok(anchor) = sequence.anchor_at(bmp, 0, sequence.Before)
+  let local = rid("local")
+  let empty = sequence.new(local)
+
+  [
+    sequence.merge(bmp, supplementary_delta, bmp_id),
+    sequence.merge(supplementary_delta, bmp, bmp_id),
+    sequence.merge(supplementary, bmp_delta, supplementary_id),
+    sequence.merge(bmp_delta, supplementary, supplementary_id),
+    empty
+      |> sequence.merge(bmp_delta, local)
+      |> sequence.merge(supplementary_delta, local),
+    empty
+      |> sequence.merge(supplementary_delta, local)
+      |> sequence.merge(bmp_delta, local),
+  ]
+  |> list.each(fn(merged) {
+    sequence.values(merged) |> expect.to_equal(["b", "s"])
+    sequence.resolve(merged, anchor) |> expect.to_equal(Ok(0))
+  })
 }
 
 pub fn state_only_edits_preserve_errors_test() {

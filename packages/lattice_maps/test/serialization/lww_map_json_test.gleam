@@ -1,8 +1,16 @@
 import gleam/json
+import gleam/list
+import lattice_maps/crdt
 import startest/expect
 import support/lww_fixture as lww_map
 
 // LWW-Map JSON round-trip tests
+
+fn round_trip(map: crdt.LWWMap(String)) -> crdt.LWWMap(String) {
+  let assert Ok(decoded) =
+    map |> lww_map.to_json |> json.to_string |> lww_map.from_json
+  decoded
+}
 
 pub fn lww_map_to_json_empty_test() {
   let map = lww_map.new()
@@ -89,6 +97,64 @@ pub fn lww_map_v1_explicit_import_test() {
   let assert Ok(decoded) = lww_map.import_legacy(v1_json)
   lww_map.get(decoded, "a") |> expect.to_equal(Ok("1"))
   lww_map.pruned_timestamp(decoded) |> expect.to_equal(0)
+}
+
+pub fn lww_map_unicode_order_v1_merge_round_trip_test() {
+  let assert Ok(a) =
+    lww_map.import_legacy(
+      "{\"type\":\"lww_map\",\"v\":1,\"state\":{\"entries\":[{\"key\":\"key\",\"value\":\"\u{e000}\",\"timestamp\":10}]}}",
+    )
+  let assert Ok(b) =
+    lww_map.import_legacy(
+      "{\"type\":\"lww_map\",\"v\":1,\"state\":{\"entries\":[{\"key\":\"key\",\"value\":\"\u{10000}\",\"timestamp\":10}]}}",
+    )
+
+  list.each(
+    [
+      lww_map.merge(a, b),
+      lww_map.merge(b, a),
+      lww_map.merge(round_trip(a), round_trip(b)),
+      lww_map.merge(round_trip(b), round_trip(a)),
+    ],
+    fn(merged) {
+      lww_map.get(merged, "key") |> expect.to_equal(Ok("\u{10000}"))
+      let decoded = round_trip(merged)
+      lww_map.get(decoded, "key") |> expect.to_equal(Ok("\u{10000}"))
+      lww_map.pruned_timestamp(decoded) |> expect.to_equal(0)
+      lww_map.tombstone_count(decoded) |> expect.to_equal(0)
+    },
+  )
+}
+
+pub fn lww_map_unicode_order_v2_merge_round_trip_preserves_pruning_test() {
+  let assert Ok(a) =
+    lww_map.import_legacy(
+      "{\"type\":\"lww_map\",\"v\":2,\"state\":{\"entries\":[{\"key\":\"key\",\"value\":\"\u{e000}\",\"timestamp\":10},{\"key\":\"deleted\",\"value\":null,\"timestamp\":15}],\"pruned_timestamp\":5}}",
+    )
+  let assert Ok(b) =
+    lww_map.import_legacy(
+      "{\"type\":\"lww_map\",\"v\":2,\"state\":{\"entries\":[{\"key\":\"key\",\"value\":\"\u{10000}\",\"timestamp\":10}],\"pruned_timestamp\":7}}",
+    )
+  let zombie = lww_map.new() |> lww_map.set("old", "stale", 7)
+
+  list.each([lww_map.merge(a, b), lww_map.merge(b, a)], fn(merged) {
+    lww_map.get(merged, "key") |> expect.to_equal(Ok("\u{10000}"))
+    let decoded = round_trip(merged)
+    lww_map.get(decoded, "key") |> expect.to_equal(Ok("\u{10000}"))
+    lww_map.get(decoded, "deleted") |> expect.to_equal(Error(Nil))
+    lww_map.pruned_timestamp(decoded) |> expect.to_equal(7)
+    lww_map.tombstone_count(decoded) |> expect.to_equal(1)
+
+    list.each(
+      [lww_map.merge(decoded, zombie), lww_map.merge(zombie, decoded)],
+      fn(restored) {
+        lww_map.get(restored, "old") |> expect.to_equal(Error(Nil))
+        lww_map.get(restored, "key") |> expect.to_equal(Ok("\u{10000}"))
+        lww_map.pruned_timestamp(restored) |> expect.to_equal(7)
+        lww_map.tombstone_count(restored) |> expect.to_equal(1)
+      },
+    )
+  })
 }
 
 pub fn lww_map_from_json_invalid_test() {

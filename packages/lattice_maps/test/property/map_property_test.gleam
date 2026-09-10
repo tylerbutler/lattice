@@ -1,5 +1,6 @@
 import gleam/json
 import gleam/set
+import gleam/string
 import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_maps/crdt
@@ -68,6 +69,33 @@ pub fn lww_map_associativity__test() {
       let merged2 = lww_map.merge(map_a, lww_map.merge(map_b, map_c))
       lww_map.get(merged1, "key")
       |> expect.to_equal(lww_map.get(merged2, "key"))
+      Nil
+    },
+  )
+}
+
+pub fn lww_map_unicode_order_equal_timestamp_merge_laws__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(1, 100),
+      qcheck.bounded_int(0, 10),
+      fn(timestamp, prefix_length) { #(timestamp, prefix_length) },
+    ),
+    fn(pair) {
+      let #(timestamp, prefix_length) = pair
+      let prefix = string.repeat("p", prefix_length)
+      let a = lww_map.legacy(prefix <> "\u{e000}", timestamp)
+      let b = lww_map.legacy(prefix <> "\u{10000}", timestamp)
+      let c = lww_map.legacy(prefix <> "z", timestamp)
+      let ab = lww_map.merge(a, b)
+
+      lww_map.get(ab, "key")
+      |> expect.to_equal(Ok(prefix <> "\u{10000}"))
+      ab |> expect.to_equal(lww_map.merge(b, a))
+      lww_map.merge(ab, c)
+      |> expect.to_equal(lww_map.merge(a, lww_map.merge(b, c)))
+      lww_map.merge(ab, ab) |> expect.to_equal(ab)
       Nil
     },
   )

@@ -1,4 +1,5 @@
 import gleam/json
+import gleam/list
 import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_counters/g_counter
@@ -90,6 +91,25 @@ pub fn merge_lww_register_dispatches_test() {
     CrdtLwwRegister(r) -> lww_register.value(r) |> expect.to_equal("world")
     _ -> expect.to_be_true(False)
   }
+}
+
+pub fn merge_lww_register_unicode_order_dispatch_test() {
+  let bmp = CrdtLwwRegister(lww_register.new("bmp value", 5, rid("\u{e000}")))
+  let supplementary =
+    CrdtLwwRegister(lww_register.new("supplementary value", 5, rid("\u{10000}")))
+
+  list.each(
+    [
+      crdt.merge(bmp, supplementary, rid("R")),
+      crdt.merge(supplementary, bmp, rid("R")),
+    ],
+    fn(result) {
+      let assert Ok(CrdtLwwRegister(merged)) = result
+      lww_register.value(merged) |> expect.to_equal("supplementary value")
+      lww_register.replica_id(merged) |> expect.to_equal(rid("\u{10000}"))
+      lww_register.timestamp(merged) |> expect.to_equal(5)
+    },
+  )
 }
 
 pub fn merge_g_set_dispatches_test() {

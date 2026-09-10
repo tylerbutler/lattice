@@ -71,3 +71,32 @@ pub fn import_legacy(input) {
     replica_id.new("fixture"),
   )
 }
+
+pub fn legacy(value: String, timestamp: Int) {
+  let input =
+    json.object([
+      #("type", json.string("lww_map")),
+      #("v", json.int(1)),
+      #(
+        "state",
+        json.object([
+          #(
+            "entries",
+            json.array(
+              [
+                json.object([
+                  #("key", json.string("key")),
+                  #("value", json.string(value)),
+                  #("timestamp", json.int(timestamp)),
+                ]),
+              ],
+              fn(entry) { entry },
+            ),
+          ),
+        ]),
+      ),
+    ])
+    |> json.to_string
+  let assert Ok(map) = import_legacy(input)
+  map
+}

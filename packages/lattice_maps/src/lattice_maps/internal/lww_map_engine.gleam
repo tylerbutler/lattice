@@ -1,12 +1,12 @@
 //// Atomic assignments. Child states are never joined across write identities.
 
+import gleam/bit_array
 import gleam/dict.{type Dict}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order.{Eq, Gt, Lt}
 import gleam/result
-import gleam/string
 import lattice_core/replica_id.{type ReplicaId}
 
 pub type Provenance {
@@ -104,12 +104,12 @@ fn choose_provenance(a: Entry(value), b: Entry(value)) -> Entry(value) {
     Modern(_), Legacy(_) -> a
     Legacy(_), Modern(_) -> b
     Legacy(ak), Legacy(bk) ->
-      case string.compare(ak, bk) {
+      case bit_array.compare(<<ak:utf8>>, <<bk:utf8>>) {
         Lt -> b
         _ -> a
       }
     Modern(aw), Modern(bw) ->
-      case string.compare(replica_id.to_string(aw), replica_id.to_string(bw)) {
+      case replica_id.compare(aw, bw) {
         Lt -> b
         _ -> a
       }

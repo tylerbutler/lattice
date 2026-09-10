@@ -1,10 +1,15 @@
+import gleam/json
 import gleam/list
 import gleam/set
 import gleam/string
 import lattice_core/replica_id
 import lattice_counters/g_counter
-import lattice_maps/crdt.{CrdtGCounter, GCounterSpec, GSetSpec, OrSetSpec}
+import lattice_maps/crdt.{
+  CrdtGCounter, CrdtLwwRegister, GCounterSpec, GSetSpec, LwwRegisterSpec,
+  OrSetSpec,
+}
 import lattice_maps/or_map
+import lattice_registers/lww_register
 import lattice_sets/g_set
 import startest/expect
 
@@ -297,6 +302,79 @@ pub fn merge_nested_values_combined_test() {
     Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
     _ -> expect.to_be_true(False)
   }
+}
+
+pub fn merge_lww_register_unicode_order_test() {
+  let assert Ok(bmp) =
+    or_map.new(rid("\u{e000}"), LwwRegisterSpec(""))
+    |> or_map.update("name", fn(value) {
+      let assert CrdtLwwRegister(register) = value
+      CrdtLwwRegister(lww_register.set_as(
+        register,
+        "bmp value",
+        5,
+        rid("\u{e000}"),
+      ))
+    })
+  let assert Ok(supplementary) =
+    or_map.new(rid("\u{10000}"), LwwRegisterSpec(""))
+    |> or_map.update("name", fn(value) {
+      let assert CrdtLwwRegister(register) = value
+      CrdtLwwRegister(lww_register.set_as(
+        register,
+        "supplementary value",
+        5,
+        rid("\u{10000}"),
+      ))
+    })
+
+  list.each(
+    [or_map.merge(bmp, supplementary), or_map.merge(supplementary, bmp)],
+    fn(result) {
+      let assert Ok(merged) = result
+      or_map.keys(merged) |> expect.to_equal(["name"])
+      let assert Ok(CrdtLwwRegister(register)) = or_map.get(merged, "name")
+      lww_register.value(register) |> expect.to_equal("supplementary value")
+      lww_register.replica_id(register) |> expect.to_equal(rid("\u{10000}"))
+      lww_register.timestamp(register) |> expect.to_equal(5)
+    },
+  )
+}
+
+pub fn concurrent_readd_unicode_order_preserves_winning_generation_state_test() {
+  let assert Ok(initial) =
+    or_map.update(or_map.new(rid("initial"), GCounterSpec), "key", fn(value) {
+      value
+    })
+  let removed = or_map.remove(initial, "key")
+  let reset = fn(writer, amount) {
+    let assert Ok(pair) =
+      or_map.update_delta(
+        or_map.bind(removed, rid(writer)),
+        "key",
+        fn(value, _) {
+          let assert CrdtGCounter(counter) = value
+          let assert Ok(counter) = g_counter.increment(counter, amount)
+          Ok(crdt.StateDelta(CrdtGCounter(counter)))
+        },
+      )
+    pair
+  }
+  let #(a, da) = reset("\u{e000}", 10)
+  let #(b, db) = reset("\u{10000}", 20)
+  let local = rid("R")
+  let expected = or_map.bind(b, local)
+  or_map.merge_as(a, b, local) |> expect.to_equal(Ok(expected))
+  or_map.merge_as(b, a, local) |> expect.to_equal(Ok(expected))
+  list.each([[da, db], [db, da], [db, da, db]], fn(deltas) {
+    let assert Ok(delivered) =
+      list.try_fold(deltas, or_map.bind(removed, local), or_map.apply_delta)
+    delivered |> expect.to_equal(expected)
+  })
+  let assert Ok(CrdtGCounter(counter)) = or_map.get(expected, "key")
+  g_counter.value(counter) |> expect.to_equal(20)
+  or_map.from_json(or_map.to_json(expected) |> json.to_string)
+  |> expect.to_equal(Ok(expected))
 }
 
 pub fn merge_preserves_active_keys_from_both_sides_test() {

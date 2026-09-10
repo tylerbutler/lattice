@@ -6,6 +6,7 @@ import lattice_maps/lww_map
 import lattice_registers/lww_register
 import lattice_text/text
 import startest/expect
+import support/lww_fixture as fixture
 
 fn new(writer) {
   lww_map.new(replica_id.new(writer), crdt.LwwRegisterSpec(""))
@@ -124,4 +125,114 @@ pub fn lww_assignment_context_prevents_fresh_text_id_reuse_test() {
 pub fn lww_callback_errors_are_atomic_test() {
   lww_map.update(new("A"), "key", 1, fn(_, _) { Error("rejected") })
   |> expect.to_equal(Error(crdt.CallbackError("rejected")))
+}
+
+fn assert_legacy_merge(a, b, expected) {
+  list.each([fixture.merge(a, b), fixture.merge(b, a)], fn(merged) {
+    fixture.get(merged, "key") |> expect.to_equal(Ok(expected))
+  })
+}
+
+pub fn merge_unicode_order_equal_timestamp_test() {
+  assert_legacy_merge(
+    fixture.legacy("\u{e000}", 10),
+    fixture.legacy("\u{10000}", 10),
+    "\u{10000}",
+  )
+}
+
+pub fn merge_unicode_order_shared_prefix_test() {
+  list.each(["prefix:", "\u{10000}:"], fn(prefix) {
+    assert_legacy_merge(
+      fixture.legacy(prefix <> "\u{e000}", 10),
+      fixture.legacy(prefix <> "\u{10000}", 10),
+      prefix <> "\u{10000}",
+    )
+  })
+}
+
+pub fn merge_unicode_order_lexical_controls_test() {
+  list.each(
+    [
+      #("", "", ""),
+      #("", "\u{10000}", "\u{10000}"),
+      #("\u{10000}", "\u{10000}", "\u{10000}"),
+      #("\u{10000}", "\u{10000}a", "\u{10000}a"),
+      #("a", "aa", "aa"),
+      #("a", "z", "z"),
+      #("z", "aa", "z"),
+    ],
+    fn(values) {
+      let #(left, right, expected) = values
+      assert_legacy_merge(
+        fixture.legacy(left, 10),
+        fixture.legacy(right, 10),
+        expected,
+      )
+    },
+  )
+}
+
+pub fn merge_unicode_order_greater_timestamp_wins_test() {
+  assert_legacy_merge(
+    fixture.legacy("\u{e000}", 11),
+    fixture.legacy("\u{10000}", 10),
+    "\u{e000}",
+  )
+}
+
+pub fn merge_unicode_order_equal_timestamp_tombstone_wins_test() {
+  let assert Ok(tombstone) =
+    fixture.import_legacy(
+      "{\"type\":\"lww_map\",\"v\":1,\"state\":{\"entries\":[{\"key\":\"key\",\"value\":null,\"timestamp\":10}]}}",
+    )
+  list.each(["\u{e000}", "\u{10000}"], fn(value) {
+    let live = fixture.legacy(value, 10)
+    list.each(
+      [fixture.merge(live, tombstone), fixture.merge(tombstone, live)],
+      fn(merged) {
+        fixture.get(merged, "key") |> expect.to_equal(Error(Nil))
+        fixture.tombstone_count(merged) |> expect.to_equal(1)
+      },
+    )
+  })
+}
+
+pub fn set_unicode_order_equal_timestamp_keeps_first_value_test() {
+  let a = fixture.legacy("\u{e000}", 10)
+  let b = fixture.legacy("\u{10000}", 10)
+  list.each([#(a, "\u{10000}"), #(b, "\u{e000}")], fn(pair) {
+    lww_map.set(pair.0, "key", child(pair.1), 10)
+    |> expect.to_equal(Error(crdt.TimestampNotAdvanced("key", 10, 10)))
+  })
+  fixture.get(a, "key") |> expect.to_equal(Ok("\u{e000}"))
+  fixture.get(b, "key") |> expect.to_equal(Ok("\u{10000}"))
+  assert_legacy_merge(a, b, "\u{10000}")
+}
+
+pub fn modern_lww_unicode_writer_ties_preserve_atomic_payloads_test() {
+  list.each(
+    [
+      #("\u{e000}", "\u{10000}"),
+      #("prefix:\u{e000}", "prefix:\u{10000}"),
+      #("\u{10000}:\u{e000}", "\u{10000}:\u{10000}"),
+      #("aa", "z"),
+      #("", "\u{10000}"),
+    ],
+    fn(writers) {
+      let assert Ok(a) = lww_map.set(new(writers.0), "key", child("zzz"), 10)
+      let assert Ok(b) = lww_map.set(new(writers.1), "key", child("aaa"), 10)
+      let local = replica_id.new("R")
+      let assert Ok(merged) = lww_map.merge_as(a, b, local)
+      lww_map.merge_as(b, a, local) |> expect.to_equal(Ok(merged))
+      lww_map.get(merged, "key") |> expect.to_equal(Ok(child("aaa")))
+      crdt.merge(crdt.CrdtLwwMap(a), crdt.CrdtLwwMap(b), local)
+      |> expect.to_equal(Ok(crdt.CrdtLwwMap(merged)))
+      lww_map.from_json(lww_map.to_json(merged) |> json.to_string)
+      |> expect.to_equal(Ok(merged))
+      let assert Ok(removed) = lww_map.remove(new(writers.0), "key", 10)
+      let assert Ok(removed) = lww_map.merge(removed, b)
+      lww_map.get(removed, "key") |> expect.to_equal(Error(Nil))
+    },
+  )
 }

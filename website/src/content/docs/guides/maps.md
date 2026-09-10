@@ -99,7 +99,7 @@ Re-adding a removed key starts a fresh empty/default generation. A newer
 generation replaces the old generation's membership and child state.
 This also replaces old-generation edits concurrent with the reset.
 Concurrent re-adds choose one winner by generation clock, then replica
-ID.
+ID in lexicographic UTF-8 byte order on both runtimes.
 
 The map retains a generation floor even after removal. A delayed older
 snapshot cannot reactivate an older value when the newer generation is
@@ -131,7 +131,7 @@ threshold. Merge orders writes by:
 
 1. Greater timestamp.
 2. Tombstone over active value at equal timestamps.
-3. Greater writer identity for modern writes.
+3. Greater writer identity in lexicographic UTF-8 byte order for modern writes.
 
 Different payloads claiming the same modern write identity are invalid.
 They do not become an operand-order tie. Child snapshots remain immutable
@@ -170,9 +170,27 @@ type. Previously pruned allocation history cannot be recovered; use a
 fresh writer identity if that history is unavailable.
 
 Legacy LWWMap String imports wrap values as register children and retain
-the old String tie keys. Legacy entries keep their original comparison
-rule; modern writes use writer identity and outrank legacy entries at
-equal timestamp and tombstone status.
+the old String tie keys. Legacy entries compare these keys in lexicographic
+UTF-8 byte order; modern writes use writer identity and outrank legacy
+entries at equal timestamp and tombstone status.
+
+### Unicode ordering and upgrades
+
+Legacy value ties and modern writer ties use the same order on Erlang and
+JavaScript, without Unicode normalization. For example, an imported legacy
+value `"\u{10000}"` wins over `"\u{e000}"` at an equal timestamp in either
+merge order. For modern assignments, that example applies to writer IDs,
+not to the child payloads.
+
+Older JavaScript versions used UTF-16 order and chose `"\u{e000}"` for the
+legacy value conflict. Erlang's ordering is unchanged. Upgrade peers that
+exchange affected Unicode values or IDs together; peers using different
+ordering rules can disagree. Coordinate this with the legacy-map cutover
+above, rather than mixing legacy deltas with modern generations.
+
+An upgrade cannot restore a losing value that no replica retained. The
+[Replica IDs guide](/guides/replica-ids/#unicode-ordering-and-upgrades) describes
+the related correction for replica-ID ties and historical sequence state.
 
 See [Delta-State Replication](/advanced/delta-state/),
 [JSON Serialization](/advanced/serialization/), and

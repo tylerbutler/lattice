@@ -1,4 +1,5 @@
 import gleam/json
+import gleam/list
 import lattice_core/replica_id
 import lattice_fugue/sequence
 import lattice_text_fugue/text
@@ -61,6 +62,23 @@ pub fn anchor_survives_merge_test() {
 
   let assert Ok(index) = text.resolve_anchor(merged, anchor)
   expect.to_be_true(index >= 0 && index <= text.length(merged))
+}
+
+pub fn concurrent_insert_unicode_order_and_anchor_test() {
+  let assert Ok(bmp) = text.new(rid("\u{e000}")) |> text.insert(0, "b")
+  let assert Ok(supplementary) =
+    text.new(rid("\u{10000}")) |> text.insert(0, "s")
+  let assert Ok(anchor) = text.anchor_at(bmp, 0, sequence.Before)
+  let local = rid("local")
+
+  [
+    text.merge(bmp, supplementary, local),
+    text.merge(supplementary, bmp, local),
+  ]
+  |> list.each(fn(merged) {
+    text.value(merged) |> expect.to_equal("bs")
+    text.resolve_anchor(merged, anchor) |> expect.to_equal(Ok(0))
+  })
 }
 
 pub fn anchor_json_round_trips_test() {

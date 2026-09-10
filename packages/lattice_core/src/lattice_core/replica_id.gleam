@@ -14,10 +14,10 @@
 //// replica_id.to_string(rid)  // -> "node-a"
 //// ```
 
+import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/json
 import gleam/order
-import gleam/string
 
 /// An opaque identifier for a replica in a distributed system.
 ///
@@ -39,13 +39,22 @@ pub fn to_string(replica_id: ReplicaId) -> String {
   s
 }
 
-/// Compare two ReplicaId values lexicographically.
+/// Compare two ReplicaId values by lexicographic UTF-8 byte order.
 ///
-/// Delegates to `string.compare` on the underlying strings. Used for
-/// deterministic tie-breaking (e.g., in LWW-Register merge when timestamps
-/// are equal).
+/// Uses the same order on Erlang and JavaScript for deterministic tie-breaking
+/// (e.g., in LWW-Register merge when timestamps are equal). Strings retain their
+/// original form; no Unicode normalization is applied.
+///
+/// ## Examples
+///
+/// ```gleam
+/// compare(new("\u{e000}"), new("\u{10000}"))
+/// // -> order.Lt
+/// ```
 pub fn compare(a: ReplicaId, b: ReplicaId) -> order.Order {
-  string.compare(to_string(a), to_string(b))
+  let ReplicaId(a) = a
+  let ReplicaId(b) = b
+  bit_array.compare(<<a:utf8>>, <<b:utf8>>)
 }
 
 /// Encode a ReplicaId as a JSON string.

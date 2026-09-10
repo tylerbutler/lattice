@@ -22,7 +22,15 @@ fn small_test_config() -> qcheck.Config {
 // LWW-Register property tests
 // ---------------------------------------------------------------------------
 
-pub fn lww_register_commutativity__test() {
+fn lww_replica_id_cases() -> List(#(String, String, String)) {
+  [
+    #("A", "B", "C"),
+    #("\u{e000}", "\u{10000}", "\u{10001}"),
+    #("replica-\u{e000}", "replica-\u{10000}", "replica-\u{10001}"),
+  ]
+}
+
+pub fn lww_register_commutativity_unicode_order_test() {
   qcheck.run(
     small_test_config(),
     qcheck.map2(
@@ -32,16 +40,19 @@ pub fn lww_register_commutativity__test() {
     ),
     fn(pair) {
       let #(ts_a, ts_b) = pair
-      let reg_a = lww_register.new("val_a", ts_a, rid("A"))
-      let reg_b = lww_register.new("val_b", ts_b, rid("B"))
-      lww_register.value(lww_register.merge(reg_a, reg_b))
-      |> expect.to_equal(lww_register.value(lww_register.merge(reg_b, reg_a)))
+      list.each(lww_replica_id_cases(), fn(ids) {
+        let #(id_a, id_b, _) = ids
+        let reg_a = lww_register.new("val_a", ts_a, rid(id_a))
+        let reg_b = lww_register.new("val_b", ts_b, rid(id_b))
+        lww_register.merge(reg_a, reg_b)
+        |> expect.to_equal(lww_register.merge(reg_b, reg_a))
+      })
       Nil
     },
   )
 }
 
-pub fn lww_register_associativity__test() {
+pub fn lww_register_associativity_unicode_order_test() {
   qcheck.run(
     small_test_config(),
     qcheck.map3(
@@ -52,23 +63,31 @@ pub fn lww_register_associativity__test() {
     ),
     fn(triple) {
       let #(ts_a, ts_b, ts_c) = triple
-      let reg_a = lww_register.new("val_a", ts_a, rid("A"))
-      let reg_b = lww_register.new("val_b", ts_b, rid("B"))
-      let reg_c = lww_register.new("val_c", ts_c, rid("C"))
-      let merged1 = lww_register.merge(lww_register.merge(reg_a, reg_b), reg_c)
-      let merged2 = lww_register.merge(reg_a, lww_register.merge(reg_b, reg_c))
-      lww_register.value(merged1)
-      |> expect.to_equal(lww_register.value(merged2))
+      list.each(lww_replica_id_cases(), fn(ids) {
+        let #(id_a, id_b, id_c) = ids
+        let reg_a = lww_register.new("val_a", ts_a, rid(id_a))
+        let reg_b = lww_register.new("val_b", ts_b, rid(id_b))
+        let reg_c = lww_register.new("val_c", ts_c, rid(id_c))
+        let merged1 =
+          lww_register.merge(lww_register.merge(reg_a, reg_b), reg_c)
+        let merged2 =
+          lww_register.merge(reg_a, lww_register.merge(reg_b, reg_c))
+        merged1 |> expect.to_equal(merged2)
+      })
       Nil
     },
   )
 }
 
-pub fn lww_register_idempotency__test() {
+pub fn lww_register_idempotency_unicode_order_test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 100), fn(ts) {
-    let reg = lww_register.new("val_a", ts, rid("A"))
-    lww_register.value(lww_register.merge(reg, reg))
-    |> expect.to_equal(lww_register.value(reg))
+    list.each(lww_replica_id_cases(), fn(ids) {
+      let #(id_a, id_b, id_c) = ids
+      list.each([id_a, id_b, id_c], fn(id) {
+        let reg = lww_register.new("val_a", ts, rid(id))
+        lww_register.merge(reg, reg) |> expect.to_equal(reg)
+      })
+    })
     Nil
   })
 }
@@ -193,7 +212,7 @@ pub fn lww_register_delta_correctness__test() {
   )
 }
 
-pub fn lww_register_delta_sufficiency_on_remote__test() {
+pub fn lww_register_delta_sufficiency_on_remote_unicode_order_test() {
   qcheck.run(
     small_test_config(),
     qcheck.map3(
@@ -204,14 +223,15 @@ pub fn lww_register_delta_sufficiency_on_remote__test() {
     ),
     fn(triple) {
       let #(ts_local, ts_new, ts_remote) = triple
-      let local = lww_register.new("local", ts_local, rid("A"))
-      let local_after = lww_register.set(local, "new", ts_new)
-      let #(_, delta) = lww_register.set_with_delta(local, "new", ts_new)
-      let remote = lww_register.new("remote", ts_remote, rid("B"))
-      lww_register.value(lww_register.merge(remote, delta))
-      |> expect.to_equal(
-        lww_register.value(lww_register.merge(remote, local_after)),
-      )
+      list.each(lww_replica_id_cases(), fn(ids) {
+        let #(id_local, id_remote, _) = ids
+        let local = lww_register.new("local", ts_local, rid(id_local))
+        let local_after = lww_register.set(local, "new", ts_new)
+        let #(_, delta) = lww_register.set_with_delta(local, "new", ts_new)
+        let remote = lww_register.new("remote", ts_remote, rid(id_remote))
+        lww_register.merge(remote, delta)
+        |> expect.to_equal(lww_register.merge(remote, local_after))
+      })
       Nil
     },
   )
