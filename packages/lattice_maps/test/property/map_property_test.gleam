@@ -101,6 +101,40 @@ pub fn lww_map_unicode_order_equal_timestamp_merge_laws__test() {
   )
 }
 
+pub fn lww_map_equal_timestamp_local_and_merge_agree__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(1, 100),
+      qcheck.bounded_int(0, 10),
+      fn(timestamp, prefix_length) { #(timestamp, prefix_length) },
+    ),
+    fn(pair) {
+      let #(timestamp, prefix_length) = pair
+      let prefix = string.repeat("p", prefix_length)
+      let lesser_writer = prefix <> "\u{e000}"
+      let greater_writer = prefix <> "\u{10000}"
+      let lesser =
+        lww_map.new_as(lesser_writer)
+        |> lww_map.set("key", "zzz", timestamp)
+      let greater =
+        lww_map.new_as(greater_writer)
+        |> lww_map.set("key", "aaa", timestamp)
+      let local =
+        lesser
+        |> lww_map.bind(greater_writer)
+        |> lww_map.set("key", "aaa", timestamp)
+      let merged = lww_map.merge_as(lesser, greater, greater_writer)
+
+      local |> expect.to_equal(merged)
+      merged
+      |> expect.to_equal(lww_map.merge_as(greater, lesser, greater_writer))
+      lww_map.get(local, "key") |> expect.to_equal(Ok("aaa"))
+      Nil
+    },
+  )
+}
+
 // ---------------------------------------------------------------------------
 // OR-Map property tests
 // ---------------------------------------------------------------------------

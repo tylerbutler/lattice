@@ -29,9 +29,9 @@ pub fn empty_lww_map_queries_test() {
   lww_map.pruned_timestamp(map) |> expect.to_equal(0)
 }
 
-pub fn modern_lww_strict_timestamp_and_schema_errors_test() {
+pub fn modern_lww_lower_timestamp_and_schema_errors_test() {
   let assert Ok(map) = lww_map.set(new("A"), "key", child("value"), 10)
-  list.each([0, 5, 10], fn(timestamp) {
+  list.each([0, 5], fn(timestamp) {
     lww_map.set(map, "key", child("other"), timestamp)
     |> expect.to_equal(Error(crdt.TimestampNotAdvanced("key", timestamp, 10)))
     lww_map.remove(map, "key", timestamp)
@@ -48,6 +48,66 @@ pub fn modern_lww_strict_timestamp_and_schema_errors_test() {
   )
   let assert Ok(map) = lww_map.set(map, "key", child("later"), 11)
   lww_map.get(map, "key") |> expect.to_equal(Ok(child("later")))
+}
+
+pub fn modern_lww_equal_time_local_remove_matches_merge_test() {
+  let assert Ok(active) = lww_map.set(new("A"), "key", child("alive"), 10)
+  let assert Ok(local) = lww_map.remove(active, "key", 10)
+  let assert Ok(tombstone) = lww_map.remove(new("A"), "key", 10)
+  let assert Ok(merged) = lww_map.merge(active, tombstone)
+
+  local |> expect.to_equal(merged)
+  lww_map.get(local, "key") |> expect.to_equal(Error(Nil))
+  lww_map.tombstone_count(local) |> expect.to_equal(1)
+}
+
+pub fn modern_lww_equal_time_local_set_cannot_revive_tombstone_test() {
+  let assert Ok(tombstone) = lww_map.remove(new("A"), "key", 10)
+  let assert Ok(same_writer) = lww_map.set(tombstone, "key", child("same"), 10)
+  let assert Ok(greater_writer) =
+    tombstone
+    |> lww_map.bind(replica_id.new("Z"))
+    |> lww_map.set("key", child("greater"), 10)
+
+  list.each([same_writer, greater_writer], fn(map) {
+    lww_map.get(map, "key") |> expect.to_equal(Error(Nil))
+    lww_map.tombstone_count(map) |> expect.to_equal(1)
+  })
+}
+
+pub fn modern_lww_equal_time_local_sets_use_writer_not_payload_order_test() {
+  list.each(["", "prefix:", "\u{10000}:"], fn(prefix) {
+    let lesser_writer = prefix <> "\u{e000}"
+    let greater_writer = prefix <> "\u{10000}"
+    let assert Ok(lesser) =
+      lww_map.set(new(lesser_writer), "key", child("zzz"), 10)
+    let assert Ok(greater) =
+      lww_map.set(new(greater_writer), "key", child("aaa"), 10)
+
+    let assert Ok(local_greater) =
+      lesser
+      |> lww_map.bind(replica_id.new(greater_writer))
+      |> lww_map.set("key", child("aaa"), 10)
+    let assert Ok(local_lesser) =
+      greater
+      |> lww_map.bind(replica_id.new(lesser_writer))
+      |> lww_map.set("key", child("zzz"), 10)
+    let assert Ok(merged) =
+      lww_map.merge_as(lesser, greater, replica_id.new(greater_writer))
+
+    local_greater |> expect.to_equal(merged)
+    lww_map.get(local_greater, "key")
+    |> expect.to_equal(lww_map.get(merged, "key"))
+    lww_map.get(local_greater, "key") |> expect.to_equal(Ok(child("aaa")))
+    lww_map.get(local_lesser, "key") |> expect.to_equal(Ok(child("aaa")))
+  })
+}
+
+pub fn modern_lww_equal_time_same_live_stamp_is_idempotent_or_conflicting_test() {
+  let assert Ok(map) = lww_map.set(new("A"), "key", child("one"), 10)
+  lww_map.set(map, "key", child("one"), 10) |> expect.to_equal(Ok(map))
+  lww_map.set(map, "key", child("two"), 10)
+  |> expect.to_equal(Error(crdt.ConflictingWrite("key", 10)))
 }
 
 pub fn modern_lww_writer_ties_are_atomic_and_preserve_authors_test() {
@@ -83,10 +143,19 @@ pub fn modern_lww_pruning_prevents_zombies_and_rejects_stale_new_keys_test() {
   let assert Ok(old) = lww_map.set(new("B"), "key", child("old"), 5)
   let assert Ok(removed) = lww_map.remove(new("A"), "key", 10)
   let pruned = lww_map.prune(removed, 10) |> lww_map.prune(2)
+  let active_below_floor = lww_map.prune(old, 10)
   lww_map.pruned_timestamp(pruned) |> expect.to_equal(10)
   lww_map.tombstone_count(pruned) |> expect.to_equal(0)
   lww_map.set(pruned, "new", child("stale"), 9)
   |> expect.to_equal(Error(crdt.TimestampNotAdvanced("new", 9, 10)))
+  lww_map.set(pruned, "new", child("at-floor"), 10)
+  |> expect.to_equal(Error(crdt.TimestampNotAdvanced("new", 10, 10)))
+  lww_map.remove(pruned, "new", 10)
+  |> expect.to_equal(Error(crdt.TimestampNotAdvanced("new", 10, 10)))
+  lww_map.set(active_below_floor, "key", child("equal"), 5)
+  |> expect.to_equal(Error(crdt.TimestampNotAdvanced("key", 5, 10)))
+  lww_map.remove(active_below_floor, "key", 5)
+  |> expect.to_equal(Error(crdt.TimestampNotAdvanced("key", 5, 10)))
   let assert Ok(merged) = lww_map.merge(pruned, old)
   let assert Ok(reverse) = lww_map.merge(old, pruned)
   lww_map.keys(merged) |> expect.to_equal([])
@@ -198,16 +267,14 @@ pub fn merge_unicode_order_equal_timestamp_tombstone_wins_test() {
   })
 }
 
-pub fn set_unicode_order_equal_timestamp_keeps_first_value_test() {
+pub fn legacy_equal_time_local_set_uses_modern_writer_provenance_test() {
   let a = fixture.legacy("\u{e000}", 10)
   let b = fixture.legacy("\u{10000}", 10)
-  list.each([#(a, "\u{10000}"), #(b, "\u{e000}")], fn(pair) {
-    lww_map.set(pair.0, "key", child(pair.1), 10)
-    |> expect.to_equal(Error(crdt.TimestampNotAdvanced("key", 10, 10)))
-  })
+  let assert Ok(a) = lww_map.set(a, "key", child("\u{e000}"), 10)
+  let assert Ok(b) = lww_map.set(b, "key", child("\u{e000}"), 10)
   fixture.get(a, "key") |> expect.to_equal(Ok("\u{e000}"))
-  fixture.get(b, "key") |> expect.to_equal(Ok("\u{10000}"))
-  assert_legacy_merge(a, b, "\u{10000}")
+  fixture.get(b, "key") |> expect.to_equal(Ok("\u{e000}"))
+  assert_legacy_merge(a, b, "\u{e000}")
 }
 
 pub fn modern_lww_unicode_writer_ties_preserve_atomic_payloads_test() {

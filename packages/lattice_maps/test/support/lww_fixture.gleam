@@ -11,6 +11,14 @@ pub fn new() {
   lww_map.new(replica_id.new("fixture"), crdt.LwwRegisterSpec(""))
 }
 
+pub fn new_as(writer) {
+  lww_map.new(replica_id.new(writer), crdt.LwwRegisterSpec(""))
+}
+
+pub fn bind(map, writer) {
+  lww_map.bind(map, replica_id.new(writer))
+}
+
 pub fn set(map, key, value, timestamp) {
   let child =
     crdt.CrdtLwwRegister(lww_register.new(
@@ -29,6 +37,11 @@ pub fn remove(map, key, timestamp) {
 
 pub fn merge(a, b) {
   let assert Ok(map) = lww_map.merge(a, b)
+  map
+}
+
+pub fn merge_as(a, b, writer) {
+  let assert Ok(map) = lww_map.merge_as(a, b, replica_id.new(writer))
   map
 }
 
