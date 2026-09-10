@@ -87,6 +87,37 @@ pub fn merge_associativity__test() {
   )
 }
 
+pub fn merge_laws_unicode_order_test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map3(
+      qcheck.bounded_int(0, 100),
+      qcheck.bounded_int(0, 100),
+      qcheck.bounded_int(0, 100),
+      fn(a, b, c) { #(a, b, c) },
+    ),
+    fn(triple) {
+      let #(a, b, c) = triple
+      let assert Ok(doc_a) = doc("\u{e000}", a)
+      let assert Ok(doc_b) = doc("\u{10000}", b)
+      let assert Ok(doc_c) = doc("\u{10001}", c)
+      let local = rid("local")
+      let forward = sequence.merge(doc_a, doc_b, local)
+      let backward = sequence.merge(doc_b, doc_a, local)
+      let left = sequence.merge(forward, doc_c, local)
+      let right =
+        sequence.merge(doc_a, sequence.merge(doc_b, doc_c, local), local)
+
+      forward |> expect.to_equal(backward)
+      sequence.values(forward) |> expect.to_equal(sequence.values(backward))
+      left |> expect.to_equal(right)
+      sequence.values(left) |> expect.to_equal(sequence.values(right))
+      sequence.merge(left, left, local) |> expect.to_equal(left)
+      Nil
+    },
+  )
+}
+
 pub fn merge_bottom_identity__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 100), fn(n) {
     let assert Ok(state) = doc("A", n)

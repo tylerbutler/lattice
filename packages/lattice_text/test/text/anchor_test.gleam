@@ -134,6 +134,23 @@ pub fn anchor_survives_merge_of_concurrent_edits_test() {
   text.substring(merged, resolved, resolved + 1) |> expect.to_equal("c")
 }
 
+pub fn unicode_order_anchor_before_concurrent_first_insert_test() {
+  let bmp =
+    text.new(rid("\u{e000}"))
+    |> text.insert(0, "b")
+    |> expect.to_be_ok()
+  let supplementary =
+    text.new(rid("\u{10000}"))
+    |> text.insert(0, "s")
+    |> expect.to_be_ok()
+  let anchor = text.anchor_at(bmp, 0, Before) |> expect.to_be_ok()
+
+  text.resolve_anchor(text.merge(bmp, supplementary, rid("observer")), anchor)
+  |> expect.to_equal(Ok(0))
+  text.resolve_anchor(text.merge(supplementary, bmp, rid("observer")), anchor)
+  |> expect.to_equal(Ok(0))
+}
+
 pub fn anchor_json_round_trip_test() {
   let d = doc("abc")
   let anchor = text.anchor_at(d, 2, After) |> expect.to_be_ok()

@@ -28,6 +28,29 @@ retain causal history for its previous run. Generate a fresh ID for every
 process incarnation and keep the stable name separately when other CRDTs need
 restart-safe identities.
 
+## Unicode ordering and upgrades
+
+`replica_id.compare` uses lexicographic UTF-8 byte order on both Erlang and
+JavaScript. For example, `"\u{e000}"` sorts before `"\u{10000}"`. IDs retain
+their original strings; the library does not normalize Unicode.
+Pass well-formed Unicode strings at JavaScript interop boundaries.
+
+LWWRegister uses this order to break equal-timestamp ties. Sequence and Fugue
+use it to order concurrent items and operations, which also affects text and
+anchor positions.
+
+Older JavaScript versions used UTF-16 order, which reverses some Unicode pairs
+such as the example above. The correction preserves Erlang's previous order
+and ASCII ordering. Upgrade peers that exchange affected Unicode IDs together
+so they use the same conflict-resolution rules.
+
+An upgrade cannot restore a register winner that no replica retained.
+Sequence v2 snapshots can retain their previous item order, and compaction
+can remove the origins needed to reconstruct it. The comparator correction
+does not migrate historical snapshots. Fugue computes traversal from its
+nodes, so existing Unicode-ID siblings can appear in a different order after
+the upgrade. Plan any historical-state migration separately.
+
 ## Sequence and text merges
 
 Both sequence backends and their text wrappers require an explicit output
