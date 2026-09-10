@@ -37,16 +37,19 @@ pub fn check_timestamp(
   key: String,
   timestamp: Int,
 ) -> Result(Nil, Error) {
-  let floor = case dict.get(state.entries, key) {
-    Ok(entry) -> int.max(entry.timestamp, state.pruned_timestamp)
+  let existing_timestamp = case dict.get(state.entries, key) {
+    Ok(entry) -> entry.timestamp
     Error(Nil) -> state.pruned_timestamp
   }
+  let floor = int.max(existing_timestamp, state.pruned_timestamp)
   case timestamp > 9_007_199_254_740_991 || timestamp < -9_007_199_254_740_991 {
     True -> Error(InvalidTimestamp(key, timestamp))
     False ->
-      case timestamp > floor {
-        True -> Ok(Nil)
-        False -> Error(TimestampNotAdvanced(key, timestamp, floor))
+      case
+        timestamp <= state.pruned_timestamp || timestamp < existing_timestamp
+      {
+        True -> Error(TimestampNotAdvanced(key, timestamp, floor))
+        False -> Ok(Nil)
       }
   }
 }
@@ -55,8 +58,14 @@ pub fn put(
   state: State(value),
   key: String,
   entry: Entry(value),
-) -> State(value) {
-  State(..state, entries: dict.insert(state.entries, key, entry))
+  equal: fn(value, value) -> Bool,
+) -> Result(State(value), Error) {
+  use _ <- result.try(check_timestamp(state, key, entry.timestamp))
+  use winner <- result.try(case dict.get(state.entries, key) {
+    Ok(current) -> choose(key, current, entry, equal)
+    Error(Nil) -> Ok(entry)
+  })
+  Ok(State(..state, entries: dict.insert(state.entries, key, winner)))
 }
 
 fn choose(
@@ -78,22 +87,17 @@ fn choose_equal_timestamp(
   b: Entry(value),
   equal: fn(value, value) -> Bool,
 ) -> Result(Entry(value), Error) {
-  case a.provenance, b.provenance {
-    Modern(aw), Modern(bw) if aw == bw -> {
-      let same = case a.value, b.value {
-        Some(av), Some(bv) -> equal(av, bv)
-        None, None -> True
-        _, _ -> False
-      }
-      case same {
-        True -> Ok(a)
-        False -> Error(ConflictingWrite(key, a.timestamp))
-      }
-    }
-    _, _ ->
-      case a.value, b.value {
-        None, Some(_) -> Ok(a)
-        Some(_), None -> Ok(b)
+  case a.value, b.value {
+    None, Some(_) -> Ok(a)
+    Some(_), None -> Ok(b)
+    None, None -> Ok(choose_provenance(a, b))
+    Some(av), Some(bv) ->
+      case a.provenance, b.provenance {
+        Modern(aw), Modern(bw) if aw == bw ->
+          case equal(av, bv) {
+            True -> Ok(a)
+            False -> Error(ConflictingWrite(key, a.timestamp))
+          }
         _, _ -> Ok(choose_provenance(a, b))
       }
   }

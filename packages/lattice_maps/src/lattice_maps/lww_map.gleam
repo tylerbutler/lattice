@@ -2,7 +2,7 @@
 ////
 //// Greater timestamps win; ties select tombstones, then modern provenance,
 //// then writer identity in UTF-8 byte order. Equal modern write IDs cannot name
-//// different payloads.
+//// different active payloads.
 //// Competing child snapshots are not merged. Use ORMap for collaborative edits.
 
 import gleam/dynamic/decode.{type Decoder}
@@ -95,13 +95,16 @@ pub fn get(map: LWWMap(a), key: String) -> Result(Crdt(a), Nil) {
   crdt.lww_get(map, key)
 }
 
-/// Assign a complete immutable child snapshot at a strictly greater timestamp.
+/// Assign a complete immutable child snapshot.
 ///
 /// For Sequence/Text edits or fresh replacements, prefer `update` and its new
 /// assignment context to prevent allocation-ID reuse.
 ///
-/// The timestamp must exceed both the key's existing timestamp and the map's
-/// pruned timestamp. Schema and timestamp failures return `Error`.
+/// The timestamp must not precede the key's timestamp and must exceed the prune
+/// floor. An equal-time assignment uses the same tombstone, provenance, and
+/// writer order as `merge`; generic child payloads are never compared. Reusing
+/// one modern timestamp/writer for different active children returns
+/// `ConflictingWrite`.
 ///
 /// ## Examples
 ///
@@ -111,7 +114,7 @@ pub fn get(map: LWWMap(a), key: String) -> Result(Crdt(a), Nil) {
 /// let child = crdt.CrdtLwwRegister(lww_register.new(42, 1, local))
 /// let assert Ok(map) = lww_map.set(map, "answer", child, 1)
 /// lww_map.set(map, "answer", child, 1)
-/// // -> Error(crdt.TimestampNotAdvanced("answer", 1, 1))
+/// // -> Ok(map)
 /// ```
 pub fn set(
   map: LWWMap(a),
@@ -167,6 +170,7 @@ pub fn set(
 ///
 /// To edit an existing child instead, use the callback's first argument. For an
 /// LWWRegister, also pass `context.replica_id` to `lww_register.set_as`.
+/// Equal-time callback results follow `set` conflict selection.
 pub fn update(
   map: LWWMap(a),
   key: String,
@@ -176,7 +180,10 @@ pub fn update(
   crdt.lww_update(map, key, timestamp, callback)
 }
 
-/// Write a tombstone at a timestamp above both the existing write and prune floor.
+/// Write a tombstone above the prune floor and at or after the existing write.
+///
+/// At an equal timestamp, the tombstone wins even when the active assignment has
+/// the same writer. A timestamp at or below the prune floor is rejected.
 ///
 /// ## Examples
 ///
@@ -266,7 +273,8 @@ pub fn prune(map: LWWMap(a), stable: Int) -> LWWMap(a) {
 /// Child snapshots from competing assignments are never merged together.
 /// At equal timestamps, tombstones win; otherwise modern writes use writer
 /// identity and imported legacy writes use their original String tie keys.
-/// Both comparisons use lexicographic UTF-8 byte order on both targets.
+/// Both comparisons use lexicographic UTF-8 byte order on both targets. Local
+/// `set`, `update`, and `remove` use this same selection.
 ///
 /// ## Examples
 ///
