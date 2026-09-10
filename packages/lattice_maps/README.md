@@ -39,6 +39,7 @@ pub fn main() {
 - `lww_map` exposes `new`, `set`, `get`, `remove`, `keys`, `values`, `merge`, `prune`, `to_json`, and `from_json`.
 - `or_map` exposes `new`, `update`, `get`, `remove`, `keys`, `values`, `merge`, `prune`, `to_json`, and `from_json`.
 - `or_map.merge` returns a `Result` because maps with incompatible nested CRDT specs cannot be merged.
+- `or_map.update` and `update_with_delta` return `Result`. A callback that returns the wrong CRDT variant produces `Error(crdt.TypeMismatch(expected, found))` without creating or reactivating the key. The callback still takes and returns a `Crdt`; handle any nested counter `Result` inside it.
 - `or_map` supports delta-state replication with `update_with_delta`, `remove_with_delta`, `apply_delta`, `merge_deltas`, `delta_to_json`, and `delta_from_json`.
 - `crdt.CrdtSpec` controls the default nested CRDT created for new keys.
 

@@ -13,16 +13,12 @@ pub fn main() {
   let counter_b = pn_counter.new(replica_id.new("node-b"))
 
   // node-a: increment by 10, then decrement by 3 → value 7
-  let counter_a =
-    counter_a
-    |> pn_counter.increment(10)
-    |> pn_counter.decrement(3)
+  let assert Ok(counter_a) = pn_counter.increment(counter_a, 10)
+  let assert Ok(counter_a) = pn_counter.decrement(counter_a, 3)
 
   // node-b: increment by 5, then decrement by 2 → value 3
-  let counter_b =
-    counter_b
-    |> pn_counter.increment(5)
-    |> pn_counter.decrement(2)
+  let assert Ok(counter_b) = pn_counter.increment(counter_b, 5)
+  let assert Ok(counter_b) = pn_counter.decrement(counter_b, 2)
 
   io.println("node-a value: " <> int.to_string(pn_counter.value(counter_a)))
   io.println("node-b value: " <> int.to_string(pn_counter.value(counter_b)))
@@ -34,7 +30,7 @@ pub fn main() {
 
   // Demonstrate decrement works across merge
   io.println("--- Decrement Across Merge ---")
-  let after_decrement = merged |> pn_counter.decrement(4)
+  let assert Ok(after_decrement) = merged |> pn_counter.decrement(4)
   io.println(
     "After decrement by 4: " <> int.to_string(pn_counter.value(after_decrement)),
   )

@@ -33,6 +33,16 @@ pub fn main() {
 `lww_register.set` only applies when the new timestamp is strictly greater than
 the current timestamp.
 
+Labeled calls to `new`, `set`, and `set_with_delta` use `value:`:
+
+```gleam
+let updated =
+  lww_register.set(register: register, value: "published", timestamp: 2)
+```
+
+Replace the former `val:` label when upgrading. Positional argument order is
+unchanged.
+
 ### Equal-timestamp ties
 
 When two replicas merge registers with the same timestamp, lattice resolves the

@@ -79,7 +79,10 @@ pub fn lww_map_associativity__test() {
 
 fn increment_g_counter(crdt_val: crdt.Crdt, delta: Int) -> crdt.Crdt {
   case crdt_val {
-    crdt.CrdtGCounter(gc) -> crdt.CrdtGCounter(g_counter.increment(gc, delta))
+    crdt.CrdtGCounter(gc) -> {
+      let assert Ok(gc) = g_counter.increment(gc, delta)
+      crdt.CrdtGCounter(gc)
+    }
     other -> other
   }
 }
@@ -92,10 +95,10 @@ pub fn or_map_commutativity__test() {
     }),
     fn(pair) {
       let #(a, b) = pair
-      let map_a =
+      let assert Ok(map_a) =
         or_map.new(rid("A"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, a))
-      let map_b =
+      let assert Ok(map_b) =
         or_map.new(rid("B"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, b))
       let assert Ok(merged_ab) = or_map.merge(map_a, map_b)
@@ -109,7 +112,7 @@ pub fn or_map_commutativity__test() {
 
 pub fn or_map_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(a) {
-    let map =
+    let assert Ok(map) =
       or_map.new(rid("A"), crdt.GCounterSpec)
       |> or_map.update("x", increment_g_counter(_, a))
     let assert Ok(merged) = or_map.merge(map, map)
@@ -133,13 +136,13 @@ pub fn or_map_associativity__test() {
     ),
     fn(triple) {
       let #(a, b, c) = triple
-      let map_a =
+      let assert Ok(map_a) =
         or_map.new(rid("A"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, a))
-      let map_b =
+      let assert Ok(map_b) =
         or_map.new(rid("B"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, b))
-      let map_c =
+      let assert Ok(map_c) =
         or_map.new(rid("C"), crdt.GCounterSpec)
         |> or_map.update("x", increment_g_counter(_, c))
 
@@ -166,7 +169,8 @@ pub fn or_map_associativity__test() {
 fn inc_with_delta(n: Int) -> fn(crdt.Crdt) -> crdt.Crdt {
   fn(c) {
     let assert crdt.CrdtGCounter(gc) = c
-    crdt.CrdtGCounter(g_counter.increment(gc, n))
+    let assert Ok(gc) = g_counter.increment(gc, n)
+    crdt.CrdtGCounter(gc)
   }
 }
 
@@ -188,7 +192,8 @@ pub fn or_map_update_delta_correctness__test() {
       let map = or_map.new(rid("A"), crdt.GCounterSpec)
       let assert Ok(#(map_after_init, _)) =
         or_map.update_with_delta(map, "k", inc_with_delta(initial))
-      let direct = or_map.update(map_after_init, "k", inc_with_delta(n))
+      let assert Ok(direct) =
+        or_map.update(map_after_init, "k", inc_with_delta(n))
       let assert Ok(#(_, delta)) =
         or_map.update_with_delta(map_after_init, "k", inc_with_delta(n))
       let assert Ok(via_delta) = or_map.apply_delta(map_after_init, delta)
@@ -215,7 +220,8 @@ pub fn or_map_delta_sufficiency_on_remote__test() {
       let local0 = or_map.new(rid("A"), crdt.GCounterSpec)
       let assert Ok(#(local1, _)) =
         or_map.update_with_delta(local0, "k", inc_with_delta(local_n))
-      let local_full = or_map.update(local1, "k", inc_with_delta(delta_n))
+      let assert Ok(local_full) =
+        or_map.update(local1, "k", inc_with_delta(delta_n))
       let assert Ok(#(_, delta)) =
         or_map.update_with_delta(local1, "k", inc_with_delta(delta_n))
       // Remote replica B: independent increment of remote_n.
@@ -272,8 +278,8 @@ pub fn or_map_delta_idempotent_commutative__test() {
     let assert Ok(via_deltas) = or_map.apply_delta(m5, d3)
     // Same outcome must be reachable via merge of full state.
     let assert Ok(via_full) = or_map.merge(fresh, s3)
-    let local_after_remove =
-      or_map.update(s3, "y", fn(c) { c }) |> or_map.remove("y")
+    let assert Ok(local_updated) = or_map.update(s3, "y", fn(c) { c })
+    let local_after_remove = or_map.remove(local_updated, "y")
     let assert Ok(via_full_after_remove) =
       or_map.merge(fresh, local_after_remove)
     // x present in both; y removed in both

@@ -13,6 +13,23 @@ pub fn new_creates_register_with_value_test() {
   |> expect.to_equal("hello")
 }
 
+pub fn value_labels_work_for_construction_and_updates_test() {
+  let register =
+    lww_register.new(value: "initial", timestamp: 1, replica_id: rid("writer"))
+  let register =
+    lww_register.set(register: register, value: "updated", timestamp: 2)
+  let #(updated, delta) =
+    lww_register.set_with_delta(
+      register: register,
+      value: "final",
+      timestamp: 3,
+    )
+
+  lww_register.value(updated) |> expect.to_equal("final")
+  lww_register.timestamp(updated) |> expect.to_equal(3)
+  lww_register.merge(register, delta) |> expect.to_equal(updated)
+}
+
 pub fn value_returns_current_value_test() {
   lww_register.new("world", 42, rid("test-replica"))
   |> lww_register.value

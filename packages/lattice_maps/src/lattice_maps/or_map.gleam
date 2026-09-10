@@ -13,10 +13,11 @@
 //// import lattice_counters/g_counter
 //// import lattice_maps/or_map
 ////
-//// let map = or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
+//// let assert Ok(map) = or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
 ////   |> or_map.update("score", fn(c) {
 ////     let assert crdt.CrdtGCounter(gc) = c
-////     crdt.CrdtGCounter(g_counter.increment(gc, 10))
+////     let assert Ok(gc) = g_counter.increment(gc, 10)
+////     crdt.CrdtGCounter(gc)
 ////   })
 //// ```
 
@@ -95,20 +96,21 @@ pub fn new(replica_id: ReplicaId, crdt_spec: CrdtSpec) -> ORMap {
 /// Apply a function to the CRDT value at `key`, auto-creating it if absent.
 ///
 /// If the key does not exist, a default value is created from `crdt_spec`
-/// and passed to `f`. The key is added to the OR-Set, marking it active.
-/// The return value of `f` replaces (or sets) the value for that key.
+/// and passed to `f` once. On success, the key is added to the OR-Set,
+/// marking it active, and the return value of `f` becomes its value.
+/// Returns `Error(TypeMismatch(expected, found))` if the callback returns
+/// a value that does not match the map's `crdt_spec`, without activating
+/// the key or changing its value.
 ///
 /// See `update_with_delta` for the delta-state variant that also returns a
 /// small payload suitable for incremental sync (e.g. over websockets).
-pub fn update(map: ORMap, key: String, f: fn(Crdt) -> Crdt) -> ORMap {
-  let current = current_value(map, key)
-  let new_value = f(current)
-  let safe_value = case crdt.matches_spec(new_value, map.crdt_spec) {
-    True -> new_value
-    False -> current
-  }
-  let #(updated, _) = put_value(map, key, safe_value)
-  updated
+pub fn update(
+  map: ORMap,
+  key: String,
+  f: fn(Crdt) -> Crdt,
+) -> Result(ORMap, crdt.MergeError) {
+  update_with_delta(map, key, f)
+  |> result.map(fn(pair) { pair.0 })
 }
 
 /// Get the CRDT value at `key`.
@@ -525,7 +527,8 @@ pub fn empty_delta(map: ORMap) -> ORMapDelta {
 /// ```gleam
 /// or_map.update_with_delta(map, "score", fn(c) {
 ///   let assert crdt.CrdtGCounter(gc) = c
-///   crdt.CrdtGCounter(g_counter.increment(gc, 5))
+///   let assert Ok(gc) = g_counter.increment(gc, 5)
+///   crdt.CrdtGCounter(gc)
 /// })
 /// ```
 ///

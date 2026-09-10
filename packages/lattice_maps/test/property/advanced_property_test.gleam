@@ -36,7 +36,8 @@ pub fn lww_map_bottom_identity__test() {
 pub fn or_map_bottom_identity__test() {
   qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(_n) {
     let spec = crdt.GCounterSpec
-    let m = or_map.new(rid("A"), spec) |> or_map.update("key", fn(c) { c })
+    let assert Ok(m) =
+      or_map.new(rid("A"), spec) |> or_map.update("key", fn(c) { c })
     let bottom = or_map.new(rid("B"), spec)
     let assert Ok(merged) = or_map.merge(m, bottom)
     set.from_list(or_map.keys(merged))
@@ -89,11 +90,14 @@ pub fn lww_map_target_agnostic_json_round_trip__test() {
 }
 
 pub fn or_map_target_agnostic_json_round_trip__test() {
-  let map =
+  let assert Ok(map) =
     or_map.new(rid("A"), crdt.GCounterSpec)
     |> or_map.update("x", fn(c) {
       case c {
-        crdt.CrdtGCounter(gc) -> crdt.CrdtGCounter(g_counter.increment(gc, 42))
+        crdt.CrdtGCounter(gc) -> {
+          let assert Ok(gc) = g_counter.increment(gc, 42)
+          crdt.CrdtGCounter(gc)
+        }
         other -> other
       }
     })

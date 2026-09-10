@@ -11,7 +11,9 @@ fn rid(id: String) {
 fn ab() {
   sequence.new(rid("A"))
   |> sequence.insert(0, "a")
+  |> expect.to_be_ok()
   |> sequence.insert(1, "b")
+  |> expect.to_be_ok()
 }
 
 fn round_trip(
@@ -32,12 +34,12 @@ pub fn end_anchor_round_trip_test() {
 }
 
 pub fn item_anchor_before_bias_round_trip_test() {
-  let anchor = sequence.anchor_at(ab(), 1, Before)
+  let anchor = sequence.anchor_at(ab(), 1, Before) |> expect.to_be_ok()
   round_trip(anchor) |> expect.to_equal(Ok(anchor))
 }
 
 pub fn item_anchor_after_bias_round_trip_test() {
-  let anchor = sequence.anchor_at(ab(), 1, After)
+  let anchor = sequence.anchor_at(ab(), 1, After) |> expect.to_be_ok()
   round_trip(anchor) |> expect.to_equal(Ok(anchor))
 }
 
@@ -51,9 +53,10 @@ pub fn anchor_json_uses_versioned_envelope_test() {
 
 pub fn decoded_anchor_resolves_on_the_sequence_test() {
   let seq = ab()
-  let assert Ok(anchor) = round_trip(sequence.anchor_at(seq, 1, Before))
+  let assert Ok(anchor) =
+    round_trip(sequence.anchor_at(seq, 1, Before) |> expect.to_be_ok())
 
-  sequence.resolve(seq, anchor) |> expect.to_equal(1)
+  sequence.resolve(seq, anchor) |> expect.to_be_ok() |> expect.to_equal(1)
 }
 
 pub fn anchor_from_json_wrong_type_rejected_test() {

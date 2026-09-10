@@ -55,12 +55,14 @@ pub fn lww_map_json_round_trip__test() {
 
 pub fn or_map_json_round_trip__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(inc) {
-    let map =
+    let assert Ok(map) =
       or_map.new(rid("A"), crdt.GCounterSpec)
       |> or_map.update("x", fn(c) {
         case c {
-          crdt.CrdtGCounter(gc) ->
-            crdt.CrdtGCounter(g_counter.increment(gc, inc))
+          crdt.CrdtGCounter(gc) -> {
+            let assert Ok(gc) = g_counter.increment(gc, inc)
+            crdt.CrdtGCounter(gc)
+          }
           other -> other
         }
       })

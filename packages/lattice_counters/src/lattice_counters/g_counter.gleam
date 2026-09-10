@@ -13,8 +13,8 @@
 //// import lattice_core/replica_id
 //// import lattice_counters/g_counter
 ////
-//// let a = g_counter.new(replica_id.new("node-a")) |> g_counter.increment(3)
-//// let b = g_counter.new(replica_id.new("node-b")) |> g_counter.increment(5)
+//// let assert Ok(a) = g_counter.new(replica_id.new("node-a")) |> g_counter.increment(3)
+//// let assert Ok(b) = g_counter.new(replica_id.new("node-b")) |> g_counter.increment(5)
 //// let merged = g_counter.merge(a, b)
 //// g_counter.value(merged)  // -> 8
 //// ```
@@ -50,33 +50,17 @@ pub fn new(replica_id: ReplicaId) -> GCounter {
 
 /// Increment the counter by `delta`.
 ///
-/// Adds `delta` to this replica's count. `delta` should be a non-negative
-/// integer; passing a negative value will decrease the local count, which
-/// violates the grow-only invariant and may cause incorrect merge results.
+/// Adds `delta` to this replica's count.
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
 ///
 /// See `increment_with_delta` for the delta-state variant that also returns
 /// a small payload suitable for incremental sync (e.g. over websockets).
-pub fn increment(counter: GCounter, delta: Int) -> GCounter {
-  // Ergonomic wrapper documented to panic on a negative delta; callers
-  // needing error handling use `try_increment`.
-  // nolint: assert_ok_pattern
-  let assert Ok(updated) = try_increment(counter, delta)
-  updated
-}
-
-/// Safely increment the counter by `delta`.
-///
-/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
-///
-/// See `try_increment_with_delta` for the delta-state variant.
-pub fn try_increment(
+pub fn increment(
   counter: GCounter,
   delta: Int,
 ) -> Result(GCounter, IncrementError) {
-  case try_increment_with_delta(counter, delta) {
-    Ok(#(updated, _)) -> Ok(updated)
-    Error(e) -> Error(e)
-  }
+  increment_with_delta(counter, delta)
+  |> result.map(fn(pair) { pair.0 })
 }
 
 /// Increment the counter by `delta` and return both the new state and a delta.
@@ -86,25 +70,8 @@ pub fn try_increment(
 /// the same result as merging the full new state — but the delta is a
 /// minimal payload suitable for incremental sync (e.g., over websockets).
 ///
-/// See `try_increment_with_delta` for an error-safe variant. `delta` should
-/// be non-negative; a negative value will panic.
+/// Returns `Error(NegativeDelta(delta))` if `delta` is negative.
 pub fn increment_with_delta(
-  counter: GCounter,
-  delta: Int,
-) -> #(GCounter, GCounter) {
-  // Ergonomic wrapper documented to panic on a negative delta; callers
-  // needing error handling use `try_increment_with_delta`.
-  // nolint: assert_ok_pattern
-  let assert Ok(result) = try_increment_with_delta(counter, delta)
-  result
-}
-
-/// Safely increment the counter by `delta`, returning the new state and a delta.
-///
-/// Returns `Error(NegativeDelta(delta))` if `delta` is negative. On success,
-/// returns `Ok(#(new_state, delta))` where `delta` is a `GCounter` containing
-/// only the changed self-replica entry.
-pub fn try_increment_with_delta(
   counter: GCounter,
   delta: Int,
 ) -> Result(#(GCounter, GCounter), IncrementError) {

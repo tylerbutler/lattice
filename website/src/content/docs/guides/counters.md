@@ -19,11 +19,11 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 
 pub fn main() {
-  let left =
+  let assert Ok(left) =
     g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(2)
 
-  let right =
+  let assert Ok(right) =
     g_counter.new(replica_id.new("node-b"))
     |> g_counter.increment(5)
 
@@ -34,8 +34,9 @@ pub fn main() {
 }
 ```
 
-`g_counter.increment` only accepts non-negative deltas. Passing a negative
-value is invalid because it would break the grow-only invariant.
+`g_counter.increment` returns `Result`. A negative delta returns
+`Error(NegativeDelta(delta))` without changing the counter. Handle this error
+when amounts come from external input; the examples assert known positive values.
 
 ## PNCounter (Positive-Negative Counter)
 
@@ -47,10 +48,10 @@ import lattice_core/replica_id
 import lattice_counters/pn_counter
 
 pub fn main() {
-  let counter =
+  let assert Ok(counter) =
     pn_counter.new(replica_id.new("node-a"))
     |> pn_counter.increment(10)
-    |> pn_counter.decrement(3)
+  let assert Ok(counter) = pn_counter.decrement(counter, 3)
 
   pn_counter.value(counter)
   // -> 7
@@ -60,18 +61,19 @@ pub fn main() {
 Both `pn_counter.increment` and `pn_counter.decrement` require non-negative
 deltas. To subtract 3, call `pn_counter.decrement(counter, 3)` rather than
 passing `-3`.
+Both operations return `Result`, including their delta variants.
 
 ## Delta-state mutators
 
 Counters also expose delta-aware mutators:
 
 - `g_counter.increment_with_delta`
-- `g_counter.try_increment_with_delta`
 - `pn_counter.increment_with_delta`
 - `pn_counter.decrement_with_delta`
-- `pn_counter.try_increment_with_delta`
-- `pn_counter.try_decrement_with_delta`
 
-Each returns both the new counter state and a compact counter delta that remote
-replicas merge with the existing `merge` function. See
+Each returns `Ok(#(new_state, delta))` or a typed error. Remote
+replicas apply the delta with the existing `merge` function. See
 [Delta-State Replication](/advanced/delta-state/) for the shared convention.
+
+The former `try_increment`, `try_decrement`, and corresponding delta names
+have been replaced by the plain Result-returning names.

@@ -82,11 +82,14 @@ let counters = or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
 When you call `or_map.update`, lattice looks up the current value for that key.
 If the key does not exist yet, it creates a default value from the chosen
 `CrdtSpec` and passes that into your update function.
+`update` returns `Ok(updated_map)` when the returned CRDT matches the
+specification, or `Error(TypeMismatch(expected, found))` if it does not. A
+rejected update does not activate a missing or removed key.
 
-### Safe update helpers
+### Updating nested counters
 
-A `case` expression is clearer than `assert` for destructuring the `Crdt` union
-and keeps the example safe if you refactor later.
+The example below uses known non-negative amounts. Handle counter errors
+before updating the map when amounts come from external input.
 
 ```gleam
 import lattice_core/replica_id
@@ -96,18 +99,21 @@ import lattice_maps/or_map
 
 fn add_stock(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
   case value {
-    crdt.CrdtGCounter(counter) ->
-      crdt.CrdtGCounter(g_counter.increment(counter, delta))
+    crdt.CrdtGCounter(counter) -> {
+      let assert Ok(counter) = g_counter.increment(counter, delta)
+      crdt.CrdtGCounter(counter)
+    }
 
     other -> other
   }
 }
 
 pub fn main() {
-  let inventory =
+  let assert Ok(inventory) =
     or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
     |> or_map.update("widgets", fn(value) { add_stock(value, 4) })
-    |> or_map.update("widgets", fn(value) { add_stock(value, 1) })
+  let assert Ok(inventory) =
+    or_map.update(inventory, "widgets", fn(value) { add_stock(value, 1) })
 
   case or_map.get(inventory, "widgets") {
     Ok(crdt.CrdtGCounter(counter)) -> g_counter.value(counter)

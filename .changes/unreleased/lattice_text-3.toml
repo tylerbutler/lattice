@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Breaking"
+body = """
+Text state JSON is now schema v2
+
+`lattice_text` serializes through `lattice_sequence`, whose state schema moved to `v: 2` so that stored order is the canonical pre-move base. Version 1 payloads still decode except when they hold both a move record and a compacted block."""

@@ -30,11 +30,11 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 
 pub fn main() {
-  let counter_a =
+  let assert Ok(counter_a) =
     g_counter.new(replica_id.new("node-a"))
     |> g_counter.increment(2)
 
-  let counter_b =
+  let assert Ok(counter_b) =
     g_counter.new(replica_id.new("node-b"))
     |> g_counter.increment(3)
 
@@ -62,13 +62,14 @@ Expected output:
 **Success:** you now have a convergent counter: two replicas updated
 independently, then merged into the same combined value.
 
-`g_counter.increment` rejects negative deltas. If you need a counter that can
+`g_counter.increment` returns `Result` and rejects negative deltas with
+`Error(NegativeDelta(delta))`. If you need a counter that can
 go down, use `pn_counter` from `lattice_counters`; both `increment` and
 `decrement` still take non-negative deltas because the underlying state is
 grow-only.
 
 For incremental replication, counters also expose `*_with_delta` mutators that
-return both the new state and a compact delta. See
+return `Ok(#(new_state, delta))` or an error. See
 [Delta-State Replication](/advanced/delta-state/).
 
 ## Advanced recipes
@@ -125,19 +126,21 @@ import lattice_maps/or_map
 
 fn add_points(value: crdt.Crdt, delta: Int) -> crdt.Crdt {
   case value {
-    crdt.CrdtGCounter(counter) ->
-      crdt.CrdtGCounter(g_counter.increment(counter, delta))
+    crdt.CrdtGCounter(counter) -> {
+      let assert Ok(counter) = g_counter.increment(counter, delta)
+      crdt.CrdtGCounter(counter)
+    }
 
     other -> other
   }
 }
 
 pub fn main() {
-  let scoreboard_a =
+  let assert Ok(scoreboard_a) =
     or_map.new(replica_id.new("node-a"), crdt.GCounterSpec)
     |> or_map.update("alice", fn(value) { add_points(value, 2) })
 
-  let scoreboard_b =
+  let assert Ok(scoreboard_b) =
     or_map.new(replica_id.new("node-b"), crdt.GCounterSpec)
     |> or_map.update("alice", fn(value) { add_points(value, 3) })
 
@@ -152,6 +155,11 @@ pub fn main() {
 ```
 
 </AdvancedRecipe>
+
+`or_map.update` returns `Error(TypeMismatch(...))` if the callback returns a
+different CRDT variant from the map's specification. The examples use known
+positive amounts; handle counter errors before updating a map when amounts
+come from external input.
 
 For more detail, see the [Counters guide](/guides/counters/),
 [Registers guide](/guides/registers/), [Sets guide](/guides/sets/),

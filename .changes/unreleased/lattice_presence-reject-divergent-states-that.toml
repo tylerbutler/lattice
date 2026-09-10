@@ -1,0 +1,6 @@
+package = "lattice_presence"
+kind = "Breaking"
+body = """
+Reject divergent states that share a replica name
+
+`presence_state.merge` and `presence_state.merge_with_diff` now return `Result` and report `SameReplica` for divergent same-name states or unseen local-owned causal data, including restart echoes relayed through another peer and history retained after entries are removed. Callers must handle the error and assign every live node a unique incarnation identity. Identical replicated states remain an idempotent no-op, and gossip of already-known local tags remains valid."""

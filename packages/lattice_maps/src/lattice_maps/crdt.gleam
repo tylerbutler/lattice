@@ -15,8 +15,10 @@
 //// import lattice_core/replica_id
 //// import lattice_counters/g_counter
 ////
-//// let a = crdt.CrdtGCounter(g_counter.new(replica_id.new("node-a")) |> g_counter.increment(1))
-//// let b = crdt.CrdtGCounter(g_counter.new(replica_id.new("node-b")) |> g_counter.increment(2))
+//// let assert Ok(a) = g_counter.new(replica_id.new("node-a")) |> g_counter.increment(1)
+//// let assert Ok(b) = g_counter.new(replica_id.new("node-b")) |> g_counter.increment(2)
+//// let a = crdt.CrdtGCounter(a)
+//// let b = crdt.CrdtGCounter(b)
 //// let assert Ok(merged) = crdt.merge(a, b)
 //// ```
 

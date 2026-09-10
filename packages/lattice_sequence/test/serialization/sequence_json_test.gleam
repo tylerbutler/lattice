@@ -16,7 +16,9 @@ pub fn sequence_string_round_trip_simple_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "h")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "i")
+    |> expect.to_be_ok()
 
   json.to_string(sequence.to_json(seq, json.string))
   |> sequence.from_json(decode.string)
@@ -27,8 +29,11 @@ pub fn sequence_int_round_trip_with_tombstone_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, 1)
+    |> expect.to_be_ok()
     |> sequence.insert(1, 2)
+    |> expect.to_be_ok()
     |> sequence.delete(0)
+    |> expect.to_be_ok()
 
   json.to_string(sequence.to_json(seq, json.int))
   |> sequence.from_json(decode.int)
@@ -39,9 +44,13 @@ pub fn sequence_round_trip_compacted_state_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
     |> sequence.delete(1)
+    |> expect.to_be_ok()
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 4)
   let #(compacted, _forwardings) = sequence.compact(seq, frontier)
 
@@ -54,11 +63,14 @@ pub fn sequence_round_trip_mixed_blocks_and_items_test() {
   let base =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.insert(2, "c")
+    |> expect.to_be_ok()
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 3)
   let #(compacted, _forwardings) = sequence.compact(base, frontier)
-  let seq = sequence.insert(compacted, 1, "x")
+  let seq = sequence.insert(compacted, 1, "x") |> expect.to_be_ok()
 
   json.to_string(sequence.to_json(seq, json.string))
   |> sequence.from_json(decode.string)
@@ -69,8 +81,11 @@ pub fn sequence_compacted_json_contains_block_and_forwarding_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.delete(1)
+    |> expect.to_be_ok()
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 3)
   let #(compacted, _forwardings) = sequence.compact(seq, frontier)
   let json_string = json.to_string(sequence.to_json(compacted, json.string))
@@ -127,8 +142,11 @@ pub fn sequence_move_json_round_trip_keeps_v1_test() {
   let seq =
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
+    |> expect.to_be_ok()
     |> sequence.insert(1, "b")
+    |> expect.to_be_ok()
     |> sequence.move(0, 1)
+    |> expect.to_be_ok()
   let json_string = json.to_string(sequence.to_json(seq, json.string))
 
   json_string |> string.contains("\"v\":1") |> expect.to_be_true()
@@ -152,9 +170,49 @@ pub fn sequence_from_json_missing_move_decodes_as_no_move_test() {
 
 pub fn sequence_from_json_unknown_version_rejected_test() {
   let payload =
-    "{\"type\":\"sequence\",\"v\":2,\"state\":{\"self_id\":\"A\",\"counter\":0,\"frontier\":"
+    "{\"type\":\"sequence\",\"v\":3,\"state\":{\"self_id\":\"A\",\"counter\":0,\"frontier\":"
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[]}}"
+
+  case sequence.from_json(payload, decode.string) {
+    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> expect.to_be_true(False)
+  }
+}
+
+pub fn sequence_from_json_v1_without_moves_accepted_test() {
+  // v1 stored the move-applied order, but with no move record there was no
+  // overlay, so the payload's order is already the canonical base.
+  let payload =
+    "{\"type\":\"sequence\",\"v\":1,\"state\":{\"self_id\":\"A\",\"counter\":2,\"frontier\":"
+    <> empty_frontier
+    <> ",\"forwardings\":[],\"segments\":["
+    <> "{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":1},\"origin_left\":null,"
+    <> "\"origin_right\":null,\"value\":\"a\",\"deleted\":null,\"move\":null},"
+    <> "{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":2},\"origin_left\":"
+    <> "{\"replica_id\":\"A\",\"counter\":1},\"origin_right\":null,\"value\":\"b\","
+    <> "\"deleted\":null,\"move\":null}]}}"
+
+  case sequence.from_json(payload, decode.string) {
+    Ok(decoded) -> sequence.values(decoded) |> expect.to_equal(["a", "b"])
+    Error(_) -> expect.to_be_true(False)
+  }
+}
+
+pub fn sequence_from_json_v1_with_compacted_move_rejected_test() {
+  // A v1 payload holding both a move record and a compacted block cannot be
+  // brought into base order: the block has no origins to re-integrate the
+  // mover against. The holder must resync rather than decode a state whose
+  // mover would be pinned at its post-move slot.
+  let payload =
+    "{\"type\":\"sequence\",\"v\":1,\"state\":{\"self_id\":\"A\",\"counter\":3,\"frontier\":"
+    <> empty_frontier
+    <> ",\"forwardings\":[],\"segments\":["
+    <> "{\"kind\":\"block\",\"first_id\":{\"replica_id\":\"A\",\"counter\":1},\"values\":[\"a\"]},"
+    <> "{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":2},\"origin_left\":"
+    <> "{\"replica_id\":\"A\",\"counter\":1},\"origin_right\":null,\"value\":\"b\","
+    <> "\"deleted\":null,\"move\":{\"op_id\":{\"replica_id\":\"A\",\"counter\":3},"
+    <> "\"origin_left\":null,\"origin_right\":{\"replica_id\":\"A\",\"counter\":1}}}]}}"
 
   case sequence.from_json(payload, decode.string) {
     Error(_) -> expect.to_be_true(True)

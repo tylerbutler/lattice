@@ -1,3 +1,0 @@
-package = "lattice_presence"
-kind = "Fixed"
-body = "Prevent pruned presence entries from resurrecting after stale gossip while leaving live replicas untouched"

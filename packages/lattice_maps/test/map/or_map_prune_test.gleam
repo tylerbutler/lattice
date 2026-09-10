@@ -13,7 +13,10 @@ fn rid(id: String) {
 
 fn inc(c: Crdt, amount: Int) -> Crdt {
   case c {
-    CrdtGCounter(counter) -> CrdtGCounter(g_counter.increment(counter, amount))
+    CrdtGCounter(counter) -> {
+      let assert Ok(counter) = g_counter.increment(counter, amount)
+      CrdtGCounter(counter)
+    }
     _ -> c
   }
 }
@@ -22,14 +25,14 @@ fn inc(c: Crdt, amount: Int) -> Crdt {
 
 pub fn prune_with_unstable_remove_preserves_future_merge_value_test() {
   // No A events are causally stable yet, so pruning must not change future merge results.
-  let removed =
+  let assert Ok(removed) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let removed = or_map.remove(removed, "x")
 
   let pruned = or_map.prune(removed, version_vector.new())
 
-  let concurrent =
+  let assert Ok(concurrent) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
 
@@ -56,11 +59,12 @@ pub fn prune_preserves_active_key_values_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("active", fn(c) { inc(c, 3) })
-    |> or_map.update("removed", fn(c) { inc(c, 7) })
-    |> or_map.remove("removed")
+  let assert Ok(m) = or_map.update(m, "removed", fn(c) { inc(c, 7) })
+  let m =
+    or_map.remove(m, "removed")
     |> or_map.prune(stable)
 
   case or_map.get(m, "active") {
@@ -79,12 +83,13 @@ pub fn prune_keeps_only_active_keys_observable_test() {
     |> version_vector.increment(rid("A"))
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("a", fn(c) { inc(c, 1) })
-    |> or_map.update("b", fn(c) { inc(c, 2) })
-    |> or_map.update("c", fn(c) { inc(c, 3) })
-    |> or_map.remove("a")
+  let assert Ok(m) = or_map.update(m, "b", fn(c) { inc(c, 2) })
+  let assert Ok(m) = or_map.update(m, "c", fn(c) { inc(c, 3) })
+  let m =
+    or_map.remove(m, "a")
     |> or_map.remove("c")
     |> or_map.prune(stable)
 
@@ -99,10 +104,10 @@ pub fn prune_is_idempotent_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 1) })
-    |> or_map.remove("x")
+  let m = or_map.remove(m, "x")
 
   let pruned_once = or_map.prune(m, stable)
   let pruned_twice = or_map.prune(pruned_once, stable)
@@ -118,11 +123,11 @@ pub fn prune_does_not_change_observable_state_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("keep", fn(c) { inc(c, 10) })
-    |> or_map.update("drop", fn(c) { inc(c, 20) })
-    |> or_map.remove("drop")
+  let assert Ok(m) = or_map.update(m, "drop", fn(c) { inc(c, 20) })
+  let m = or_map.remove(m, "drop")
 
   let pruned = or_map.prune(m, stable)
 
@@ -141,10 +146,11 @@ pub fn re_add_after_prune_creates_fresh_value_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 100) })
-    |> or_map.remove("x")
+  let assert Ok(m) =
+    or_map.remove(m, "x")
     |> or_map.prune(stable)
     |> or_map.update("x", fn(c) { inc(c, 1) })
 
@@ -157,14 +163,14 @@ pub fn re_add_after_prune_creates_fresh_value_test() {
 // --- Multi-replica scenario ---
 
 pub fn prune_after_multi_replica_merge_test() {
-  let map_a =
+  let assert Ok(map_a) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("shared", fn(c) { inc(c, 3) })
 
-  let map_b =
+  let assert Ok(map_b) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("shared", fn(c) { inc(c, 7) })
-    |> or_map.update("b_only", fn(c) { inc(c, 1) })
+  let assert Ok(map_b) = or_map.update(map_b, "b_only", fn(c) { inc(c, 1) })
 
   let assert Ok(merged) = or_map.merge(map_a, map_b)
   let merged = or_map.remove(merged, "b_only")
@@ -188,13 +194,14 @@ pub fn prune_after_multi_replica_merge_test() {
 // --- Merge after prune preserves retained values ---
 
 pub fn merge_after_noop_prune_preserves_removed_value_test() {
-  let map_a =
+  let assert Ok(map_a) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let map_a =
+    or_map.remove(map_a, "x")
     |> or_map.prune(version_vector.new())
 
-  let map_b =
+  let assert Ok(map_b) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
 
@@ -229,10 +236,11 @@ pub fn prune_compacts_value_when_removal_is_stable_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let m =
+    or_map.remove(m, "x")
     |> or_map.prune(stable)
 
   // "x" is not observable
@@ -244,10 +252,11 @@ pub fn prune_compacts_value_when_removal_is_stable_test() {
 pub fn prune_does_not_compact_when_removal_is_unstable_test() {
   // A adds "x" (tag A:1), removes "x", prunes with empty VV
   // The value must be retained for future merge
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let m =
+    or_map.remove(m, "x")
     |> or_map.prune(version_vector.new())
 
   // "x" is not observable but value is retained
@@ -255,7 +264,7 @@ pub fn prune_does_not_compact_when_removal_is_unstable_test() {
   or_map.internal_value_count(m) |> expect.to_equal(1)
 
   // Merge with concurrent add should give 104
-  let concurrent =
+  let assert Ok(concurrent) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
   let assert Ok(merged) = or_map.merge(m, concurrent)
@@ -274,10 +283,10 @@ pub fn issue_17_divergence_scenario_test() {
   // 3. B concurrently updates "x" with value 99
   // 4. After merge, "x" should be present with value 104
 
-  let map_a =
+  let assert Ok(map_a) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let map_a = or_map.remove(map_a, "x")
 
   // Prune with VV that only covers A:1 — doesn't say anything about B
   let stable_a_only =
@@ -294,7 +303,7 @@ pub fn issue_17_divergence_scenario_test() {
   // because the pruned VV dominates the remove bound {A:1}.
   // However, if B concurrently adds, B's value is used alone.
 
-  let map_b =
+  let assert Ok(map_b) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
 
@@ -317,13 +326,14 @@ pub fn issue_17_divergence_scenario_test() {
 pub fn issue_17_unstable_prune_preserves_merge_value_test() {
   // Same as above but prune with empty VV — nothing is stable
   // Value must be retained and merge gives 104
-  let map_a =
+  let assert Ok(map_a) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let map_a =
+    or_map.remove(map_a, "x")
     |> or_map.prune(version_vector.new())
 
-  let map_b =
+  let assert Ok(map_b) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 99) })
 
@@ -343,13 +353,14 @@ pub fn merge_after_one_side_compacted_uses_surviving_value_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let map_a =
+  let assert Ok(map_a) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let map_a =
+    or_map.remove(map_a, "x")
     |> or_map.prune(stable)
 
-  let map_b =
+  let assert Ok(map_b) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 42) })
 
@@ -370,16 +381,18 @@ pub fn both_sides_compacted_key_absent_test() {
     version_vector.new()
     |> version_vector.increment(rid("B"))
 
-  let map_a =
+  let assert Ok(map_a) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let map_a =
+    or_map.remove(map_a, "x")
     |> or_map.prune(stable_a)
 
-  let map_b =
+  let assert Ok(map_b) =
     or_map.new(rid("B"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 10) })
-    |> or_map.remove("x")
+  let map_b =
+    or_map.remove(map_b, "x")
     |> or_map.prune(stable_b)
 
   let assert Ok(merged) = or_map.merge(map_a, map_b)
@@ -393,10 +406,11 @@ pub fn re_add_after_compaction_starts_fresh_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 100) })
-    |> or_map.remove("x")
+  let assert Ok(m) =
+    or_map.remove(m, "x")
     |> or_map.prune(stable)
     |> or_map.update("x", fn(c) { inc(c, 1) })
 
@@ -415,10 +429,11 @@ pub fn prune_idempotent_after_compaction_test() {
     version_vector.new()
     |> version_vector.increment(rid("A"))
 
-  let m =
+  let assert Ok(m) =
     or_map.new(rid("A"), GCounterSpec)
     |> or_map.update("x", fn(c) { inc(c, 5) })
-    |> or_map.remove("x")
+  let m =
+    or_map.remove(m, "x")
     |> or_map.prune(stable)
 
   let pruned_again = or_map.prune(m, stable)

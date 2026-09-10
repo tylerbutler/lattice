@@ -21,21 +21,24 @@ gleam add lattice_text_fugue
 ## Quick example
 
 ```gleam
+import gleam/result
 import lattice_core/replica_id
 import lattice_text_fugue/text
 
 pub fn main() {
-  let node_a =
+  use node_a <- result.try(
     text.new(replica_id.new("node-a"))
-    |> text.insert(0, "Hello world")
+    |> text.insert(0, "Hello world"),
+  )
 
-  let node_b =
+  use node_b <- result.try(
     text.new(replica_id.new("node-b"))
-    |> text.append("!")
+    |> text.append("!"),
+  )
 
-  let merged = text.merge(node_a, node_b)
+  let merged = text.merge(node_a, node_b, replica_id.new("node-a"))
 
-  text.value(merged)
+  Ok(text.value(merged))
 }
 ```
 
@@ -47,13 +50,32 @@ reason to choose this package over `lattice_text`.
 
 ## Anchors and frontier
 
-- `start_anchor` / `end_anchor` / `anchor_at` / `try_anchor_at` create stable
-  positions that survive concurrent edits and merges.
-- `resolve` / `try_resolve` map an anchor back to a current index.
+- `start_anchor` / `end_anchor` create boundary anchors. `anchor_at` returns a
+  `Result` with a stable position that survives concurrent edits and merges.
+- `resolve_anchor` returns a `Result` with the anchor's current grapheme index.
 - `anchor_to_json` / `anchor_from_json` serialize anchors.
 - `frontier` returns the causal frontier as a `VersionVector`.
 
 Anchor JSON is not interchangeable with `lattice_text` anchors.
+
+## API migration
+
+`insert`, `delete`, `delete_range`, `replace_range`, and `append`, together
+with their `*_with_delta` variants, return `Result`. Use the plain edit and
+anchor names instead of the old fallible names. Errors retain their existing
+types and payloads. State-only edits map a successful delta result to the
+updated text; an empty edit returns a neutral delta.
+
+`substring` still clamps indexes, while `try_substring` still validates the
+range and returns `Result`.
+
+Both `merge(a, b, local_replica)` and its safe alias
+`merge_as(a, b, local_replica)` require the identity for subsequent local
+edits, whether the inputs are full states or deltas. Operand order does not
+change that identity. Give each independent writer a distinct identity.
+Decoded snapshots retain their serialized identity: merge a remote snapshot
+with your local identity before editing it. The Fugue v1 wire format is
+unchanged.
 
 ## Choosing a backend
 

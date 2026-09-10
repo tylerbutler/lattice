@@ -18,11 +18,11 @@ pub fn main() {
   let map_b = or_map.new(replica_id.new("node-b"), crdt.GCounterSpec)
 
   // Map A: increment "page-views" by 5
-  let map_a = or_map.update(map_a, "page-views", increment_by(_, 5))
+  let assert Ok(map_a) = or_map.update(map_a, "page-views", increment_by(_, 5))
 
   // Map B: increment "page-views" by 3, "api-calls" by 10
-  let map_b = or_map.update(map_b, "page-views", increment_by(_, 3))
-  let map_b = or_map.update(map_b, "api-calls", increment_by(_, 10))
+  let assert Ok(map_b) = or_map.update(map_b, "page-views", increment_by(_, 3))
+  let assert Ok(map_b) = or_map.update(map_b, "api-calls", increment_by(_, 10))
 
   // Print keys of each map
   io.println("Map A (node-a):")
@@ -88,8 +88,10 @@ pub fn main() {
 /// so every other variant is left untouched.
 fn increment_by(value: crdt.Crdt, amount: Int) -> crdt.Crdt {
   case value {
-    crdt.CrdtGCounter(counter) ->
-      crdt.CrdtGCounter(g_counter.increment(counter, amount))
+    crdt.CrdtGCounter(counter) -> {
+      let assert Ok(updated) = g_counter.increment(counter, amount)
+      crdt.CrdtGCounter(updated)
+    }
     crdt.CrdtPnCounter(_)
     | crdt.CrdtLwwRegister(_)
     | crdt.CrdtMvRegister(_)

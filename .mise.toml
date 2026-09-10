@@ -4,6 +4,7 @@
 [tools]
 node = "24"
 "github:tylerbutler/trellis" = "0.11.2"
+"github:tylerbutler/licence_audit" = { version = "0.8.0", asset_pattern = "licence_audit", bin = "licence_audit" }
 
 [env]
 LC_ALL = "en_US.UTF-8"
