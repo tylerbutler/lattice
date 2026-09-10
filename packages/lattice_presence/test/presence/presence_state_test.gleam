@@ -681,6 +681,342 @@ pub fn phoenix_remove_down_replicas_test() {
   state.online_list(s2) |> list.length |> expect.to_equal(1)
 }
 
+pub fn supersede_combines_visible_leaves_with_multiplicity_and_metadata_test() {
+  let shared_meta = json.object([#("device", json.string("browser"))])
+  let private_meta = json.object([#("device", json.string("phone"))])
+  let old_up =
+    state.new_incarnation("node")
+    |> state.join("shared-pid", "lobby", "shared-key", shared_meta)
+    |> state.join("shared-pid", "lobby", "shared-key", shared_meta)
+    |> state.join("private-pid", "private", "private-key", private_meta)
+  let old_unknown =
+    state.new_incarnation("node")
+    |> state.join("shared-pid", "lobby", "shared-key", shared_meta)
+    |> state.join("other-pid", "lobby", "other-key", private_meta)
+  let old_down =
+    state.new_incarnation("node")
+    |> state.join("hidden-pid", "lobby", "hidden-key", json.null())
+  let current =
+    state.new_incarnation("node")
+    |> state.join("current-pid", "lobby", "current-key", shared_meta)
+  let local =
+    state.new("observer")
+    |> state.join("local-pid", "lobby", "local-key", private_meta)
+  let assert Ok(local) = state.merge(local, old_up)
+  let assert Ok(local) = state.merge(local, old_unknown)
+  let assert Ok(local) = state.merge(local, old_down)
+  let assert Ok(local) = state.merge(local, current)
+  let #(local, _) = state.replica_up(local, state.replica(old_up))
+  let #(local, down_diff) = state.replica_down(local, state.replica(old_down))
+  dict.get(down_diff.leaves, "lobby")
+  |> expect.to_equal(Ok([#("hidden-key", "hidden-pid", json.null())]))
+
+  let assert Ok(#(cleaned, diff)) =
+    state.supersede(local, state.replica(current))
+
+  diff.joins |> expect.to_equal(dict.new())
+  dict.size(diff.leaves) |> expect.to_equal(2)
+  let assert Ok(lobby_leaves) = dict.get(diff.leaves, "lobby")
+  list.length(lobby_leaves) |> expect.to_equal(4)
+  lobby_leaves
+  |> list.filter(fn(entry) {
+    entry == #("shared-key", "shared-pid", shared_meta)
+  })
+  |> list.length
+  |> expect.to_equal(3)
+  lobby_leaves
+  |> list.filter(fn(entry) {
+    entry == #("other-key", "other-pid", private_meta)
+  })
+  |> list.length
+  |> expect.to_equal(1)
+  dict.get(diff.leaves, "private")
+  |> expect.to_equal(Ok([#("private-key", "private-pid", private_meta)]))
+  state.internal_values(cleaned)
+  |> expect.to_equal(
+    dict.filter(state.internal_values(local), fn(tag, _) {
+      tag.replica == "observer" || tag.replica == state.replica(current)
+    }),
+  )
+  state.online_list(cleaned) |> list.length |> expect.to_equal(2)
+  state.compacted_clocks(cleaned)
+  |> expect.to_equal(state.compacted_clocks(local))
+  state.replica(cleaned) |> expect.to_equal("observer")
+  state.supersede(cleaned, state.replica(current))
+  |> expect.to_equal(
+    Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+}
+
+pub fn supersede_discovers_sparse_history_and_uncovered_value_owners_test() {
+  let context_only = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAQ==:node"
+  let cloud_only = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAg==:node"
+  let mixed = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAw==:node"
+  let value_only = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAABA==:node"
+  let current = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAABQ==:node"
+  let assert Ok(local) =
+    state.from_json(
+      "{\"replica\":\"observer\",\"context\":{
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAQ==:node\":9,
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAw==:node\":2,
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABQ==:node\":1,
+        \"unrelated\":1
+      },\"clouds\":{
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAg==:node\":[3,7],
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAw==:node\":[4,8],
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABQ==:node\":[2,5],
+        \"unrelated\":[2,4]
+      },\"values\":[
+        {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAw==:node\",\"clock\":8},\"entry\":{\"topic\":\"lobby\",\"key\":\"covered-key\",\"pid\":\"covered-pid\",\"meta\":\"covered\"}},
+        {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABA==:node\",\"clock\":12},\"entry\":{\"topic\":\"lobby\",\"key\":\"uncovered-key\",\"pid\":\"uncovered-pid\",\"meta\":\"uncovered\"}},
+        {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABQ==:node\",\"clock\":5},\"entry\":{\"topic\":\"lobby\",\"key\":\"current-key\",\"pid\":\"current-pid\",\"meta\":true}},
+        {\"tag\":{\"replica\":\"unrelated\",\"clock\":4},\"entry\":{\"topic\":\"lobby\",\"key\":\"other-key\",\"pid\":\"other-pid\",\"meta\":false}}
+      ]}",
+    )
+  list.each([context_only, cloud_only, mixed, value_only, current], fn(id) {
+    state.base_replica(id) |> expect.to_equal("node")
+  })
+
+  let assert Ok(#(cleaned, diff)) = state.supersede(local, current)
+
+  state.compacted_clocks(cleaned)
+  |> expect.to_equal(
+    dict.from_list([
+      #(context_only, 9),
+      #(cloud_only, 7),
+      #(mixed, 8),
+      #(current, 1),
+      #("unrelated", 1),
+    ]),
+  )
+  state.internal_clouds(cleaned)
+  |> expect.to_equal(
+    dict.filter(state.internal_clouds(local), fn(id, _) {
+      id == current || id == "unrelated"
+    }),
+  )
+  state.internal_values(cleaned)
+  |> expect.to_equal(
+    dict.filter(state.internal_values(local), fn(tag, _) {
+      tag.replica == current || tag.replica == "unrelated"
+    }),
+  )
+  diff.joins |> expect.to_equal(dict.new())
+  dict.size(diff.leaves) |> expect.to_equal(1)
+  let assert Ok(leaves) = dict.get(diff.leaves, "lobby")
+  list.length(leaves) |> expect.to_equal(2)
+  set.from_list(leaves)
+  |> expect.to_equal(
+    set.from_list([
+      #("covered-key", "covered-pid", json.string("covered")),
+      #("uncovered-key", "uncovered-pid", json.string("uncovered")),
+    ]),
+  )
+  state.supersede(cleaned, current)
+  |> expect.to_equal(
+    Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+}
+
+pub fn supersede_prunes_status_only_candidates_test() {
+  let current = state.new_incarnation("node") |> state.replica
+  let old_up = state.new_incarnation("node") |> state.replica
+  let old_down = state.new_incarnation("node") |> state.replica
+  let local = state.new("observer")
+  let #(with_status, _) = state.replica_up(local, old_up)
+  let #(with_status, _) = state.replica_down(with_status, old_down)
+
+  state.supersede(with_status, current)
+  |> expect.to_equal(
+    Ok(#(local, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+}
+
+pub fn supersede_empty_and_absent_selected_are_idempotent_test() {
+  let current = state.new_incarnation("node") |> state.replica
+  let local = state.new("observer")
+  let empty_diff = state.Diff(joins: dict.new(), leaves: dict.new())
+  state.supersede(local, current)
+  |> expect.to_equal(Ok(#(local, empty_diff)))
+  state.supersede(local, state.replica(local))
+  |> expect.to_equal(Ok(#(local, empty_diff)))
+
+  let old =
+    state.new_incarnation("node")
+    |> state.join("old-pid", "lobby", "old-key", json.null())
+  let assert Ok(local) = state.merge(local, old)
+  let assert Ok(#(cleaned, _)) = state.supersede(local, current)
+  state.entry_count(cleaned) |> expect.to_equal(0)
+  dict.has_key(state.compacted_clocks(cleaned), current)
+  |> expect.to_equal(False)
+  let #(expected, _) = state.replica_down(local, state.replica(old))
+  let expected = state.remove_down_replica(expected, state.replica(old))
+  cleaned |> expect.to_equal(expected)
+  state.supersede(cleaned, current)
+  |> expect.to_equal(Ok(#(cleaned, empty_diff)))
+}
+
+pub fn supersede_keeps_selected_and_unrelated_replicas_down_test() {
+  let old =
+    state.new_incarnation("node")
+    |> state.join("old-pid", "lobby", "old-key", json.null())
+  let current =
+    state.new_incarnation("node")
+    |> state.join("current-pid", "lobby", "current-key", json.null())
+  let other =
+    state.new("other")
+    |> state.join("other-pid", "lobby", "other-key", json.null())
+  let assert Ok(local) = state.merge(state.new("observer"), old)
+  let assert Ok(local) = state.merge(local, current)
+  let assert Ok(local) = state.merge(local, other)
+  let #(local, _) = state.replica_down(local, state.replica(current))
+  let #(local, _) = state.replica_down(local, "other")
+
+  let assert Ok(#(cleaned, diff)) =
+    state.supersede(local, state.replica(current))
+
+  diff
+  |> expect.to_equal(state.Diff(
+    joins: dict.new(),
+    leaves: dict.from_list([
+      #("lobby", [#("old-key", "old-pid", json.null())]),
+    ]),
+  ))
+  state.online_list(cleaned) |> expect.to_equal([])
+  state.entry_count(cleaned) |> expect.to_equal(2)
+  state.compacted_clocks(cleaned)
+  |> expect.to_equal(state.compacted_clocks(local))
+  state.supersede(cleaned, state.replica(current))
+  |> expect.to_equal(
+    Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+  let #(restored, _) = state.replica_up(cleaned, state.replica(current))
+  state.get_by_topic(restored, "lobby")
+  |> expect.to_equal([#("current-pid", "current-key", json.null())])
+}
+
+pub fn supersede_uses_existing_raw_and_incarnation_base_semantics_test() {
+  let raw =
+    state.new("node:west")
+    |> state.join("raw-pid", "lobby", "raw-key", json.null())
+  let current =
+    state.new_incarnation("node:west")
+    |> state.join("current-pid", "lobby", "current-key", json.null())
+  let malformed =
+    state.new("lattice-presence:v1:not-a-uuid:node:west")
+    |> state.join("malformed-pid", "lobby", "malformed-key", json.null())
+  let other =
+    state.new("node:west:suffix")
+    |> state.join("other-pid", "lobby", "other-key", json.null())
+  let assert Ok(local) = state.merge(state.new("observer"), raw)
+  let assert Ok(local) = state.merge(local, current)
+  let assert Ok(local) = state.merge(local, malformed)
+  let assert Ok(local) = state.merge(local, other)
+
+  list.each([#(raw, current), #(current, raw)], fn(selection) {
+    let #(selected, retired) = selection
+    let assert Ok(#(cleaned, diff)) =
+      state.supersede(local, state.replica(selected))
+    state.internal_values(cleaned)
+    |> expect.to_equal(
+      dict.filter(state.internal_values(local), fn(tag, _) {
+        tag.replica != state.replica(retired)
+      }),
+    )
+    let assert [#(pid, topic, key, meta)] = state.online_list(retired)
+    diff
+    |> expect.to_equal(state.Diff(
+      joins: dict.new(),
+      leaves: dict.from_list([#(topic, [#(key, pid, meta)])]),
+    ))
+  })
+}
+
+pub fn supersede_rejects_retiring_local_writer_in_all_liveness_states_test() {
+  let empty = state.new_incarnation("node")
+  let populated =
+    state.join(empty, "local-pid", "lobby", "local-key", json.null())
+  let local_replica = state.replica(empty)
+  let #(empty_down, _) = state.replica_down(empty, local_replica)
+  let #(populated_down, _) = state.replica_down(populated, local_replica)
+  let empty_pruned = state.remove_down_replica(empty_down, local_replica)
+  let populated_pruned =
+    state.remove_down_replica(populated_down, local_replica)
+  let current = state.new_incarnation("node") |> state.replica
+
+  list.each(
+    [
+      empty,
+      populated,
+      empty_down,
+      populated_down,
+      empty_pruned,
+      populated_pruned,
+    ],
+    fn(local) {
+      list.each([current, "node"], fn(current_replica) {
+        state.supersede(local, current_replica)
+        |> expect.to_equal(
+          Error(state.CannotSupersedeLocalReplica(
+            local_replica: local_replica,
+            current_replica: current_replica,
+          )),
+        )
+      })
+    },
+  )
+}
+
+pub fn supersede_allows_selecting_local_writer_without_relabeling_test() {
+  let local =
+    state.new_incarnation("node")
+    |> state.join("local-pid", "lobby", "local-key", json.null())
+  let local_replica = state.replica(local)
+  let old = state.new_incarnation("node") |> state.replica
+  let #(with_old_status, _) = state.replica_up(local, old)
+
+  state.supersede(with_old_status, local_replica)
+  |> expect.to_equal(
+    Ok(#(local, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+  let #(down, _) = state.replica_down(local, local_replica)
+  let pruned = state.remove_down_replica(down, local_replica)
+  list.each([local, down, pruned], fn(local) {
+    let assert Ok(#(cleaned, diff)) = state.supersede(local, local_replica)
+    cleaned |> expect.to_equal(local)
+    diff |> expect.to_equal(state.Diff(joins: dict.new(), leaves: dict.new()))
+    let joined =
+      state.join(cleaned, "next-pid", "lobby", "next-key", json.null())
+    dict.has_key(state.internal_values(joined), state.Tag(local_replica, 2))
+    |> expect.to_equal(True)
+  })
+}
+
+pub fn supersede_suppresses_covered_replay_but_not_unseen_higher_tags_test() {
+  let old =
+    state.new_incarnation("node")
+    |> state.join("old-pid", "lobby", "old-key", json.null())
+  let current = state.new_incarnation("node") |> state.replica
+  let assert Ok(local) = state.merge(state.new("observer"), old)
+  let assert Ok(#(cleaned, _)) = state.supersede(local, current)
+  state.merge_with_diff(cleaned, old)
+  |> expect.to_equal(
+    Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+
+  let still_writing =
+    state.join(old, "higher-pid", "lobby", "higher-key", json.null())
+  let assert Ok(replayed) = state.merge(cleaned, still_writing)
+  state.get_by_topic(replayed, "lobby")
+  |> expect.to_equal([#("higher-pid", "higher-key", json.null())])
+  let assert Ok(#(cleaned_again, diff)) = state.supersede(replayed, current)
+  state.entry_count(cleaned_again) |> expect.to_equal(0)
+  dict.get(state.compacted_clocks(cleaned_again), state.replica(old))
+  |> expect.to_equal(Ok(2))
+  dict.get(diff.leaves, "lobby")
+  |> expect.to_equal(Ok([#("higher-key", "higher-pid", json.null())]))
+}
+
 pub fn remove_down_replica_does_not_remove_live_replica_test() {
   let live =
     state.new("node1")

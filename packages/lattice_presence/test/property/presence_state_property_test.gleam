@@ -438,6 +438,98 @@ pub fn prop_remove_down_replicas_permanent_test() {
   list.length(r2_entries) |> expect.to_equal(0)
 }
 
+pub fn prop_supersede_preserves_selected_entries_and_rejects_covered_replay_test() {
+  use #(retired_ops, kept_ops) <- qcheck.given(qcheck.tuple2(
+    qcheck.tuple2(
+      crdt_generator.gen_ops_for("old-a"),
+      crdt_generator.gen_ops_for("old-b"),
+    ),
+    qcheck.tuple2(
+      crdt_generator.gen_ops_for("current"),
+      crdt_generator.gen_ops_for("other"),
+    ),
+  ))
+  let old_a =
+    state.new_incarnation("node")
+    |> crdt_generator.apply_ops(distinct_entry_ops(retired_ops.0, "old-a/"))
+    |> state.join("old-a/anchor", "lobby", "anchor", json.null())
+  let old_b =
+    state.new_incarnation("node")
+    |> crdt_generator.apply_ops(distinct_entry_ops(retired_ops.1, "old-b/"))
+    |> state.join("old-b/anchor", "lobby", "anchor", json.null())
+  let current =
+    state.new_incarnation("node")
+    |> crdt_generator.apply_ops(distinct_entry_ops(kept_ops.0, "current/"))
+    |> state.join("current/anchor", "lobby", "anchor", json.null())
+  let other =
+    state.new("other")
+    |> crdt_generator.apply_ops(distinct_entry_ops(kept_ops.1, "other/"))
+    |> state.join("other/anchor", "lobby", "anchor", json.null())
+  let assert Ok(stale) = state.merge(state.new("cleaner"), old_a)
+  let assert Ok(stale) = state.merge(stale, old_b)
+  let assert Ok(stale) = state.merge(stale, current)
+  let assert Ok(stale) = state.merge(stale, other)
+  let selected = state.replica(current)
+
+  let assert Ok(#(cleaned, diff)) = state.supersede(stale, selected)
+
+  let kept_ids =
+    set.union(
+      crdt_generator.online_ids(current),
+      crdt_generator.online_ids(other),
+    )
+  let removed_ids =
+    set.union(
+      crdt_generator.online_ids(old_a),
+      crdt_generator.online_ids(old_b),
+    )
+  crdt_generator.online_ids(cleaned) |> expect.to_equal(kept_ids)
+  crdt_generator.diff_entry_ids(diff.leaves) |> expect.to_equal(removed_ids)
+  dict.values(diff.leaves)
+  |> list.flatten
+  |> list.length
+  |> expect.to_equal(state.entry_count(old_a) + state.entry_count(old_b))
+  state.entry_count(cleaned)
+  |> expect.to_equal(state.entry_count(current) + state.entry_count(other))
+  state.compacted_clocks(cleaned)
+  |> expect.to_equal(state.compacted_clocks(stale))
+  diff.joins |> expect.to_equal(dict.new())
+  state.supersede(cleaned, selected)
+  |> expect.to_equal(
+    Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))),
+  )
+
+  list.each([#(stale, cleaned), #(cleaned, stale)], fn(snapshots) {
+    let assert Ok(observer) = state.merge(state.new("observer"), snapshots.0)
+    let assert Ok(observer) = state.merge(observer, snapshots.1)
+    let assert Ok(#(replayed, replay_diff)) =
+      state.merge_with_diff(observer, stale)
+    crdt_generator.online_ids(replayed) |> expect.to_equal(kept_ids)
+    state.internal_values(replayed)
+    |> expect.to_equal(state.internal_values(cleaned))
+    replay_diff
+    |> expect.to_equal(state.Diff(joins: dict.new(), leaves: dict.new()))
+  })
+}
+
+// Keep identity-set assertions unambiguous across writers and active tags.
+fn distinct_entry_ops(
+  ops: List(crdt_generator.Op),
+  prefix: String,
+) -> List(crdt_generator.Op) {
+  list.flat_map(ops, fn(op) {
+    case op {
+      crdt_generator.Join(replica, pid, topic, key) -> [
+        crdt_generator.Leave(replica, prefix <> pid, topic, key),
+        crdt_generator.Join(replica, prefix <> pid, topic, key),
+      ]
+      crdt_generator.Leave(replica, pid, topic, key) -> [
+        crdt_generator.Leave(replica, prefix <> pid, topic, key),
+      ]
+    }
+  })
+}
+
 // ── Leave-by-pid completeness ───────────────────────────────────────
 
 /// leave_by_pid removes all and only entries matching the pid
