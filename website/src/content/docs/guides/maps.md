@@ -44,7 +44,8 @@ newest timestamp.
 `LWWMap` resolves equal timestamps deterministically:
 
 - tombstones win over active values
-- when both sides hold active values, the lexicographically greater string wins
+- when both sides hold active values, the greater string in lexicographic
+  UTF-8 byte order wins
 
 ```gleam
 import lattice_maps/lww_map
@@ -60,8 +61,16 @@ pub fn main() {
 }
 ```
 
-This tie-break keeps merges replica-order independent even when timestamps are
-equal.
+This tie-break uses the same order on Erlang and JavaScript. For example,
+`"\u{10000}"` wins over `"\u{e000}"` at an equal timestamp, in either merge
+order. The comparison does not normalize Unicode.
+
+Older JavaScript versions used UTF-16 order and chose `"\u{e000}"` for this
+conflict. Erlang's ordering is unchanged. Upgrade peers that exchange affected
+Unicode values together; peers using different ordering rules can disagree.
+An upgrade cannot restore a losing value that no replica retained. The
+[Replica IDs guide](/guides/replica-ids/#unicode-ordering-and-upgrades) describes
+the related correction for replica-ID ties.
 
 ## ORMap (Observed-Remove Map)
 

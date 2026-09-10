@@ -24,20 +24,21 @@
 //// `pruned_timestamp` ensures that stale entries from unsynced replicas are
 //// automatically rejected during merge (zombie prevention).
 
+import gleam/bit_array
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/order.{Eq, Gt, Lt}
-import gleam/string
 
 /// A Last-Writer-Wins Map (LWW-Map) CRDT.
 ///
 /// Internally stores each key with an `Option(String)` value and an `Int`
 /// timestamp. A `None` value represents a tombstone (removed key). On merge,
 /// the entry with the higher timestamp wins for each key; on ties, tombstones
-/// win over active values, otherwise the lexicographically greater value wins.
+/// win over active values, otherwise the greater value in lexicographic UTF-8
+/// byte order wins.
 ///
 /// Tombstones accumulate until pruned. Use `prune` with a stable timestamp to
 /// remove them. The embedded `pruned_timestamp` enables automatic zombie
@@ -213,8 +214,8 @@ pub fn values(map: LWWMap) -> List(String) {
 /// Tombstones participate in merge: if a tombstone has a higher timestamp
 /// than the active entry for a key, the key remains removed after merging.
 /// On equal timestamps, a deterministic tie-break is used:
-/// tombstones win over active values, otherwise the lexicographically greater
-/// value wins.
+/// tombstones win over active values, otherwise the greater value in
+/// lexicographic UTF-8 byte order wins on both Erlang and JavaScript.
 ///
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: LWWMap, b: LWWMap) -> LWWMap {
@@ -276,7 +277,7 @@ fn choose_winner(
             #(Some(_), _), #(None, _) -> b
             #(None, _), #(None, _) -> a
             #(Some(a_val), _), #(Some(b_val), _) ->
-              case string.compare(a_val, b_val) {
+              case bit_array.compare(<<a_val:utf8>>, <<b_val:utf8>>) {
                 Gt -> a
                 Eq -> a
                 Lt -> b

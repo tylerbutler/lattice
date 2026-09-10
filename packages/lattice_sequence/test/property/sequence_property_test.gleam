@@ -1,4 +1,5 @@
 import gleam/int
+import gleam/list
 import lattice_core/replica_id
 import lattice_sequence/sequence
 import qcheck
@@ -31,11 +32,13 @@ pub fn sequence_merge_commutativity__test() {
     ),
     fn(pair) {
       let #(a, b) = pair
-      let left = doc("A", a)
-      let right = doc("B", b)
+      list.each([#("A", "B"), #("\u{e000}", "\u{10000}")], fn(ids) {
+        let left = doc(ids.0, a)
+        let right = doc(ids.1, b)
 
-      sequence.merge(left, right, rid("A"))
-      |> expect.to_equal(sequence.merge(right, left, rid("A")))
+        sequence.merge(left, right, rid("A"))
+        |> expect.to_equal(sequence.merge(right, left, rid("A")))
+      })
       Nil
     },
   )
@@ -61,16 +64,18 @@ pub fn sequence_merge_associativity__test() {
     ),
     fn(triple) {
       let #(a, b, c) = triple
-      let doc_a = doc("A", a)
-      let doc_b = doc("B", b)
-      let doc_c = doc("C", c)
+      list.each([#("A", "B"), #("\u{e000}", "\u{10000}")], fn(ids) {
+        let doc_a = doc(ids.0, a)
+        let doc_b = doc(ids.1, b)
+        let doc_c = doc("C", c)
 
-      sequence.merge(sequence.merge(doc_a, doc_b, rid("A")), doc_c, rid("A"))
-      |> expect.to_equal(sequence.merge(
-        doc_a,
-        sequence.merge(doc_b, doc_c, rid("A")),
-        rid("A"),
-      ))
+        sequence.merge(sequence.merge(doc_a, doc_b, rid("A")), doc_c, rid("A"))
+        |> expect.to_equal(sequence.merge(
+          doc_a,
+          sequence.merge(doc_b, doc_c, rid("A")),
+          rid("A"),
+        ))
+      })
       Nil
     },
   )
@@ -151,17 +156,19 @@ pub fn moved_sequence_merge_commutativity__test() {
         |> expect.to_be_ok()
         |> sequence.insert(2, "c")
         |> expect.to_be_ok()
-      let left =
-        sequence.merge(sequence.new(rid("A")), base, rid("A"))
-        |> sequence.move(a, b)
-        |> expect.to_be_ok()
-      let right =
-        sequence.merge(sequence.new(rid("B")), base, rid("B"))
-        |> sequence.move(b, a)
-        |> expect.to_be_ok()
+      list.each([#("A", "B"), #("\u{e000}", "\u{10000}")], fn(ids) {
+        let left =
+          sequence.merge(sequence.new(rid(ids.0)), base, rid(ids.0))
+          |> sequence.move(a, b)
+          |> expect.to_be_ok()
+        let right =
+          sequence.merge(sequence.new(rid(ids.1)), base, rid(ids.1))
+          |> sequence.move(b, a)
+          |> expect.to_be_ok()
 
-      sequence.merge(left, right, rid("A"))
-      |> expect.to_equal(sequence.merge(right, left, rid("A")))
+        sequence.merge(left, right, rid("A"))
+        |> expect.to_equal(sequence.merge(right, left, rid("A")))
+      })
       Nil
     },
   )
