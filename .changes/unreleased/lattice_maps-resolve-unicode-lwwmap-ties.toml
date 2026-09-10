@@ -1,6 +1,0 @@
-package = "lattice_maps"
-kind = "Fixed"
-body = """
-Resolve Unicode LWWMap ties the same way on both targets
-
-Equal-time ties now compare writer IDs and imported legacy tie keys by UTF-8 byte order on both Erlang and JavaScript. Timestamp and removal precedence are unchanged. Upgrade all peers together. Values discarded before the upgrade cannot be recovered."""
