@@ -1,24 +1,32 @@
 import gleam/set
 import lattice_sets/g_set
-import startest/expect
 
 pub fn new_creates_empty_set_test() {
   g_set.new()
   |> g_set.value
-  |> expect.to_equal(set.new())
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
 }
 
 pub fn new_contains_returns_false_test() {
   g_set.new()
   |> g_set.contains("a")
-  |> expect.to_be_false
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
 }
 
 pub fn add_then_contains_returns_true_test() {
   g_set.new()
   |> g_set.add("hello")
   |> g_set.contains("hello")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn add_multiple_elements_test() {
@@ -30,15 +38,24 @@ pub fn add_multiple_elements_test() {
 
   s
   |> g_set.contains("a")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 
   s
   |> g_set.contains("b")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 
   s
   |> g_set.contains("c")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn add_duplicate_is_idempotent_test() {
@@ -49,7 +66,10 @@ pub fn add_duplicate_is_idempotent_test() {
 
   s
   |> g_set.value
-  |> expect.to_equal(set.from_list(["hello"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["hello"]))
 }
 
 pub fn value_returns_all_elements_test() {
@@ -57,7 +77,10 @@ pub fn value_returns_all_elements_test() {
   |> g_set.add("a")
   |> g_set.add("b")
   |> g_set.value
-  |> expect.to_equal(set.from_list(["a", "b"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["a", "b"]))
 }
 
 pub fn merge_is_union_test() {
@@ -73,7 +96,10 @@ pub fn merge_is_union_test() {
 
   g_set.merge(s1, s2)
   |> g_set.value
-  |> expect.to_equal(set.from_list(["a", "b", "c"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["a", "b", "c"]))
 }
 
 pub fn merge_empty_left_test() {
@@ -83,7 +109,10 @@ pub fn merge_empty_left_test() {
 
   g_set.merge(g_set.new(), s)
   |> g_set.value
-  |> expect.to_equal(set.from_list(["x"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["x"]))
 }
 
 pub fn merge_empty_right_test() {
@@ -93,5 +122,8 @@ pub fn merge_empty_right_test() {
 
   g_set.merge(s, g_set.new())
   |> g_set.value
-  |> expect.to_equal(set.from_list(["x"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["x"]))
 }

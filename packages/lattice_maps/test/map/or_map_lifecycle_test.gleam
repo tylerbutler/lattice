@@ -8,7 +8,6 @@ import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
 import lattice_sequence/sequence
-import startest/expect
 import support/composition_fixture as fixture
 
 fn rid(value) {
@@ -37,8 +36,14 @@ pub fn joining_replica_counter_edits_use_receiving_identity_test() {
   let #(b, delta) = increment(b, 2)
   let assert Ok(merged) = or_map.merge(a, b)
   let assert Ok(applied) = or_map.apply_delta(a, delta)
-  count(merged) |> expect.to_equal(8)
-  applied |> expect.to_equal(merged)
+  count(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 8
+  }
+  applied
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == merged
+  }
 }
 
 pub fn same_replica_fresh_generation_survives_snapshot_prune_and_stale_delivery_test() {
@@ -54,14 +59,26 @@ pub fn same_replica_fresh_generation_survives_snapshot_prune_and_stale_delivery_
     )
   list.each([removed, pruned, loaded], fn(baseline) {
     let #(fresh, delta) = increment(baseline, 1)
-    count(fresh) |> expect.to_equal(1)
+    count(fresh)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 1
+    }
     let assert Ok(applied) = or_map.apply_delta(baseline, delta)
-    applied |> expect.to_equal(fresh)
+    applied
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == fresh
+    }
     let assert Ok(merged) = or_map.merge(fresh, old)
     let assert Ok(delayed) = or_map.apply_delta(merged, old_delta)
-    count(delayed) |> expect.to_equal(1)
+    count(delayed)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 1
+    }
     let #(edited, _) = increment(delayed, 1)
-    count(edited) |> expect.to_equal(2)
+    count(edited)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 2
+    }
   })
 }
 
@@ -75,7 +92,10 @@ pub fn newer_removed_floor_suppresses_older_active_snapshot_and_delta_test() {
       version_vector.new() |> version_vector.increment(rid("A")),
     )
   let assert Ok(merged) = or_map.merge(pruned, old)
-  or_map.keys(merged) |> expect.to_equal([])
+  or_map.keys(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
   let blank = or_map.new(rid("B"), crdt.GCounterSpec)
   let assert Ok(received) =
     list.try_fold(
@@ -84,10 +104,19 @@ pub fn newer_removed_floor_suppresses_older_active_snapshot_and_delta_test() {
       or_map.apply_delta,
     )
   let assert Ok(expected) = or_map.merge(blank, removed)
-  received |> expect.to_equal(expected)
-  or_map.internal_value_count(received) |> expect.to_equal(1)
+  received
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == expected
+  }
+  or_map.internal_value_count(received)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
   let #(reset, _) = increment(received, 7)
-  count(reset) |> expect.to_equal(7)
+  count(reset)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 7
+  }
 }
 
 pub fn concurrent_readds_choose_generation_not_merged_old_or_losing_values_test() {
@@ -98,15 +127,27 @@ pub fn concurrent_readds_choose_generation_not_merged_old_or_losing_values_test(
   let #(stale, ds) = increment(or_map.bind(old, rid("C")), 99)
   let assert Ok(ab) = or_map.merge_as(a, b, rid("R"))
   let assert Ok(ba) = or_map.merge_as(b, a, rid("R"))
-  ab |> expect.to_equal(ba)
-  count(ab) |> expect.to_equal(2)
+  ab
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ba
+  }
+  count(ab)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 2
+  }
   let assert Ok(merged) = or_map.merge(ab, stale)
-  count(merged) |> expect.to_equal(2)
+  count(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 2
+  }
   let assert Ok(batch) = or_map.merge_deltas(da, db)
   let assert Ok(batch) = or_map.merge_deltas(batch, ds)
   let assert Ok(applied) =
     or_map.apply_delta(or_map.bind(removed, rid("R")), batch)
-  applied |> expect.to_equal(merged)
+  applied
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == merged
+  }
 }
 
 pub fn remove_delivery_order_preserves_current_generation_baseline_test() {
@@ -118,24 +159,46 @@ pub fn remove_delivery_order_preserves_current_generation_baseline_test() {
   let assert Ok(forward) =
     list.try_fold([add, remove], blank, or_map.apply_delta)
   let assert Ok(full) = or_map.merge(blank, removed)
-  reverse |> expect.to_equal(forward)
-  reverse |> expect.to_equal(full)
+  reverse
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == forward
+  }
+  reverse
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == full
+  }
   let #(concurrent, _) = increment(or_map.bind(a, rid("B")), 1)
   let assert Ok(merged) = or_map.merge(reverse, concurrent)
-  count(merged) |> expect.to_equal(6)
+  count(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 6
+  }
 }
 
 pub fn outer_reset_allocates_fresh_nested_sequence_ids_test() {
   let old = fixture.nested("A", [1, 2])
   let #(fresh, delta) = fixture.append(or_map.remove(old, "doc"), 9)
-  fixture.sequence(fresh) |> sequence.values |> expect.to_equal([9])
+  fixture.sequence(fresh)
+  |> sequence.values
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == [9]
+  }
   sequence.merge(fixture.sequence(old), fixture.sequence(fresh), rid("C"))
   |> sequence.length
-  |> expect.to_equal(3)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 3
+  }
   let assert Ok(merged) = or_map.merge(fresh, old)
-  fixture.sequence(merged) |> sequence.values |> expect.to_equal([9])
+  fixture.sequence(merged)
+  |> sequence.values
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == [9]
+  }
   let assert Ok(applied) = or_map.apply_delta(old, delta)
-  applied |> expect.to_equal(fresh)
+  applied
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == fresh
+  }
 }
 
 pub fn scoped_key_names_do_not_collide_test() {
@@ -149,24 +212,39 @@ pub fn scoped_key_names_do_not_collide_test() {
   let assert Ok(map) = or_map.update(map, "a", add)
   let assert Ok(crdt.CrdtSequence(a)) = or_map.get(map, "a:1:b")
   let assert Ok(crdt.CrdtSequence(b)) = or_map.get(map, "a")
-  sequence.merge(a, b, rid("R")) |> sequence.length |> expect.to_equal(2)
+  sequence.merge(a, b, rid("R"))
+  |> sequence.length
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 2
+  }
 }
 
 pub fn sparse_callback_failure_and_schema_errors_are_atomic_test() {
   let map = fixture.nested("A", [1])
   or_map.update_delta(map, "missing", fn(_, _) { Error("rejected") })
-  |> expect.to_equal(Error(crdt.CallbackError("rejected")))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(crdt.CallbackError("rejected"))
+  }
   or_map.update_delta(map, "doc", fn(_, _) {
     Ok(crdt.NoChange(crdt.OrMapSpec(crdt.TextSpec)))
   })
-  |> expect.to_equal(
-    Error(crdt.CompositionError(crdt.AtKey("doc", crdt.SchemaMismatch))),
-  )
+  |> fn(actual) {
+    let assert True =
+      actual
+      == Error(crdt.CompositionError(crdt.AtKey("doc", crdt.SchemaMismatch)))
+  }
   or_map.update(map, "doc", fn(_) {
     crdt.CrdtOrMap(or_map.new(rid("A"), crdt.TextSpec))
   })
-  |> expect.to_equal(Error(crdt.AtKey("doc", crdt.SchemaMismatch)))
-  fixture.sequence(map) |> sequence.values |> expect.to_equal([1])
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == Error(crdt.AtKey("doc", crdt.SchemaMismatch))
+  }
+  fixture.sequence(map)
+  |> sequence.values
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == [1]
+  }
 }
 
 pub fn no_change_delta_refreshes_membership_without_resetting_leaf_test() {
@@ -177,9 +255,15 @@ pub fn no_change_delta_refreshes_membership_without_resetting_leaf_test() {
       Ok(crdt.NoChange(crdt.GCounterSpec))
     })
   let assert Ok(applied) = or_map.apply_delta(baseline, delta)
-  updated |> expect.to_equal(applied)
+  updated
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == applied
+  }
   let assert Ok(merged) = or_map.merge(removed, updated)
-  count(merged) |> expect.to_equal(5)
+  count(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 5
+  }
 }
 
 pub fn configured_default_nochange_has_replica_independent_history_test() {
@@ -191,7 +275,10 @@ pub fn configured_default_nochange_has_replica_independent_history_test() {
   let remote = or_map.new(rid("B"), crdt.LwwRegisterSpec(42))
   let assert Ok(full) = or_map.merge(remote, updated)
   let assert Ok(sparse) = or_map.apply_delta(remote, delta)
-  full |> expect.to_equal(sparse)
+  full
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == sparse
+  }
 }
 
 pub fn full_state_update_joins_inside_generation_instead_of_resetting_history_test() {
@@ -200,7 +287,10 @@ pub fn full_state_update_joins_inside_generation_instead_of_resetting_history_te
     or_map.update(map, "count", fn(_) {
       crdt.CrdtGCounter(g_counter.new(rid("A")))
     })
-  count(updated) |> expect.to_equal(5)
+  count(updated)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 5
+  }
 }
 
 pub fn pruned_generation_floor_retains_history_and_readd_uses_fresh_membership_scope_test() {
@@ -237,12 +327,24 @@ pub fn pruned_generation_floor_retains_history_and_readd_uses_fresh_membership_s
       decode.int,
     )
   let assert Ok(merged) = or_map.merge(loaded, old)
-  or_map.keys(merged) |> expect.to_equal([])
-  or_map.internal_value_count(loaded) |> expect.to_equal(1)
+  or_map.keys(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
+  or_map.internal_value_count(loaded)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
   let #(fresh, _) = increment(loaded, 7)
   let assert Ok(merged) = or_map.merge(fresh, pruned)
-  count(merged) |> expect.to_equal(7)
+  count(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 7
+  }
   let other = or_map.new(rid("A"), crdt.GCounterSpec) |> or_map.prune(stable)
   let #(other, _) = increment(other, 9)
-  count(other) |> expect.to_equal(9)
+  count(other)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 9
+  }
 }

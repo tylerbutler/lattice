@@ -5,7 +5,6 @@ import gleam/string
 import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_sequence/sequence
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -14,67 +13,99 @@ fn rid(id: String) {
 const empty_frontier = "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{}}}"
 
 pub fn sequence_string_round_trip_simple_test() {
-  let seq =
-    sequence.new(rid("A"))
-    |> sequence.insert(0, "h")
-    |> expect.to_be_ok()
-    |> sequence.insert(1, "i")
-    |> expect.to_be_ok()
+  let seq = {
+    let assert Ok(asserted_28) =
+      {
+        let assert Ok(asserted_29) =
+          sequence.new(rid("A"))
+          |> sequence.insert(0, "h")
+        asserted_29
+      }
+      |> sequence.insert(1, "i")
+    asserted_28
+  }
 
   json.to_string(sequence.to_json(seq, json.string))
   |> sequence.from_json(decode.string)
-  |> expect.to_equal(Ok(seq))
+  |> fn(actual) {
+    assert actual == { Ok(seq) }
+  }
 }
 
 pub fn unicode_order_concurrent_first_insert_snapshots_test() {
-  let bmp =
-    sequence.new(rid("\u{e000}"))
-    |> sequence.insert(0, "b")
-    |> expect.to_be_ok()
-  let supplementary =
-    sequence.new(rid("\u{10000}"))
-    |> sequence.insert(0, "s")
-    |> expect.to_be_ok()
-  let anchor = sequence.anchor_at(bmp, 0, sequence.Before) |> expect.to_be_ok()
-  let decoded_bmp =
-    sequence.to_json(bmp, json.string)
-    |> json.to_string()
-    |> sequence.from_json(decode.string)
-    |> expect.to_be_ok()
-  let decoded_supplementary =
-    sequence.to_json(supplementary, json.string)
-    |> json.to_string()
-    |> sequence.from_json(decode.string)
-    |> expect.to_be_ok()
+  let bmp = {
+    let assert Ok(asserted_27) =
+      sequence.new(rid("\u{e000}"))
+      |> sequence.insert(0, "b")
+    asserted_27
+  }
+  let supplementary = {
+    let assert Ok(asserted_26) =
+      sequence.new(rid("\u{10000}"))
+      |> sequence.insert(0, "s")
+    asserted_26
+  }
+  let anchor = {
+    let assert Ok(asserted_25) = sequence.anchor_at(bmp, 0, sequence.Before)
+    asserted_25
+  }
+  let decoded_bmp = {
+    let assert Ok(asserted_24) =
+      sequence.to_json(bmp, json.string)
+      |> json.to_string()
+      |> sequence.from_json(decode.string)
+    asserted_24
+  }
+  let decoded_supplementary = {
+    let assert Ok(asserted_23) =
+      sequence.to_json(supplementary, json.string)
+      |> json.to_string()
+      |> sequence.from_json(decode.string)
+    asserted_23
+  }
 
   use pair <- list.each([
     #(decoded_bmp, decoded_supplementary),
     #(decoded_supplementary, decoded_bmp),
   ])
   let merged = sequence.merge(pair.0, pair.1, rid("observer"))
-  let decoded =
-    sequence.to_json(merged, json.string)
-    |> json.to_string()
-    |> sequence.from_json(decode.string)
-    |> expect.to_be_ok()
+  let decoded = {
+    let assert Ok(asserted_22) =
+      sequence.to_json(merged, json.string)
+      |> json.to_string()
+      |> sequence.from_json(decode.string)
+    asserted_22
+  }
   use state <- list.each([merged, decoded])
-  sequence.values(state) |> expect.to_equal(["b", "s"])
-  sequence.resolve(state, anchor) |> expect.to_equal(Ok(0))
+  sequence.values(state)
+  |> fn(actual) {
+    assert actual == { ["b", "s"] }
+  }
+  sequence.resolve(state, anchor)
+  |> fn(actual) {
+    assert actual == { Ok(0) }
+  }
 }
 
 pub fn unicode_order_concurrent_deletes_retain_minimum_op_id_test() {
-  let base =
-    sequence.new(rid("base"))
-    |> sequence.insert(0, "x")
-    |> expect.to_be_ok()
-  let #(bmp, bmp_delta) =
-    sequence.merge(sequence.new(rid("\u{e000}")), base, rid("\u{e000}"))
-    |> sequence.delete_with_delta(0)
-    |> expect.to_be_ok()
-  let #(supplementary, supplementary_delta) =
-    sequence.merge(sequence.new(rid("\u{10000}")), base, rid("\u{10000}"))
-    |> sequence.delete_with_delta(0)
-    |> expect.to_be_ok()
+  let base = {
+    let assert Ok(asserted_21) =
+      sequence.new(rid("base"))
+      |> sequence.insert(0, "x")
+    asserted_21
+  }
+  let #(bmp, bmp_delta) = {
+    let assert Ok(asserted_20) =
+      sequence.merge(sequence.new(rid("\u{e000}")), base, rid("\u{e000}"))
+      |> sequence.delete_with_delta(0)
+    asserted_20
+  }
+  let #(supplementary, supplementary_delta) = {
+    let assert Ok(asserted_19) =
+      sequence.merge(sequence.new(rid("\u{10000}")), base, rid("\u{10000}"))
+      |> sequence.delete_with_delta(0)
+    asserted_19
+  }
   let op_id_decoder = {
     use replica <- decode.field("replica_id", decode.string)
     use counter <- decode.field("counter", decode.int)
@@ -91,7 +122,9 @@ pub fn unicode_order_concurrent_deletes_retain_minimum_op_id_test() {
       sequence.to_json(pair.0, json.string)
       |> json.to_string()
       |> json.parse(deleted_ops)
-      |> expect.to_equal(Ok([#(pair.1, 2)]))
+      |> fn(actual) {
+        assert actual == { Ok([#(pair.1, 2)]) }
+      }
     },
   )
 
@@ -102,94 +135,150 @@ pub fn unicode_order_concurrent_deletes_retain_minimum_op_id_test() {
     #(supplementary, bmp_delta),
   ])
   let merged = sequence.merge(pair.0, pair.1, rid("observer"))
-  let decoded =
-    sequence.to_json(merged, json.string)
-    |> json.to_string()
-    |> sequence.from_json(decode.string)
-    |> expect.to_be_ok()
+  let decoded = {
+    let assert Ok(asserted_18) =
+      sequence.to_json(merged, json.string)
+      |> json.to_string()
+      |> sequence.from_json(decode.string)
+    asserted_18
+  }
   use state <- list.each([merged, decoded])
-  sequence.values(state) |> expect.to_equal([])
+  sequence.values(state)
+  |> fn(actual) {
+    assert actual == { [] }
+  }
   sequence.to_json(state, json.string)
   |> json.to_string()
   |> json.parse(deleted_ops)
-  |> expect.to_equal(Ok([#("\u{e000}", 2)]))
+  |> fn(actual) {
+    assert actual == { Ok([#("\u{e000}", 2)]) }
+  }
 }
 
 pub fn sequence_int_round_trip_with_tombstone_test() {
-  let seq =
-    sequence.new(rid("A"))
-    |> sequence.insert(0, 1)
-    |> expect.to_be_ok()
-    |> sequence.insert(1, 2)
-    |> expect.to_be_ok()
-    |> sequence.delete(0)
-    |> expect.to_be_ok()
+  let seq = {
+    let assert Ok(asserted_15) =
+      {
+        let assert Ok(asserted_16) =
+          {
+            let assert Ok(asserted_17) =
+              sequence.new(rid("A"))
+              |> sequence.insert(0, 1)
+            asserted_17
+          }
+          |> sequence.insert(1, 2)
+        asserted_16
+      }
+      |> sequence.delete(0)
+    asserted_15
+  }
 
   json.to_string(sequence.to_json(seq, json.int))
   |> sequence.from_json(decode.int)
-  |> expect.to_equal(Ok(seq))
+  |> fn(actual) {
+    assert actual == { Ok(seq) }
+  }
 }
 
 pub fn sequence_round_trip_compacted_state_test() {
-  let seq =
-    sequence.new(rid("A"))
-    |> sequence.insert(0, "a")
-    |> expect.to_be_ok()
-    |> sequence.insert(1, "b")
-    |> expect.to_be_ok()
-    |> sequence.insert(2, "c")
-    |> expect.to_be_ok()
-    |> sequence.delete(1)
-    |> expect.to_be_ok()
+  let seq = {
+    let assert Ok(asserted_11) =
+      {
+        let assert Ok(asserted_12) =
+          {
+            let assert Ok(asserted_13) =
+              {
+                let assert Ok(asserted_14) =
+                  sequence.new(rid("A"))
+                  |> sequence.insert(0, "a")
+                asserted_14
+              }
+              |> sequence.insert(1, "b")
+            asserted_13
+          }
+          |> sequence.insert(2, "c")
+        asserted_12
+      }
+      |> sequence.delete(1)
+    asserted_11
+  }
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 4)
   let #(compacted, _forwardings) = sequence.compact(seq, frontier)
 
   json.to_string(sequence.to_json(compacted, json.string))
   |> sequence.from_json(decode.string)
-  |> expect.to_equal(Ok(compacted))
+  |> fn(actual) {
+    assert actual == { Ok(compacted) }
+  }
 }
 
 pub fn sequence_round_trip_mixed_blocks_and_items_test() {
-  let base =
-    sequence.new(rid("A"))
-    |> sequence.insert(0, "a")
-    |> expect.to_be_ok()
-    |> sequence.insert(1, "b")
-    |> expect.to_be_ok()
-    |> sequence.insert(2, "c")
-    |> expect.to_be_ok()
+  let base = {
+    let assert Ok(asserted_8) =
+      {
+        let assert Ok(asserted_9) =
+          {
+            let assert Ok(asserted_10) =
+              sequence.new(rid("A"))
+              |> sequence.insert(0, "a")
+            asserted_10
+          }
+          |> sequence.insert(1, "b")
+        asserted_9
+      }
+      |> sequence.insert(2, "c")
+    asserted_8
+  }
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 3)
   let #(compacted, _forwardings) = sequence.compact(base, frontier)
-  let seq = sequence.insert(compacted, 1, "x") |> expect.to_be_ok()
+  let seq = {
+    let assert Ok(asserted_7) = sequence.insert(compacted, 1, "x")
+    asserted_7
+  }
 
   json.to_string(sequence.to_json(seq, json.string))
   |> sequence.from_json(decode.string)
-  |> expect.to_equal(Ok(seq))
+  |> fn(actual) {
+    assert actual == { Ok(seq) }
+  }
 }
 
 pub fn sequence_compacted_json_contains_block_and_forwarding_test() {
-  let seq =
-    sequence.new(rid("A"))
-    |> sequence.insert(0, "a")
-    |> expect.to_be_ok()
-    |> sequence.insert(1, "b")
-    |> expect.to_be_ok()
-    |> sequence.delete(1)
-    |> expect.to_be_ok()
+  let seq = {
+    let assert Ok(asserted_4) =
+      {
+        let assert Ok(asserted_5) =
+          {
+            let assert Ok(asserted_6) =
+              sequence.new(rid("A"))
+              |> sequence.insert(0, "a")
+            asserted_6
+          }
+          |> sequence.insert(1, "b")
+        asserted_5
+      }
+      |> sequence.delete(1)
+    asserted_4
+  }
   let frontier = version_vector.new() |> version_vector.set_max(rid("A"), 3)
   let #(compacted, _forwardings) = sequence.compact(seq, frontier)
   let json_string = json.to_string(sequence.to_json(compacted, json.string))
 
-  json_string |> string.contains("\"kind\":\"block\"") |> expect.to_be_true()
-  json_string |> string.contains("\"forwardings\":[{") |> expect.to_be_true()
+  json_string
+  |> string.contains("\"kind\":\"block\"")
+  |> fn(value) {
+    assert value
+  }
+  json_string
+  |> string.contains("\"forwardings\":[{")
+  |> fn(value) {
+    assert value
+  }
 }
 
 pub fn sequence_from_json_wrong_type_rejected_test() {
   let payload = "{\"type\":\"text\",\"v\":1,\"state\":{}}"
-  case sequence.from_json(payload, decode.string) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
-  }
+  let assert Error(_) = sequence.from_json(payload, decode.string)
 }
 
 pub fn sequence_from_json_negative_counter_rejected_test() {
@@ -198,10 +287,7 @@ pub fn sequence_from_json_negative_counter_rejected_test() {
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[]}}"
 
-  case sequence.from_json(payload, decode.string) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
-  }
+  let assert Error(_) = sequence.from_json(payload, decode.string)
 }
 
 pub fn sequence_from_json_negative_item_id_counter_rejected_test() {
@@ -210,10 +296,7 @@ pub fn sequence_from_json_negative_item_id_counter_rejected_test() {
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":-1},\"origin_left\":null,\"origin_right\":null,\"value\":\"x\",\"deleted\":null}]}}"
 
-  case sequence.from_json(payload, decode.string) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
-  }
+  let assert Error(_) = sequence.from_json(payload, decode.string)
 }
 
 pub fn sequence_from_json_unknown_segment_kind_rejected_test() {
@@ -222,28 +305,43 @@ pub fn sequence_from_json_unknown_segment_kind_rejected_test() {
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[{\"kind\":\"mystery\"}]}}"
 
-  case sequence.from_json(payload, decode.string) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
-  }
+  let assert Error(_) = sequence.from_json(payload, decode.string)
 }
 
 pub fn sequence_move_json_round_trip_keeps_v1_test() {
-  let seq =
-    sequence.new(rid("A"))
-    |> sequence.insert(0, "a")
-    |> expect.to_be_ok()
-    |> sequence.insert(1, "b")
-    |> expect.to_be_ok()
-    |> sequence.move(0, 1)
-    |> expect.to_be_ok()
+  let seq = {
+    let assert Ok(asserted_1) =
+      {
+        let assert Ok(asserted_2) =
+          {
+            let assert Ok(asserted_3) =
+              sequence.new(rid("A"))
+              |> sequence.insert(0, "a")
+            asserted_3
+          }
+          |> sequence.insert(1, "b")
+        asserted_2
+      }
+      |> sequence.move(0, 1)
+    asserted_1
+  }
   let json_string = json.to_string(sequence.to_json(seq, json.string))
 
-  json_string |> string.contains("\"v\":1") |> expect.to_be_true()
-  json_string |> string.contains("\"move\":") |> expect.to_be_true()
+  json_string
+  |> string.contains("\"v\":1")
+  |> fn(value) {
+    assert value
+  }
+  json_string
+  |> string.contains("\"move\":")
+  |> fn(value) {
+    assert value
+  }
   json_string
   |> sequence.from_json(decode.string)
-  |> expect.to_equal(Ok(seq))
+  |> fn(actual) {
+    assert actual == { Ok(seq) }
+  }
 }
 
 pub fn sequence_from_json_missing_move_decodes_as_no_move_test() {
@@ -252,10 +350,8 @@ pub fn sequence_from_json_missing_move_decodes_as_no_move_test() {
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[{\"kind\":\"item\",\"id\":{\"replica_id\":\"A\",\"counter\":1},\"origin_left\":null,\"origin_right\":null,\"value\":\"x\",\"deleted\":null}]}}"
 
-  case sequence.from_json(payload, decode.string) {
-    Ok(seq) -> sequence.values(seq) |> expect.to_equal(["x"])
-    Error(_) -> expect.to_be_true(False)
-  }
+  let assert Ok(seq) = sequence.from_json(payload, decode.string)
+  assert sequence.values(seq) == ["x"]
 }
 
 pub fn sequence_from_json_unknown_version_rejected_test() {
@@ -264,10 +360,7 @@ pub fn sequence_from_json_unknown_version_rejected_test() {
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[]}}"
 
-  case sequence.from_json(payload, decode.string) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
-  }
+  let assert Error(_) = sequence.from_json(payload, decode.string)
 }
 
 pub fn sequence_from_json_v1_without_moves_accepted_test() {
@@ -283,10 +376,8 @@ pub fn sequence_from_json_v1_without_moves_accepted_test() {
     <> "{\"replica_id\":\"A\",\"counter\":1},\"origin_right\":null,\"value\":\"b\","
     <> "\"deleted\":null,\"move\":null}]}}"
 
-  case sequence.from_json(payload, decode.string) {
-    Ok(decoded) -> sequence.values(decoded) |> expect.to_equal(["a", "b"])
-    Error(_) -> expect.to_be_true(False)
-  }
+  let assert Ok(decoded) = sequence.from_json(payload, decode.string)
+  assert sequence.values(decoded) == ["a", "b"]
 }
 
 pub fn sequence_from_json_v1_with_compacted_move_rejected_test() {
@@ -304,10 +395,7 @@ pub fn sequence_from_json_v1_with_compacted_move_rejected_test() {
     <> "\"deleted\":null,\"move\":{\"op_id\":{\"replica_id\":\"A\",\"counter\":3},"
     <> "\"origin_left\":null,\"origin_right\":{\"replica_id\":\"A\",\"counter\":1}}}]}}"
 
-  case sequence.from_json(payload, decode.string) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
-  }
+  let assert Error(_) = sequence.from_json(payload, decode.string)
 }
 
 fn id_json(counter: Int) -> json.Json {
@@ -379,11 +467,15 @@ fn assert_safe_allocation(encoded: String, expected_counter: Int) {
   sequence.to_json(loaded, json.string)
   |> json.to_string()
   |> json.parse(decode.at(["state", "counter"], decode.int))
-  |> expect.to_equal(Ok(expected_counter))
+  |> fn(actual) {
+    assert actual == { Ok(expected_counter) }
+  }
   sequence.to_json(loaded, json.string)
   |> json.to_string()
   |> sequence.from_json(decode.string)
-  |> expect.to_equal(Ok(loaded))
+  |> fn(actual) {
+    assert actual == { Ok(loaded) }
+  }
 
   let rebound = sequence.merge(sequence.new(rid("B")), loaded, rid("B"))
   let assert Ok(#(_, delta)) = sequence.insert_with_delta(rebound, 0, "new")
@@ -396,7 +488,9 @@ fn assert_safe_allocation(encoded: String, expected_counter: Int) {
   sequence.anchor_to_json(anchor)
   |> json.to_string()
   |> json.parse(decode.at(["anchor", "id"], id_decoder))
-  |> expect.to_equal(Ok(#("B", expected_counter + 1)))
+  |> fn(actual) {
+    assert actual == { Ok(#("B", expected_counter + 1)) }
+  }
 }
 
 pub fn sequence_load_reconstructs_counter_from_items_operations_and_origins_test() {

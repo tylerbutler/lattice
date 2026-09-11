@@ -12,7 +12,6 @@ import lattice_registers/mv_register
 import lattice_sequence/sequence
 import lattice_sets/or_set
 import lattice_text/text
-import startest/expect
 import support/composition_fixture as fixture
 
 fn rid(value) {
@@ -35,12 +34,24 @@ pub fn all_recursive_defaults_and_nochange_identity_test() {
   ]
   list.each(specs, fn(spec) {
     let value = crdt.default_crdt(spec, rid("A"))
-    crdt.matches_spec(value, spec) |> expect.to_be_true
+    crdt.matches_spec(value, spec)
+    |> fn(value) {
+      let assert True = value
+    }
     let delta = crdt.default_delta(spec, rid("A"))
-    crdt.is_empty_delta(delta) |> expect.to_be_true
-    crdt.apply_delta(value, delta, spec, rid("A")) |> expect.to_equal(Ok(value))
+    crdt.is_empty_delta(delta)
+    |> fn(value) {
+      let assert True = value
+    }
+    crdt.apply_delta(value, delta, spec, rid("A"))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(value)
+    }
     let encoded = crdt.to_json_with(value, json.int) |> json.to_string
-    crdt.from_json_with(encoded, decode.int) |> expect.to_equal(Ok(value))
+    crdt.from_json_with(encoded, decode.int)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(value)
+    }
   })
 }
 
@@ -52,7 +63,10 @@ pub fn recursive_register_default_is_schema_not_current_value_test() {
       let assert Ok(#(child, _)) =
         or_map.update_delta(child, "number", fn(value, context) {
           let assert crdt.CrdtLwwRegister(register) = value
-          lww_register.value(register) |> expect.to_equal(42)
+          lww_register.value(register)
+          |> fn(assertion_actual) {
+            let assert True = assertion_actual == 42
+          }
           Ok(
             crdt.StateDelta(
               crdt.CrdtLwwRegister(lww_register.set(
@@ -74,14 +88,22 @@ pub fn recursive_register_default_is_schema_not_current_value_test() {
   let assert Ok(crdt.CrdtOrMap(child)) = or_map.get(loaded, "doc")
   let assert Ok(child) = or_map.update(child, "other", fn(value) { value })
   let assert Ok(crdt.CrdtLwwRegister(other)) = or_map.get(child, "other")
-  lww_register.value(other) |> expect.to_equal(42)
+  lww_register.value(other)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 42
+  }
   let assert Ok(crdt.CrdtLwwRegister(current)) = or_map.get(child, "number")
-  lww_register.value(current) |> expect.to_equal(100)
+  lww_register.value(current)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 100
+  }
   or_map.merge(
     map,
     or_map.new(rid("B"), crdt.OrMapSpec(crdt.LwwRegisterSpec(0))),
   )
-  |> expect.to_equal(Error(crdt.SchemaMismatch))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(crdt.SchemaMismatch)
+  }
 }
 
 fn append_text(map: or_map.ORMap(Int), content: String) {
@@ -117,16 +139,27 @@ pub fn nested_text_remote_only_snapshot_adoption_preserves_ids_and_rebinds_write
   let #(a, da) = append_text(baseline, "A")
   let #(b, db) = append_text(b, "B")
   let assert Ok(full) = or_map.merge_as(a, b, rid("R"))
-  text_value(full) |> text.length |> expect.to_equal(4)
+  text_value(full)
+  |> text.length
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 4
+  }
   let assert Ok(remote) =
     list.try_fold(
       [db, da, db],
       or_map.bind(baseline, rid("R")),
       or_map.apply_delta,
     )
-  remote |> expect.to_equal(full)
+  remote
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == full
+  }
   let #(next, _) = append_text(remote, "R")
-  text_value(next) |> text.length |> expect.to_equal(5)
+  text_value(next)
+  |> text.length
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 5
+  }
 }
 
 pub fn mv_register_and_or_set_joining_writer_does_not_reuse_remote_tags_test() {
@@ -144,7 +177,10 @@ pub fn mv_register_and_or_set_joining_writer_does_not_reuse_remote_tags_test() {
   let assert Ok(b) = or_map.update(b, "key", write(_, 3))
   let assert Ok(merged) = or_map.merge(a, b)
   let assert Ok(crdt.CrdtMvRegister(value)) = or_map.get(merged, "key")
-  list.length(mv_register.value(value)) |> expect.to_equal(2)
+  list.length(mv_register.value(value))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 2
+  }
 
   let assert Ok(a) =
     or_map.update(or_map.new(rid("A"), crdt.OrSetSpec), "key", fn(value) {
@@ -164,7 +200,10 @@ pub fn mv_register_and_or_set_joining_writer_does_not_reuse_remote_tags_test() {
     })
   let assert Ok(merged) = or_map.merge(a, b)
   let assert Ok(crdt.CrdtOrSet(value)) = or_map.get(merged, "key")
-  or_set.contains(value, 1) |> expect.to_be_true
+  or_set.contains(value, 1)
+  |> fn(value) {
+    let assert True = value
+  }
 }
 
 pub fn binding_never_rewrites_historical_lww_register_author_test() {
@@ -175,7 +214,10 @@ pub fn binding_never_rewrites_historical_lww_register_author_test() {
     })
   let assert Ok(crdt.CrdtLwwRegister(received)) =
     or_map.get(or_map.bind(map, rid("B")), "key")
-  received |> expect.to_equal(register)
+  received
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == register
+  }
   let assert Ok(#(updated, _)) =
     or_map.update_delta(or_map.bind(map, rid("B")), "key", fn(value, context) {
       let assert crdt.CrdtLwwRegister(value) = value
@@ -191,7 +233,10 @@ pub fn binding_never_rewrites_historical_lww_register_author_test() {
       )
     })
   let assert Ok(crdt.CrdtLwwRegister(written)) = or_map.get(updated, "key")
-  { lww_register.replica_id(written) != rid("historical") } |> expect.to_be_true
+  { lww_register.replica_id(written) != rid("historical") }
+  |> fn(value) {
+    let assert True = value
+  }
 }
 
 fn atomic_edit(map, timestamp, value) {
@@ -224,11 +269,20 @@ pub fn or_lww_or_nesting_keeps_atomic_assignment_boundary_test() {
   let assert Ok(crdt.CrdtLwwMap(assignments)) = or_map.get(merged, "doc")
   let assert Ok(crdt.CrdtOrMap(child)) = lww_map.get(assignments, "revision")
   let assert Ok(crdt.CrdtSequence(value)) = or_map.get(child, "body")
-  sequence.values(value) |> expect.to_equal([0, 2])
+  sequence.values(value)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == [0, 2]
+  }
   let assert Ok(reverse) = or_map.merge_as(b, a, rid("R"))
-  merged |> expect.to_equal(reverse)
+  merged
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == reverse
+  }
   let encoded = or_map.to_json_with(merged, json.int) |> json.to_string
-  or_map.from_json_with(encoded, decode.int) |> expect.to_equal(Ok(merged))
+  or_map.from_json_with(encoded, decode.int)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(merged)
+  }
 }
 
 pub fn outer_pruning_preserves_inner_compaction_frontier_and_forwardings_test() {
@@ -238,7 +292,10 @@ pub fn outer_pruning_preserves_inner_compaction_frontier_and_forwardings_test() 
   let stable =
     version_vector.from_dict(dict.from_list([#(sequence.replica_id(value), 4)]))
   let #(compacted, forwardings) = sequence.compact(value, stable)
-  sequence.forwarding_size(forwardings) |> expect.to_equal(1)
+  sequence.forwarding_size(forwardings)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
   let #(map, _) = fixture.edit(map, fn(_) { compacted })
   let before = fixture.sequence(map)
   let pruned =
@@ -246,8 +303,14 @@ pub fn outer_pruning_preserves_inner_compaction_frontier_and_forwardings_test() 
       map,
       version_vector.from_dict(dict.from_list([#(rid("A"), 1000)])),
     )
-  fixture.sequence(pruned) |> expect.to_equal(before)
-  sequence.frontier(fixture.sequence(pruned)) |> expect.to_equal(stable)
+  fixture.sequence(pruned)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == before
+  }
+  sequence.frontier(fixture.sequence(pruned))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == stable
+  }
 }
 
 pub fn text_insert_delete_move_duplicate_delivery_preserves_all_metadata_test() {
@@ -285,8 +348,19 @@ pub fn text_insert_delete_move_duplicate_delivery_preserves_all_metadata_test() 
       or_map.bind(baseline, rid("R")),
       or_map.apply_delta,
     )
-  reordered |> expect.to_equal(full)
-  text_value(full) |> text.length |> expect.to_equal(4)
+  reordered
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == full
+  }
+  text_value(full)
+  |> text.length
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 4
+  }
   let #(next, _) = append_text(reordered, "R")
-  text_value(next) |> text.length |> expect.to_equal(5)
+  text_value(next)
+  |> text.length
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 5
+  }
 }

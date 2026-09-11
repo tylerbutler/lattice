@@ -2,7 +2,6 @@ import gleam/result
 import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_fugue/sequence
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -12,7 +11,9 @@ pub fn empty_frontier_is_empty_test() {
   sequence.new(rid("A"))
   |> sequence.frontier()
   |> version_vector.is_empty()
-  |> expect.to_be_true()
+  |> fn(actual) {
+    assert actual
+  }
 }
 
 pub fn frontier_tracks_local_inserts_test() {
@@ -23,7 +24,9 @@ pub fn frontier_tracks_local_inserts_test() {
     |> result.try(sequence.insert(_, 2, "c"))
   sequence.frontier(seq)
   |> version_vector.get(rid("A"))
-  |> expect.to_equal(3)
+  |> fn(actual) {
+    assert actual == 3
+  }
 }
 
 pub fn frontier_merges_across_replicas_test() {
@@ -40,8 +43,8 @@ pub fn frontier_merges_across_replicas_test() {
     sequence.merge(seq_a, seq_b, rid("A"))
     |> sequence.frontier()
 
-  expect.to_equal(version_vector.get(frontier, rid("A")), 3)
-  expect.to_equal(version_vector.get(frontier, rid("B")), 2)
+  assert version_vector.get(frontier, rid("A")) == 3
+  assert version_vector.get(frontier, rid("B")) == 2
 }
 
 pub fn frontier_is_monotonic_under_merge_test() {
@@ -55,5 +58,7 @@ pub fn frontier_is_monotonic_under_merge_test() {
   let merged = sequence.merge(seq_a, seq_b, rid("A"))
 
   version_vector.dominates(sequence.frontier(merged), sequence.frontier(seq_a))
-  |> expect.to_be_true()
+  |> fn(actual) {
+    assert actual
+  }
 }

@@ -1,6 +1,5 @@
 import lattice_core/replica_id
 import lattice_counters/pn_counter
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -10,9 +9,9 @@ fn rid(id: String) {
 
 pub fn new_returns_counter_at_zero_test() {
   let counter = pn_counter.new(rid("A"))
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(0)
+  assert counter
+    |> pn_counter.value
+    == 0
 }
 
 // Tests for increment
@@ -20,17 +19,17 @@ pub fn new_returns_counter_at_zero_test() {
 pub fn increment_adds_to_positive_test() {
   let counter = pn_counter.new(rid("A"))
   let assert Ok(counter) = pn_counter.increment(counter, 3)
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(3)
+  assert counter
+    |> pn_counter.value
+    == 3
 }
 
 pub fn increment_by_five_test() {
   let counter = pn_counter.new(rid("A"))
   let assert Ok(counter) = pn_counter.increment(counter, 5)
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(5)
+  assert counter
+    |> pn_counter.value
+    == 5
 }
 
 // Tests for decrement
@@ -38,29 +37,29 @@ pub fn increment_by_five_test() {
 pub fn decrement_adds_to_negative_test() {
   let counter = pn_counter.new(rid("A"))
   let assert Ok(counter) = pn_counter.decrement(counter, 2)
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(-2)
+  assert counter
+    |> pn_counter.value
+    == -2
 }
 
 pub fn decrement_by_three_test() {
   let counter = pn_counter.new(rid("A"))
   let assert Ok(counter) = pn_counter.decrement(counter, 3)
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(-3)
+  assert counter
+    |> pn_counter.value
+    == -3
 }
 
 pub fn increment_negative_delta_returns_error_test() {
-  pn_counter.new(rid("A"))
-  |> pn_counter.increment(-1)
-  |> expect.to_equal(Error(pn_counter.NegativeDelta(-1)))
+  assert pn_counter.new(rid("A"))
+    |> pn_counter.increment(-1)
+    == Error(pn_counter.NegativeDelta(-1))
 }
 
 pub fn decrement_negative_delta_returns_error_test() {
-  pn_counter.new(rid("A"))
-  |> pn_counter.decrement(-1)
-  |> expect.to_equal(Error(pn_counter.NegativeDelta(-1)))
+  assert pn_counter.new(rid("A"))
+    |> pn_counter.decrement(-1)
+    == Error(pn_counter.NegativeDelta(-1))
 }
 
 // Tests combining increment and decrement
@@ -69,9 +68,9 @@ pub fn increment_and_decrement_combined_test() {
   let counter = pn_counter.new(rid("A"))
   let assert Ok(counter) = pn_counter.increment(counter, 5)
   let assert Ok(counter) = pn_counter.decrement(counter, 2)
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(3)
+  assert counter
+    |> pn_counter.value
+    == 3
 }
 
 pub fn value_returns_positive_minus_negative_test() {
@@ -79,9 +78,9 @@ pub fn value_returns_positive_minus_negative_test() {
   let counter = pn_counter.new(rid("A"))
   let assert Ok(counter) = pn_counter.increment(counter, 5)
   let assert Ok(counter) = pn_counter.decrement(counter, 2)
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(3)
+  assert counter
+    |> pn_counter.value
+    == 3
 }
 
 pub fn value_with_more_negative_test() {
@@ -89,9 +88,9 @@ pub fn value_with_more_negative_test() {
   let counter = pn_counter.new(rid("A"))
   let assert Ok(counter) = pn_counter.increment(counter, 3)
   let assert Ok(counter) = pn_counter.decrement(counter, 7)
-  counter
-  |> pn_counter.value
-  |> expect.to_equal(-4)
+  assert counter
+    |> pn_counter.value
+    == -4
 }
 
 // Tests for merge
@@ -107,9 +106,9 @@ pub fn merge_preserves_both_counters_test() {
 
   let merged = pn_counter.merge(a_counter, b_counter)
 
-  merged
-  |> pn_counter.value
-  |> expect.to_equal(-1)
+  assert merged
+    |> pn_counter.value
+    == -1
 }
 
 pub fn merge_preserves_different_replicas_test() {
@@ -121,9 +120,9 @@ pub fn merge_preserves_different_replicas_test() {
 
   let merged = pn_counter.merge(a_counter, b_counter)
 
-  merged
-  |> pn_counter.value
-  |> expect.to_equal(2)
+  assert merged
+    |> pn_counter.value
+    == 2
 }
 
 pub fn concurrent_increments_and_decrements_test() {
@@ -146,18 +145,18 @@ pub fn concurrent_increments_and_decrements_test() {
 
   let final = pn_counter.merge(merged1, merged2)
 
-  final
-  |> pn_counter.value
-  |> expect.to_equal(3)
+  assert final
+    |> pn_counter.value
+    == 3
 }
 
 pub fn delta_updates_reject_negative_amounts_test() {
   let counter = pn_counter.new(rid("A"))
-  pn_counter.increment_with_delta(counter, -7)
-  |> expect.to_equal(Error(pn_counter.NegativeDelta(-7)))
-  pn_counter.decrement_with_delta(counter, -9)
-  |> expect.to_equal(Error(pn_counter.NegativeDelta(-9)))
-  pn_counter.value(counter) |> expect.to_equal(0)
+  assert pn_counter.increment_with_delta(counter, -7)
+    == Error(pn_counter.NegativeDelta(-7))
+  assert pn_counter.decrement_with_delta(counter, -9)
+    == Error(pn_counter.NegativeDelta(-9))
+  assert pn_counter.value(counter) == 0
 }
 
 pub fn zero_updates_preserve_value_and_delta_test() {
@@ -169,12 +168,12 @@ pub fn zero_updates_preserve_value_and_delta_test() {
     pn_counter.increment_with_delta(counter, 0)
   let assert Ok(#(dec_state, dec_delta)) =
     pn_counter.decrement_with_delta(counter, 0)
-  incremented |> expect.to_equal(counter)
-  decremented |> expect.to_equal(counter)
-  inc_state |> expect.to_equal(incremented)
-  dec_state |> expect.to_equal(decremented)
-  pn_counter.merge(counter, inc_delta) |> expect.to_equal(counter)
-  pn_counter.merge(counter, dec_delta) |> expect.to_equal(counter)
+  assert incremented == counter
+  assert decremented == counter
+  assert inc_state == incremented
+  assert dec_state == decremented
+  assert pn_counter.merge(counter, inc_delta) == counter
+  assert pn_counter.merge(counter, dec_delta) == counter
 }
 
 pub fn positive_updates_state_and_delta_agree_test() {
@@ -186,10 +185,10 @@ pub fn positive_updates_state_and_delta_agree_test() {
     pn_counter.increment_with_delta(counter, 4)
   let assert Ok(#(dec_state, dec_delta)) =
     pn_counter.decrement_with_delta(counter, 4)
-  pn_counter.value(incremented) |> expect.to_equal(7)
-  pn_counter.value(decremented) |> expect.to_equal(-1)
-  inc_state |> expect.to_equal(incremented)
-  dec_state |> expect.to_equal(decremented)
-  pn_counter.merge(counter, inc_delta) |> expect.to_equal(incremented)
-  pn_counter.merge(counter, dec_delta) |> expect.to_equal(decremented)
+  assert pn_counter.value(incremented) == 7
+  assert pn_counter.value(decremented) == -1
+  assert inc_state == incremented
+  assert dec_state == decremented
+  assert pn_counter.merge(counter, inc_delta) == incremented
+  assert pn_counter.merge(counter, dec_delta) == decremented
 }

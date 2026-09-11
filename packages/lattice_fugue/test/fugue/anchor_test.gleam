@@ -1,7 +1,6 @@
 import gleam/result
 import lattice_core/replica_id
 import lattice_fugue/sequence
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -17,13 +16,17 @@ fn abc() {
 pub fn start_anchor_resolves_to_zero_test() {
   let assert Ok(seq) = abc()
   sequence.resolve(seq, sequence.start_anchor())
-  |> expect.to_equal(Ok(0))
+  |> fn(actual) {
+    assert actual == Ok(0)
+  }
 }
 
 pub fn end_anchor_resolves_to_length_test() {
   let assert Ok(seq) = abc()
   sequence.resolve(seq, sequence.end_anchor())
-  |> expect.to_equal(Ok(3))
+  |> fn(actual) {
+    assert actual == Ok(3)
+  }
 }
 
 pub fn anchor_before_binds_to_following_item_test() {
@@ -33,7 +36,9 @@ pub fn anchor_before_binds_to_following_item_test() {
   // Insert at the front pushes the anchor right with its item.
   let assert Ok(shifted) = sequence.insert(seq, 0, "x")
   sequence.resolve(shifted, anchor)
-  |> expect.to_equal(Ok(2))
+  |> fn(actual) {
+    assert actual == Ok(2)
+  }
 }
 
 pub fn anchor_after_binds_to_preceding_item_test() {
@@ -43,7 +48,9 @@ pub fn anchor_after_binds_to_preceding_item_test() {
   // Insert at the front shifts everything, anchor still sits after "a".
   let assert Ok(shifted) = sequence.insert(seq, 0, "x")
   sequence.resolve(shifted, anchor)
-  |> expect.to_equal(Ok(2))
+  |> fn(actual) {
+    assert actual == Ok(2)
+  }
 }
 
 pub fn anchor_after_stays_put_on_insert_at_gap_test() {
@@ -52,7 +59,9 @@ pub fn anchor_after_stays_put_on_insert_at_gap_test() {
   let assert Ok(anchor) = sequence.anchor_at(seq, 1, sequence.After)
   let assert Ok(updated) = sequence.insert(seq, 1, "z")
   sequence.resolve(updated, anchor)
-  |> expect.to_equal(Ok(1))
+  |> fn(actual) {
+    assert actual == Ok(1)
+  }
 }
 
 pub fn anchor_before_pushes_right_on_insert_at_gap_test() {
@@ -61,21 +70,27 @@ pub fn anchor_before_pushes_right_on_insert_at_gap_test() {
   let assert Ok(anchor) = sequence.anchor_at(seq, 1, sequence.Before)
   let assert Ok(updated) = sequence.insert(seq, 1, "z")
   sequence.resolve(updated, anchor)
-  |> expect.to_equal(Ok(2))
+  |> fn(actual) {
+    assert actual == Ok(2)
+  }
 }
 
 pub fn anchor_at_left_boundary_after_degrades_to_start_test() {
   let assert Ok(seq) = abc()
   let assert Ok(anchor) = sequence.anchor_at(seq, 0, sequence.After)
   sequence.resolve(seq, anchor)
-  |> expect.to_equal(Ok(0))
+  |> fn(actual) {
+    assert actual == Ok(0)
+  }
 }
 
 pub fn anchor_at_right_boundary_before_degrades_to_end_test() {
   let assert Ok(seq) = abc()
   let assert Ok(anchor) = sequence.anchor_at(seq, 3, sequence.Before)
   sequence.resolve(seq, anchor)
-  |> expect.to_equal(Ok(3))
+  |> fn(actual) {
+    assert actual == Ok(3)
+  }
 }
 
 pub fn anchor_on_deleted_item_collapses_to_gap_test() {
@@ -85,23 +100,26 @@ pub fn anchor_on_deleted_item_collapses_to_gap_test() {
   // Delete "b"; the anchor collapses to the gap "b" occupied.
   let assert Ok(deleted) = sequence.delete(seq, 1)
   sequence.resolve(deleted, anchor)
-  |> expect.to_equal(Ok(1))
+  |> fn(actual) {
+    assert actual == Ok(1)
+  }
 }
 
 pub fn anchor_at_out_of_bounds_test() {
   let assert Ok(seq) = abc()
   sequence.anchor_at(seq, 4, sequence.Before)
-  |> expect.to_equal(
-    Error(sequence.AnchorIndexOutOfBounds(index: 4, length: 3)),
-  )
+  |> fn(actual) {
+    assert actual == Error(sequence.AnchorIndexOutOfBounds(index: 4, length: 3))
+  }
 }
 
 pub fn anchor_at_negative_out_of_bounds_test() {
   let assert Ok(seq) = abc()
   sequence.anchor_at(seq, -1, sequence.After)
-  |> expect.to_equal(
-    Error(sequence.AnchorIndexOutOfBounds(index: -1, length: 3)),
-  )
+  |> fn(actual) {
+    assert actual
+      == Error(sequence.AnchorIndexOutOfBounds(index: -1, length: 3))
+  }
 }
 
 pub fn resolve_unknown_target_test() {
@@ -115,7 +133,9 @@ pub fn resolve_unknown_target_test() {
     sequence.new(rid("A"))
     |> sequence.insert(0, "a")
   sequence.resolve(seq_a, anchor)
-  |> expect.to_equal(Error(sequence.UnknownAnchorTarget))
+  |> fn(actual) {
+    assert actual == Error(sequence.UnknownAnchorTarget)
+  }
 }
 
 pub fn anchor_survives_merge_test() {
@@ -130,5 +150,5 @@ pub fn anchor_survives_merge_test() {
 
   // The anchor still resolves to a valid index bound to "b".
   let assert Ok(index) = sequence.resolve(merged, anchor)
-  expect.to_be_true(index >= 0 && index <= sequence.length(merged))
+  assert index >= 0 && index <= sequence.length(merged)
 }

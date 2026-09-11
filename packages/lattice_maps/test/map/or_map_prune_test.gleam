@@ -5,7 +5,6 @@ import lattice_core/version_vector
 import lattice_counters/g_counter
 import lattice_maps/crdt.{type Crdt, CrdtGCounter, GCounterSpec}
 import lattice_maps/or_map
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -41,15 +40,25 @@ pub fn prune_with_unstable_remove_preserves_future_merge_value_test() {
 
   or_map.keys(merged_pruned)
   |> set.from_list
-  |> expect.to_equal(or_map.keys(merged_unpruned) |> set.from_list)
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == or_map.keys(merged_unpruned) |> set.from_list
+  }
 
   or_map.get(merged_pruned, "x")
-  |> expect.to_equal(or_map.get(merged_unpruned, "x"))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.get(merged_unpruned, "x")
+  }
 
   case or_map.get(merged_pruned, "x") {
     Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(104)
-    _ -> expect.to_be_true(False)
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 104
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -68,12 +77,24 @@ pub fn prune_preserves_active_key_values_test() {
     |> or_map.prune(stable)
 
   case or_map.get(m, "active") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(3)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 3
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 
-  or_map.get(m, "removed") |> expect.to_equal(Error(Nil))
-  or_map.keys(m) |> expect.to_equal(["active"])
+  or_map.get(m, "removed")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
+  or_map.keys(m)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ["active"]
+  }
 }
 
 pub fn prune_keeps_only_active_keys_observable_test() {
@@ -93,8 +114,15 @@ pub fn prune_keeps_only_active_keys_observable_test() {
     |> or_map.remove("c")
     |> or_map.prune(stable)
 
-  or_map.keys(m) |> expect.to_equal(["b"])
-  or_map.values(m) |> list.length |> expect.to_equal(1)
+  or_map.keys(m)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ["b"]
+  }
+  or_map.values(m)
+  |> list.length
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 // --- Idempotency ---
@@ -112,8 +140,14 @@ pub fn prune_is_idempotent_test() {
   let pruned_once = or_map.prune(m, stable)
   let pruned_twice = or_map.prune(pruned_once, stable)
 
-  or_map.keys(pruned_once) |> expect.to_equal(or_map.keys(pruned_twice))
-  or_map.values(pruned_once) |> expect.to_equal(or_map.values(pruned_twice))
+  or_map.keys(pruned_once)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.keys(pruned_twice)
+  }
+  or_map.values(pruned_once)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.values(pruned_twice)
+  }
 }
 
 // --- Observable state unchanged ---
@@ -133,10 +167,18 @@ pub fn prune_does_not_change_observable_state_test() {
 
   or_map.keys(m)
   |> set.from_list
-  |> expect.to_equal(or_map.keys(pruned) |> set.from_list)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.keys(pruned) |> set.from_list
+  }
 
-  or_map.get(m, "keep") |> expect.to_equal(or_map.get(pruned, "keep"))
-  or_map.get(m, "drop") |> expect.to_equal(or_map.get(pruned, "drop"))
+  or_map.get(m, "keep")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.get(pruned, "keep")
+  }
+  or_map.get(m, "drop")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.get(pruned, "drop")
+  }
 }
 
 // --- Re-add after prune ---
@@ -155,8 +197,14 @@ pub fn re_add_after_prune_creates_fresh_value_test() {
     |> or_map.update("x", fn(c) { inc(c, 1) })
 
   case or_map.get(m, "x") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(1)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 1
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -184,11 +232,20 @@ pub fn prune_after_multi_replica_merge_test() {
   let pruned = or_map.prune(merged, stable)
 
   case or_map.get(pruned, "shared") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 10
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 
-  or_map.get(pruned, "b_only") |> expect.to_equal(Error(Nil))
+  or_map.get(pruned, "b_only")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
 }
 
 // --- Merge after prune preserves retained values ---
@@ -209,8 +266,13 @@ pub fn merge_after_noop_prune_preserves_removed_value_test() {
 
   case or_map.get(merged, "x") {
     Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(104)
-    _ -> expect.to_be_true(False)
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 104
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -223,8 +285,14 @@ pub fn prune_on_empty_map_is_noop_test() {
 
   let m = or_map.new(rid("A"), GCounterSpec) |> or_map.prune(stable)
 
-  or_map.keys(m) |> expect.to_equal([])
-  or_map.values(m) |> expect.to_equal([])
+  or_map.keys(m)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
+  or_map.values(m)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
 }
 
 // --- Current-generation history retention (issue #17) ---
@@ -243,8 +311,14 @@ pub fn prune_retains_current_generation_history_when_removal_is_stable_test() {
     |> or_map.prune(stable)
 
   // "x" is not observable
-  or_map.get(m, "x") |> expect.to_equal(Error(Nil))
-  or_map.internal_value_count(m) |> expect.to_equal(1)
+  or_map.get(m, "x")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
+  or_map.internal_value_count(m)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 pub fn prune_does_not_compact_when_removal_is_unstable_test() {
@@ -258,8 +332,14 @@ pub fn prune_does_not_compact_when_removal_is_unstable_test() {
     |> or_map.prune(version_vector.new())
 
   // "x" is not observable but value is retained
-  or_map.get(m, "x") |> expect.to_equal(Error(Nil))
-  or_map.internal_value_count(m) |> expect.to_equal(1)
+  or_map.get(m, "x")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
+  or_map.internal_value_count(m)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 
   // Merge with concurrent add should give 104
   let assert Ok(concurrent) =
@@ -269,8 +349,13 @@ pub fn prune_does_not_compact_when_removal_is_unstable_test() {
 
   case or_map.get(merged, "x") {
     Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(104)
-    _ -> expect.to_be_true(False)
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 104
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -301,12 +386,19 @@ pub fn issue_17_divergence_scenario_test() {
   // "x" is present (add-wins)
   or_map.keys(merged)
   |> set.from_list
-  |> expect.to_equal(set.from_list(["x"]))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == set.from_list(["x"])
+  }
 
   case or_map.get(merged, "x") {
     Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(104)
-    _ -> expect.to_be_true(False)
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 104
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -328,8 +420,13 @@ pub fn issue_17_unstable_prune_preserves_merge_value_test() {
 
   case or_map.get(merged, "x") {
     Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(104)
-    _ -> expect.to_be_true(False)
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 104
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -352,8 +449,14 @@ pub fn merge_after_membership_prune_retains_both_leaf_values_test() {
   let assert Ok(merged) = or_map.merge(map_a, map_b)
 
   case or_map.get(merged, "x") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(47)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 47
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -381,8 +484,14 @@ pub fn both_sides_pruned_key_absent_test() {
 
   let assert Ok(merged) = or_map.merge(map_a, map_b)
 
-  or_map.keys(merged) |> expect.to_equal([])
-  or_map.get(merged, "x") |> expect.to_equal(Error(Nil))
+  or_map.keys(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
+  or_map.get(merged, "x")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
 }
 
 pub fn re_add_after_membership_prune_starts_fresh_test() {
@@ -400,12 +509,21 @@ pub fn re_add_after_membership_prune_starts_fresh_test() {
 
   // A new generation starts from default, not the retained old value.
   case or_map.get(m, "x") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(1)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 1
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 
   // The superseded payload is discarded; only the winning generation remains.
-  or_map.internal_value_count(m) |> expect.to_equal(1)
+  or_map.internal_value_count(m)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 pub fn prune_idempotent_with_retained_history_test() {
@@ -422,7 +540,12 @@ pub fn prune_idempotent_with_retained_history_test() {
 
   let pruned_again = or_map.prune(m, stable)
 
-  or_map.keys(pruned_again) |> expect.to_equal(or_map.keys(m))
+  or_map.keys(pruned_again)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.keys(m)
+  }
   or_map.internal_value_count(pruned_again)
-  |> expect.to_equal(or_map.internal_value_count(m))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.internal_value_count(m)
+  }
 }

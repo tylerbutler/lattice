@@ -5,7 +5,6 @@ import gleam/list
 import gleam/set
 import gleam/string
 import lattice_presence/presence_state as state
-import startest/expect
 
 // ── Serialization roundtrip tests ───────────────────────────────────
 
@@ -14,9 +13,21 @@ pub fn roundtrip_empty_state_test() {
   let json_str = state.to_json_string(s)
   let assert Ok(decoded) = state.from_json(json_str)
 
-  state.replica(decoded) |> expect.to_equal("node1")
-  state.entry_count(decoded) |> expect.to_equal(0)
-  state.cloud_count(decoded) |> expect.to_equal(0)
+  state.replica(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("node1")
+  state.entry_count(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(0)
+  state.cloud_count(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(0)
 }
 
 pub fn roundtrip_incarnation_identity_test() {
@@ -28,11 +39,26 @@ pub fn roundtrip_incarnation_identity_test() {
   let encoded = state.to_json_string(original)
   let assert Ok(decoded) = state.from_json(encoded)
 
-  state.replica(decoded) |> expect.to_equal(replica)
-  state.base_replica(state.replica(decoded)) |> expect.to_equal("node:west")
+  state.replica(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(replica)
+  state.base_replica(state.replica(decoded))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("node:west")
   state.same_base(state.replica(original), state.replica(decoded))
-  |> expect.to_equal(True)
-  dict.get(state.compacted_clocks(decoded), replica) |> expect.to_equal(Ok(1))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(True)
+  dict.get(state.compacted_clocks(decoded), replica)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(1))
 }
 
 pub fn supersede_roundtrip_retains_sparse_high_water_against_stale_replay_test() {
@@ -54,39 +80,84 @@ pub fn supersede_roundtrip_retains_sparse_high_water_against_stale_replay_test()
   let assert Ok(stale) = state.merge(stale, current)
   let #(local, _) = state.replica_down(stale, state.replica(current))
   let assert Ok(#(cleaned, _)) = state.supersede(local, state.replica(current))
-  state.online_list(cleaned) |> expect.to_equal([])
+  state.online_list(cleaned)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }([])
 
   let encoded = state.to_json_string(cleaned)
   let assert Ok(decoded) = state.from_json(encoded)
 
-  state.replica(decoded) |> expect.to_equal("cleaner")
+  state.replica(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("cleaner")
   state.compacted_clocks(decoded)
-  |> expect.to_equal(
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(
     dict.from_list([
       #(old_replica, 5),
       #(state.replica(current), 1),
     ]),
   )
-  state.internal_clouds(decoded) |> expect.to_equal(dict.new())
-  state.entry_count(decoded) |> expect.to_equal(1)
-  string.contains(encoded, "replicas") |> expect.to_equal(False)
+  state.internal_clouds(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(dict.new())
+  state.entry_count(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
+  string.contains(encoded, "replicas")
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(False)
   state.get_by_topic(decoded, "lobby")
-  |> expect.to_equal([#("current-pid", "current-key", json.null())])
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }([#("current-pid", "current-key", json.null())])
   state.supersede(decoded, state.replica(current))
-  |> expect.to_equal(
-    Ok(#(decoded, state.Diff(joins: dict.new(), leaves: dict.new()))),
-  )
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(decoded, state.Diff(joins: dict.new(), leaves: dict.new()))))
 
   let assert Ok(observer) = state.merge(state.new("observer"), stale)
   let assert Ok(observer) = state.merge(observer, decoded)
   let assert Ok(#(observer, diff)) = state.merge_with_diff(observer, stale)
   state.get_by_topic(observer, "lobby")
-  |> expect.to_equal([#("current-pid", "current-key", json.null())])
-  state.entry_count(observer) |> expect.to_equal(1)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }([#("current-pid", "current-key", json.null())])
+  state.entry_count(observer)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
   dict.get(state.compacted_clocks(observer), old_replica)
-  |> expect.to_equal(Ok(5))
-  state.cloud_count(observer) |> expect.to_equal(0)
-  diff |> expect.to_equal(state.Diff(joins: dict.new(), leaves: dict.new()))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(5))
+  state.cloud_count(observer)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(0)
+  diff
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(state.Diff(joins: dict.new(), leaves: dict.new()))
 }
 
 pub fn roundtrip_state_with_entries_test() {
@@ -111,8 +182,16 @@ pub fn roundtrip_state_with_entries_test() {
   let json_str = state.to_json_string(s)
   let assert Ok(decoded) = state.from_json(json_str)
 
-  state.replica(decoded) |> expect.to_equal("node1")
-  state.entry_count(decoded) |> expect.to_equal(2)
+  state.replica(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("node1")
+  state.entry_count(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(2)
 
   case dict.get(state.compacted_clocks(decoded), "node1") {
     Ok(2) -> Nil
@@ -132,8 +211,16 @@ pub fn roundtrip_state_with_multiple_replicas_test() {
   let json_str = state.to_json_string(merged)
   let assert Ok(decoded) = state.from_json(json_str)
 
-  state.replica(decoded) |> expect.to_equal("node_a")
-  state.entry_count(decoded) |> expect.to_equal(2)
+  state.replica(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("node_a")
+  state.entry_count(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(2)
 
   case dict.get(state.compacted_clocks(decoded), "node_a") {
     Ok(1) -> Nil
@@ -158,7 +245,10 @@ pub fn roundtrip_state_with_replica_down_test() {
 
   state.get_by_topic(decoded, "lobby")
   |> list.length
-  |> expect.to_equal(1)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }
 
 pub fn roundtrip_preserves_merge_semantics_test() {
@@ -175,10 +265,18 @@ pub fn roundtrip_preserves_merge_semantics_test() {
 
   state.get_by_topic(merged, "lobby")
   |> list.length
-  |> expect.to_equal(2)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(2)
 
   case dict.get(diff.joins, "lobby") {
-    Ok(joins) -> list.length(joins) |> expect.to_equal(1)
+    Ok(joins) ->
+      list.length(joins)
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(1)
     Error(_) -> panic as "expected failure"
   }
 }
@@ -193,7 +291,10 @@ pub fn roundtrip_state_with_clouds_test() {
 
   // Sequential joins produce fully-compacted context, no clouds
   state.cloud_count(decoded)
-  |> expect.to_equal(state.cloud_count(a))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(state.cloud_count(a))
 }
 
 pub fn roundtrip_with_json_meta_test() {
@@ -212,12 +313,20 @@ pub fn roundtrip_with_json_meta_test() {
   let assert Ok(decoded) = state.from_json(json_str)
 
   // Verify the decoded state still has 1 entry
-  state.entry_count(decoded) |> expect.to_equal(1)
+  state.entry_count(decoded)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 
   // Verify the re-encoded state produces valid JSON by doing another roundtrip
   let re_encoded = state.to_json_string(decoded)
   let assert Ok(decoded2) = state.from_json(re_encoded)
-  state.entry_count(decoded2) |> expect.to_equal(1)
+  state.entry_count(decoded2)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }
 
 pub fn roundtrip_preserves_metadata_values_test() {
@@ -244,18 +353,30 @@ pub fn roundtrip_preserves_metadata_values_test() {
   let re_encoded2 = state.to_json_string(decoded2)
 
   // Stability check: second roundtrip produces identical JSON
-  re_encoded2 |> expect.to_equal(re_encoded)
+  re_encoded2
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(re_encoded)
 }
 
 pub fn decode_invalid_json_returns_error_test() {
   let result = state.from_json("not json")
-  let _ = expect.to_be_error(result)
+  let _ =
+    fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }(result)
   Nil
 }
 
 pub fn decode_missing_fields_returns_error_test() {
   let result = state.from_json("{\"replica\": \"node1\"}")
-  let _ = expect.to_be_error(result)
+  let _ =
+    fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }(result)
   Nil
 }
 
@@ -263,7 +384,11 @@ pub fn from_json_rejects_negative_context_clock_test() {
   let payload =
     "{\"replica\":\"node1\",\"context\":{\"node1\":-1},\"clouds\":{},\"values\":[]}"
   let result = state.from_json(payload)
-  let _ = expect.to_be_error(result)
+  let _ =
+    fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }(result)
   Nil
 }
 
@@ -271,7 +396,11 @@ pub fn from_json_rejects_non_positive_tag_clock_test() {
   let payload =
     "{\"replica\":\"node1\",\"context\":{},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"node1\",\"clock\":0},\"entry\":{\"topic\":\"room\",\"key\":\"alice\",\"pid\":\"pid1\",\"meta\":null}}]}"
   let result = state.from_json(payload)
-  let _ = expect.to_be_error(result)
+  let _ =
+    fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }(result)
   Nil
 }
 
@@ -282,7 +411,11 @@ pub fn from_json_rejects_deep_metadata_test() {
     <> deep_meta
     <> "}}]}"
   let result = state.from_json(payload)
-  let _ = expect.to_be_error(result)
+  let _ =
+    fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }(result)
   Nil
 }
 
@@ -293,12 +426,19 @@ pub fn to_json_string_does_not_serialize_local_replica_liveness_test() {
   let #(a, _) = state.replica_down(a, "node_b")
 
   let encoded = state.to_json_string(a)
-  string.contains(encoded, "replicas") |> expect.to_equal(False)
+  string.contains(encoded, "replicas")
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(False)
 
   let assert Ok(decoded) = state.from_json(encoded)
   state.get_by_topic(decoded, "lobby")
   |> list.length
-  |> expect.to_equal(1)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }
 
 pub fn serialize_deserialize_merge_converges_test() {
@@ -320,12 +460,18 @@ pub fn serialize_deserialize_merge_converges_test() {
   state.get_by_topic(a_merged, "lobby")
   |> set.from_list
   |> set.size
-  |> expect.to_equal(2)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(2)
 
   state.get_by_topic(b_merged, "lobby")
   |> set.from_list
   |> set.size
-  |> expect.to_equal(2)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(2)
 }
 
 pub fn roundtrip_null_meta_test() {
@@ -349,7 +495,10 @@ pub fn to_json_preserves_wire_shape_test() {
 
   state.to_json(original)
   |> json.to_string
-  |> expect.to_equal(
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(
     "{\"replica\":\"node1\",\"context\":{\"node1\":1},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"node1\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"alice\",\"pid\":\"pid1\",\"meta\":null}}]}",
   )
 }
@@ -371,7 +520,10 @@ pub fn decoder_composes_inside_sync_envelope_test() {
   }
 
   json.parse(payload, envelope_decoder)
-  |> expect.to_equal(Ok(#("sync", original)))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#("sync", original)))
 }
 
 pub fn from_json_resets_liveness_to_only_own_replica_up_test() {
@@ -386,7 +538,10 @@ pub fn from_json_resets_liveness_to_only_own_replica_up_test() {
   with_liveness
   |> state.to_json_string
   |> state.from_json
-  |> expect.to_equal(Ok(original))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(original))
 }
 
 pub fn from_json_accepts_zero_context_and_positive_cloud_clocks_test() {
@@ -396,14 +551,23 @@ pub fn from_json_accepts_zero_context_and_positive_cloud_clocks_test() {
     )
 
   state.compacted_clocks(decoded)
-  |> expect.to_equal(dict.from_list([#("node1", 0)]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(dict.from_list([#("node1", 0)]))
   state.internal_clouds(decoded)
-  |> expect.to_equal(dict.from_list([#("node1", set.from_list([1, 3]))]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(dict.from_list([#("node1", set.from_list([1, 3]))]))
 
   decoded
   |> state.to_json_string
   |> state.from_json
-  |> expect.to_equal(Ok(decoded))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(decoded))
 }
 
 pub fn from_json_rejects_non_positive_cloud_clocks_test() {
@@ -412,7 +576,12 @@ pub fn from_json_rejects_non_positive_cloud_clocks_test() {
       "{\"replica\":\"node1\",\"context\":{},\"clouds\":{\"node1\":["
       <> clock
       <> "]},\"values\":[]}"
-    let _ = state.from_json(payload) |> expect.to_be_error
+    let _ =
+      state.from_json(payload)
+      |> fn(actual) {
+        let assert Error(_) = actual
+        Nil
+      }
     Nil
   })
 }
@@ -420,7 +589,12 @@ pub fn from_json_rejects_non_positive_cloud_clocks_test() {
 pub fn from_json_rejects_negative_tag_clock_test() {
   let payload =
     "{\"replica\":\"node1\",\"context\":{},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"node1\",\"clock\":-1},\"entry\":{\"topic\":\"room\",\"key\":\"alice\",\"pid\":\"pid1\",\"meta\":null}}]}"
-  let _ = state.from_json(payload) |> expect.to_be_error
+  let _ =
+    state.from_json(payload)
+    |> fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }
   Nil
 }
 
@@ -438,7 +612,11 @@ pub fn from_json_accepts_metadata_at_depth_limit_test() {
     let assert [#("pid1", decoded_meta)] =
       state.get_by_key(decoded, "room", "alice")
 
-    json.to_string(decoded_meta) |> expect.to_equal(meta)
+    json.to_string(decoded_meta)
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(meta)
   })
 }
 
@@ -449,13 +627,23 @@ pub fn from_json_rejects_deep_object_metadata_test() {
     "{\"replica\":\"node1\",\"context\":{\"node1\":1},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"node1\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"alice\",\"pid\":\"pid1\",\"meta\":"
     <> meta
     <> "}}]}"
-  let _ = state.from_json(payload) |> expect.to_be_error
+  let _ =
+    state.from_json(payload)
+    |> fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }
   Nil
 }
 
 pub fn from_json_rejects_missing_metadata_test() {
   let payload =
     "{\"replica\":\"node1\",\"context\":{\"node1\":1},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"node1\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"alice\",\"pid\":\"pid1\"}}]}"
-  let _ = state.from_json(payload) |> expect.to_be_error
+  let _ =
+    state.from_json(payload)
+    |> fn(actual) {
+      let assert Error(_) = actual
+      Nil
+    }
   Nil
 }

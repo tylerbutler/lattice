@@ -2,7 +2,6 @@ import lattice_core/replica_id
 import lattice_sequence/sequence.{type Bias, After, Before}
 import lattice_text/text
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -17,7 +16,10 @@ fn small_test_config() -> qcheck.Config {
 fn doc(value: String) {
   text.new(rid("A"))
   |> text.insert(0, value)
-  |> expect.to_be_ok()
+  |> fn(result) {
+    let assert Ok(value) = result
+    value
+  }
 }
 
 fn bias_from_int(n: Int) -> Bias {
@@ -41,15 +43,30 @@ pub fn anchor_resolution_stays_in_bounds__test() {
       let base = doc("abcde")
       let anchor =
         text.anchor_at(base, anchor_index, bias_from_int(insert_seed))
-        |> expect.to_be_ok()
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
       let inserted =
-        text.insert(base, insert_seed % 6, "xy") |> expect.to_be_ok()
+        text.insert(base, insert_seed % 6, "xy")
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
       let updated =
         text.delete(inserted, delete_seed % text.length(inserted))
-        |> expect.to_be_ok()
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
 
-      let resolved = text.resolve_anchor(updated, anchor) |> expect.to_be_ok()
-      expect.to_be_true(resolved >= 0 && resolved <= text.length(updated))
+      let resolved =
+        text.resolve_anchor(updated, anchor)
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
+      assert resolved >= 0 && resolved <= text.length(updated)
       Nil
     },
   )
@@ -69,17 +86,34 @@ pub fn before_anchor_on_live_grapheme_tracks_it__test() {
       let base = doc("abcde")
       let grapheme = text.substring(base, anchor_index, anchor_index + 1)
       let anchor =
-        text.anchor_at(base, anchor_index, Before) |> expect.to_be_ok()
+        text.anchor_at(base, anchor_index, Before)
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
       let updated =
         base
         |> text.insert(first_insert, "xx")
-        |> expect.to_be_ok()
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
         |> text.insert(second_insert, "y")
-        |> expect.to_be_ok()
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
 
-      let resolved = text.resolve_anchor(updated, anchor) |> expect.to_be_ok()
+      let resolved =
+        text.resolve_anchor(updated, anchor)
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
       text.substring(updated, resolved, resolved + 1)
-      |> expect.to_equal(grapheme)
+      |> fn(actual) {
+        assert actual == grapheme
+      }
       Nil
     },
   )
@@ -98,10 +132,18 @@ pub fn create_then_resolve_is_identity__test() {
       text.resolve_anchor(
         base,
         text.anchor_at(base, index, bias_from_int(bias_seed))
-          |> expect.to_be_ok(),
+          |> fn(result) {
+            let assert Ok(value) = result
+            value
+          },
       )
-      |> expect.to_be_ok()
-      |> expect.to_equal(index)
+      |> fn(result) {
+        let assert Ok(value) = result
+        value
+      }
+      |> fn(actual) {
+        assert actual == index
+      }
       Nil
     },
   )
@@ -121,22 +163,35 @@ pub fn resolution_agrees_across_replicas_after_merge__test() {
       let base = doc("abcde")
       let anchor =
         text.anchor_at(base, anchor_index, bias_from_int(alice_insert))
-        |> expect.to_be_ok()
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
       let alice =
         text.merge(text.new(rid("alice")), base, rid("alice"))
         |> text.insert(alice_insert, "x")
-        |> expect.to_be_ok()
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
       let bob =
         text.merge(text.new(rid("bob")), base, rid("bob"))
         |> text.insert(bob_insert, "y")
-        |> expect.to_be_ok()
+        |> fn(result) {
+          let assert Ok(value) = result
+          value
+        }
 
       text.resolve_anchor(text.merge(alice, bob, rid("A")), anchor)
-      |> expect.to_be_ok()
-      |> expect.to_equal(
-        text.resolve_anchor(text.merge(bob, alice, rid("A")), anchor)
-        |> expect.to_be_ok(),
-      )
+      |> fn(result) {
+        let assert Ok(value) = result
+        value
+      }
+      |> fn(actual) {
+        let assert Ok(expected) =
+          text.resolve_anchor(text.merge(bob, alice, rid("A")), anchor)
+        assert actual == expected
+      }
       Nil
     },
   )

@@ -6,7 +6,6 @@ import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
 import qcheck
-import startest/expect
 import support/lww_fixture as lww_map
 
 fn rid(id: String) {
@@ -39,10 +38,18 @@ pub fn lww_map_json_round_trip__test() {
       let decoded = lww_map.from_json(json_str)
       case decoded {
         Ok(d) -> {
-          lww_map.get(d, "key1") |> expect.to_equal(lww_map.get(map, "key1"))
-          lww_map.get(d, "key2") |> expect.to_equal(lww_map.get(map, "key2"))
+          lww_map.get(d, "key1")
+          |> fn(assertion_actual) {
+            let assert True = assertion_actual == lww_map.get(map, "key1")
+          }
+          lww_map.get(d, "key2")
+          |> fn(assertion_actual) {
+            let assert True = assertion_actual == lww_map.get(map, "key2")
+          }
         }
-        Error(_) -> expect.to_be_true(False)
+        Error(_) -> {
+          panic as "Unexpected test branch"
+        }
       }
       Nil
     },
@@ -71,10 +78,17 @@ pub fn or_map_json_round_trip__test() {
     case decoded {
       Ok(d) -> {
         set.from_list(or_map.keys(d))
-        |> expect.to_equal(set.from_list(or_map.keys(map)))
-        d |> expect.to_equal(map)
+        |> fn(assertion_actual) {
+          let assert True = assertion_actual == set.from_list(or_map.keys(map))
+        }
+        d
+        |> fn(assertion_actual) {
+          let assert True = assertion_actual == map
+        }
       }
-      Error(_) -> expect.to_be_true(False)
+      Error(_) -> {
+        panic as "Unexpected test branch"
+      }
     }
     Nil
   })

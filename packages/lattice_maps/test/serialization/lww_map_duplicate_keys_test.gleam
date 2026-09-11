@@ -6,7 +6,6 @@ import lattice_core/replica_id
 import lattice_maps/crdt
 import lattice_maps/lww_map
 import lattice_registers/lww_register
-import startest/expect
 
 fn rid(value: String) {
   replica_id.new(value)
@@ -94,9 +93,18 @@ fn expect_duplicate_error(result: Result(a, json.DecodeError)) {
   let assert Error(json.UnableToDecode([
     decode.DecodeError(expected, found, path),
   ])) = result
-  expected |> expect.to_equal("unique keys")
-  found |> expect.to_equal("duplicate key")
-  path |> expect.to_equal(["entries"])
+  expected
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "unique keys"
+  }
+  found
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "duplicate key"
+  }
+  path
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ["entries"]
+  }
 }
 
 fn expect_modern_paths_reject(entries: List(Json)) {
@@ -180,13 +188,21 @@ pub fn lww_map_snapshot_keys_are_not_unicode_normalized_test() {
     ])
   let assert Ok(modern) = lww_map.from_json(modern)
   lww_map.get(modern, composed)
-  |> expect.to_equal(
-    Ok(crdt.CrdtLwwRegister(lww_register.new("composed", 10, rid("writer")))),
-  )
+  |> fn(actual) {
+    let assert True =
+      actual
+      == Ok(
+        crdt.CrdtLwwRegister(lww_register.new("composed", 10, rid("writer"))),
+      )
+  }
   lww_map.get(modern, decomposed)
-  |> expect.to_equal(
-    Ok(crdt.CrdtLwwRegister(lww_register.new("decomposed", 11, rid("writer")))),
-  )
+  |> fn(actual) {
+    let assert True =
+      actual
+      == Ok(
+        crdt.CrdtLwwRegister(lww_register.new("decomposed", 11, rid("writer"))),
+      )
+  }
 
   list.each([1, 2], fn(version) {
     let snapshot =
@@ -196,6 +212,10 @@ pub fn lww_map_snapshot_keys_are_not_unicode_normalized_test() {
       ])
     let assert Ok(legacy) =
       lww_map.import_legacy(snapshot, crdt.LwwRegisterSpec(""), rid("importer"))
-    lww_map.keys(legacy) |> list.length |> expect.to_equal(2)
+    lww_map.keys(legacy)
+    |> list.length
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 2
+    }
   })
 }

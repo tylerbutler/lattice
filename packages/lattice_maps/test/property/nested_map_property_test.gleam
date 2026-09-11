@@ -5,7 +5,6 @@ import lattice_core/replica_id
 import lattice_maps/or_map
 import lattice_sequence/sequence
 import qcheck
-import startest/expect
 import support/composition_fixture as fixture
 
 fn config() {
@@ -31,26 +30,45 @@ pub fn nested_three_replica_insert_delete_move_metadata_convergence_test() {
     let assert Ok(abc) = or_map.merge(ab, c)
     let assert Ok(bc) = or_map.merge_as(b, c, receiver)
     let assert Ok(other) = or_map.merge(bc, a)
-    abc |> expect.to_equal(other)
+    abc
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == other
+    }
     let assert Ok(idempotent) = or_map.merge(abc, abc)
-    abc |> expect.to_equal(idempotent)
+    abc
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == idempotent
+    }
     let assert Ok(reordered) =
       list.try_fold(
         [dc, da, db, da, dc, db],
         or_map.bind(baseline, receiver),
         or_map.apply_delta,
       )
-    reordered |> expect.to_equal(abc)
+    reordered
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == abc
+    }
     let assert Ok(decoded) =
       or_map.from_json_with(
         or_map.to_json_with(abc, json.int) |> json.to_string,
         decode.int,
       )
-    decoded |> expect.to_equal(abc)
+    decoded
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == abc
+    }
     let #(next_a, _) = fixture.append(abc, number + 1)
     let #(next_b, _) = fixture.append(reordered, number + 1)
-    next_a |> expect.to_equal(next_b)
-    fixture.sequence(abc) |> sequence.length |> expect.to_equal(4)
+    next_a
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == next_b
+    }
+    fixture.sequence(abc)
+    |> sequence.length
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 4
+    }
     Nil
   })
 }
@@ -69,15 +87,25 @@ pub fn nested_reset_conflicts_generation_join_laws_test() {
     let assert Ok(abc) = or_map.merge(ab, c)
     let assert Ok(bc) = or_map.merge_as(b, c, receiver)
     let assert Ok(other) = or_map.merge(bc, a)
-    abc |> expect.to_equal(other)
-    fixture.sequence(abc) |> sequence.values |> expect.to_equal([number + 2])
+    abc
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == other
+    }
+    fixture.sequence(abc)
+    |> sequence.values
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == [number + 2]
+    }
     let assert Ok(reordered) =
       list.try_fold(
         [dc, db, da, dc, db],
         or_map.bind(baseline, receiver),
         or_map.apply_delta,
       )
-    reordered |> expect.to_equal(abc)
+    reordered
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == abc
+    }
     let #(removed, dr) = or_map.remove_with_delta(c, "doc")
     let assert Ok(final) =
       list.try_fold(
@@ -86,8 +114,14 @@ pub fn nested_reset_conflicts_generation_join_laws_test() {
         or_map.apply_delta,
       )
     let assert Ok(expected) = or_map.merge_as(removed, ab, receiver)
-    final |> expect.to_equal(expected)
-    or_map.keys(final) |> expect.to_equal([])
+    final
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == expected
+    }
+    or_map.keys(final)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == []
+    }
     Nil
   })
 }

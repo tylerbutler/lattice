@@ -8,7 +8,6 @@ import lattice_maps/crdt.{CrdtGCounter, GCounterSpec, OrSetSpec}
 import lattice_maps/or_map
 import lattice_sets/g_set
 import lattice_sets/or_set
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -21,8 +20,14 @@ pub fn or_map_to_json_empty_test() {
   let json_str = json.to_string(or_map.to_json(map))
   let decoded = or_map.from_json(json_str)
   case decoded {
-    Ok(d) -> or_map.keys(d) |> expect.to_equal([])
-    Error(_) -> expect.to_be_true(False)
+    Ok(d) ->
+      or_map.keys(d)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == []
+      }
+    Error(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -39,7 +44,10 @@ pub fn or_map_round_trip_crdt_spec_preserved_test() {
       crdt.CrdtGCounter(counter)
     })
   let assert Ok(crdt.CrdtGCounter(counter)) = or_map.get(updated, "test_key")
-  g_counter.value(counter) |> expect.to_equal(1)
+  g_counter.value(counter)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 pub fn or_map_round_trip_single_key_test() {
@@ -58,14 +66,24 @@ pub fn or_map_round_trip_single_key_test() {
   let decoded = or_map.from_json(json_str)
   case decoded {
     Ok(d) -> {
-      set.from_list(or_map.keys(d)) |> expect.to_equal(set.from_list(["score"]))
+      set.from_list(or_map.keys(d))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == set.from_list(["score"])
+      }
       case or_map.get(d, "score") {
         Ok(crdt.CrdtGCounter(counter)) ->
-          g_counter.value(counter) |> expect.to_equal(5)
-        _ -> expect.to_be_true(False)
+          g_counter.value(counter)
+          |> fn(assertion_actual) {
+            let assert True = assertion_actual == 5
+          }
+        _ -> {
+          panic as "Unexpected test branch"
+        }
       }
     }
-    Error(_) -> expect.to_be_true(False)
+    Error(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -96,19 +114,33 @@ pub fn or_map_round_trip_multiple_keys_test() {
   case decoded {
     Ok(d) -> {
       set.from_list(or_map.keys(d))
-      |> expect.to_equal(set.from_list(["alpha", "beta"]))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == set.from_list(["alpha", "beta"])
+      }
       case or_map.get(d, "alpha") {
         Ok(crdt.CrdtGCounter(counter)) ->
-          g_counter.value(counter) |> expect.to_equal(10)
-        _ -> expect.to_be_true(False)
+          g_counter.value(counter)
+          |> fn(assertion_actual) {
+            let assert True = assertion_actual == 10
+          }
+        _ -> {
+          panic as "Unexpected test branch"
+        }
       }
       case or_map.get(d, "beta") {
         Ok(crdt.CrdtGCounter(counter)) ->
-          g_counter.value(counter) |> expect.to_equal(20)
-        _ -> expect.to_be_true(False)
+          g_counter.value(counter)
+          |> fn(assertion_actual) {
+            let assert True = assertion_actual == 20
+          }
+        _ -> {
+          panic as "Unexpected test branch"
+        }
       }
     }
-    Error(_) -> expect.to_be_true(False)
+    Error(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -129,15 +161,25 @@ pub fn or_map_round_trip_or_set_values_test() {
   let decoded = or_map.from_json(json_str)
   case decoded {
     Ok(d) -> {
-      set.from_list(or_map.keys(d)) |> expect.to_equal(set.from_list(["tags"]))
+      set.from_list(or_map.keys(d))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == set.from_list(["tags"])
+      }
       case or_map.get(d, "tags") {
         Ok(crdt.CrdtOrSet(orset)) -> {
-          or_set.contains(orset, "hello") |> expect.to_be_true()
+          or_set.contains(orset, "hello")
+          |> fn(value) {
+            let assert True = value
+          }
         }
-        _ -> expect.to_be_true(False)
+        _ -> {
+          panic as "Unexpected test branch"
+        }
       }
     }
-    Error(_) -> expect.to_be_true(False)
+    Error(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -187,16 +229,24 @@ pub fn or_map_from_json_rejects_values_that_do_not_match_spec_test() {
     )
 
   case or_map.from_json(invalid) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
+    Error(_) -> {
+      Nil
+    }
+    Ok(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
 pub fn or_map_from_json_invalid_test() {
   let result = or_map.from_json("{invalid json}")
   case result {
-    Ok(_) -> expect.to_be_true(False)
-    Error(_) -> expect.to_be_true(True)
+    Ok(_) -> {
+      panic as "Unexpected test branch"
+    }
+    Error(_) -> {
+      Nil
+    }
   }
 }
 
@@ -227,7 +277,10 @@ pub fn or_map_v3_round_trip_preserves_inactive_generation_history_test() {
     |> version_vector.increment(rid("A"))
   let pruned = or_map.prune(decoded, stable)
 
-  or_map.internal_value_count(pruned) |> expect.to_equal(1)
+  or_map.internal_value_count(pruned)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 pub fn or_map_v1_explicit_import_retains_history_test() {
@@ -277,7 +330,10 @@ pub fn or_map_v1_explicit_import_retains_history_test() {
     |> version_vector.increment(rid("A"))
   let pruned = or_map.prune(decoded, stable)
 
-  or_map.internal_value_count(pruned) |> expect.to_equal(1)
+  or_map.internal_value_count(pruned)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 
   // Merge with concurrent add still works
   let assert Ok(concurrent) =
@@ -287,8 +343,13 @@ pub fn or_map_v1_explicit_import_retains_history_test() {
 
   case or_map.get(merged, "x") {
     Ok(CrdtGCounter(counter)) ->
-      g_counter.value(counter) |> expect.to_equal(104)
-    _ -> expect.to_be_true(False)
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 104
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -301,10 +362,18 @@ pub fn or_map_v3_counter_snapshot_round_trip_test() {
   let assert Ok(decoded) = or_map.from_json(json_str)
 
   set.from_list(or_map.keys(decoded))
-  |> expect.to_equal(set.from_list(["y"]))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == set.from_list(["y"])
+  }
 
   case or_map.get(decoded, "y") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 10
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
