@@ -1,6 +1,0 @@
-package = "lattice_sequence"
-kind = "Breaking"
-body = """
-Require explicit replica identity when merging sequences
-
-Pass the receiving editor identity to merge(a, b, replica); operand order no longer selects the identity for subsequent edits. merge_as remains an equivalent alias, and replica_id reads the stored editing identity. Delta types and the sequence v2 wire format are unchanged."""

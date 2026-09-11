@@ -1,6 +1,0 @@
-package = "lattice_sequence"
-kind = "Breaking"
-body = """
-Compact sequences that contain moves
-
-`compact` can now reclaim tombstones and origins after move operations. Sequence JSON now uses schema version 2. Version 1 snapshots still decode unless they contain both a move record and a compacted block; resync those replicas before upgrading."""

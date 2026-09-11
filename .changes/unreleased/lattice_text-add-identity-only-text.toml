@@ -1,6 +1,0 @@
-package = "lattice_text"
-kind = "Added"
-body = """
-Bind loaded text to a local replica
-
-Use `text.bind(state, local_id)` before editing a snapshot under a new local identity. It preserves existing item IDs and compaction state."""

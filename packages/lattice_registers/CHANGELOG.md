@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-09-11
+
+### Breaking
+
+#### Require explicit writer identity for LWWRegister updates
+
+Pass the local `ReplicaId` as the fourth argument to `set` and `set_with_delta`. Replace `set_as` with `set` and `set_as_with_delta` with `set_with_delta`. Labeled calls to `new`, `set`, and `set_with_delta` use `value:` instead of `val:`.
+
+Version 2 snapshots must include the winning writer in `replica_id`. Version 1 snapshots still use the legacy empty ID. Applications must define how to migrate incomplete version 2 snapshots. Writers must use a fresh replica ID after restart or restore a durable clock so one write stamp is not reused for different values.
+
+### Added
+
+#### Add generic register codecs
+
+Use to_json_with and from_json_with for typed register payloads while retaining existing String formats.
+
 ## v1.2.0 - 2026-08-12
 
 ### Added

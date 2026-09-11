@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-09-11
+
+### Breaking
+
+#### Move presence serialization into the state module
+
+Import to_json, to_json_string, from_json, and decoder from lattice_presence/presence_state instead of the removed state_json module. The replicated_parts and from_replicated_parts escape hatches are removed; construct replicated fixtures through the public decoder. Existing JSON payloads, metadata validation, and local-only liveness behavior are unchanged.
+#### Reject divergent states that share a replica name
+
+`presence_state.merge` and `presence_state.merge_with_diff` now return `Result` and report `SameReplica` for divergent same-name states or unseen local-owned causal data, including restart echoes relayed through another peer and history retained after entries are removed. Callers must handle the error and assign every live node a unique incarnation identity. Identical replicated states remain an idempotent no-op, and gossip of already-known local tags remains valid.
+
+### Added
+
+#### Remove old presence incarnations
+
+Use `presence_state.supersede` to remove other known incarnations of a replica name and return one combined leave diff. The function keeps the history needed to reject stale updates. It returns `CannotSupersedeLocalReplica` when asked to remove the local writer; the membership protocol must select the current incarnation.
+
 ## v1.1.0 - 2026-08-20
 
 ### Added

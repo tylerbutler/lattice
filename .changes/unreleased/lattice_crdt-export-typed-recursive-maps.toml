@@ -1,6 +1,0 @@
-package = "lattice_crdt"
-kind = "Breaking"
-body = """
-Export typed recursive maps and deltas
-
-The umbrella exports generic Crdt, CrdtSpec, ORMap, and LWWMap types plus CrdtDelta and ORMapDelta. Update type annotations and exhaustive matches for recursive maps, Sequence, and Text; follow the maps migration guide for identities and generation-aware replication."""

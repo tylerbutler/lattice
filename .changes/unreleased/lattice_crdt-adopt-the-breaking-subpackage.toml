@@ -1,6 +1,0 @@
-package = "lattice_crdt"
-kind = "Breaking"
-body = """
-Adopt the breaking subpackage APIs
-
-Counter, sequence, and text edits now return `Result`, and sequence and text merges require a replica ID. LWWRegister updates require a writer ID, the `set_as` aliases are removed, and version 2 snapshots require `replica_id`. ORMap updates now report type mismatches. Labeled LWWRegister calls use `value:` instead of `val:`."""

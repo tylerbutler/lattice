@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-09-11
+
+### Breaking
+
+#### Compact sequences that contain moves
+
+`compact` can now reclaim tombstones and origins after move operations. Sequence JSON now uses schema version 2. Version 1 snapshots still decode unless they contain both a move record and a compacted block; resync those replicas before upgrading.
+#### Require explicit replica identity when merging sequences
+
+Pass the receiving editor identity to merge(a, b, replica); operand order no longer selects the identity for subsequent edits. merge_as remains an equivalent alias, and replica_id reads the stored editing identity. Delta types and the sequence v2 wire format are unchanged.
+#### Return Results from sequence edits and anchors
+
+Insert, batch insert, delete, move, and their delta variants now return Result, as do anchor_at and resolve. Replace the removed try_* names with their plain equivalents and handle the existing typed errors instead of relying on panic wrappers.
+
+### Added
+
+#### Bind a loaded sequence to a local replica
+
+Use `sequence.bind(state, local_id)` before editing a snapshot under a new local identity. It preserves existing item IDs, stored order, and compaction state.
+
+### Fixed
+
+#### Keep large sequence edits stack-safe on JavaScript
+
+Insertion traversal now handles long stored sequences without overflowing the JavaScript call stack. Item order, identifiers, and sparse deltas are unchanged.
+#### Prevent ID reuse after loading a sequence snapshot
+
+Decoding now derives the next allocation counter from retained history when the serialized counter is too low. Later edits do not reuse an ID that already exists in the snapshot.
+
 ## v1.1.0 - 2026-08-12
 
 ### Added

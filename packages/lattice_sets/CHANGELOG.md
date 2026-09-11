@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v1.2.0 - 2026-09-11
+
+### Added
+
+#### Add generic set payload codecs
+
+Use to_json_with and from_json_with for integer, record, or tagged-union payloads. Generic ORSet uses a versioned value/tag entry format; existing String codecs keep their wire formats and causal metadata.
+
+### Fixed
+
+#### Prevent ORSet ID reuse after pruning
+
+ORSet merge and prune keep enough counter history for a rebound writer to create new IDs. JSON round trips preserve this value.
+
 ## v1.1.0 - 2026-05-16
 
 
@@ -17,7 +31,6 @@ New `g_set.add_with_delta`, `two_p_set.{add,remove}_with_delta`, and `or_set.{ad
 #### Add ORSet ergonomic helpers for adapter code
 
 Adds `or_set.Diff`, `or_set.diff`, `or_set.merge_with_diff`, `or_set.remove_all`, and `or_set.remove_where` for consumers that need observable value changes or bulk removals without inspecting internal tags.
-
 
 ## v1.0.0 - 2026-04-11
 
@@ -58,5 +71,3 @@ or_set.contains(or_set.merge(a, b), "item")  // -> True (add wins)
 ```
 
 All types include JSON serialization via `to_json`/`from_json`. See the [sets guide](https://lattice.tylerbutler.com/guides/sets/) for details.
-
-

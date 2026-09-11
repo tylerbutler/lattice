@@ -1,6 +1,0 @@
-package = "lattice_maps"
-kind = "Breaking"
-body = """
-Add typed recursive map composition
-
-Crdt(a), ORMap(a), and LWWMap(a) support recursive CRDT children, Sequence, and Text. ORMap re-adds use fresh generations with deterministic reset winners; sparse nested deltas preserve leaf changes. Update generic types and explicit editing identities, and import a legacy baseline before switching map protocols. LWWMap assignments remain atomic."""
