@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-09-11
+
+### Breaking
+
+#### Text state JSON is now schema v2
+
+This format supports sequence compaction after move operations. Version 1 snapshots still decode unless they contain both a move record and a compacted block; resync those replicas before upgrading.
+#### Require explicit replica identity when merging text
+
+Pass the receiving editor identity to merge(a, b, replica) for both full states and deltas. merge_as remains an equivalent alias. Internal range-operation delta batches preserve their editing identity, and JSON formats are unchanged.
+#### Return Results from text edits and anchors
+
+Text edits, range edits, moves, append, and their delta variants now return Result, as do anchor_at and resolve_anchor. Replace the removed try_* names with plain equivalents and handle existing typed errors. Clamping substring and strict try_substring are unchanged.
+
+### Added
+
+#### Bind loaded text to a local replica
+
+Use `text.bind(state, local_id)` before editing a snapshot under a new local identity. It preserves existing item IDs and compaction state.
+
+### Fixed
+
+#### Keep large text edits stack-safe on JavaScript
+
+Text inherits stack-safe Sequence insertion traversal, allowing large documents to compose through map deltas without a JavaScript stack overflow.
+#### Preserve safe allocation after snapshot load
+
+Text inherits Sequence counter restoration from retained history, so later edits cannot reuse identifiers present in a loaded snapshot. The standalone Text wire format remains the Sequence envelope.
+
 ## v1.1.0 - 2026-08-12
 
 ### Added

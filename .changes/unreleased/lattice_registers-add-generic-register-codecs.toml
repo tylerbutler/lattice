@@ -1,6 +1,0 @@
-package = "lattice_registers"
-kind = "Added"
-body = """
-Add generic register codecs
-
-Use to_json_with and from_json_with for typed register payloads while retaining existing String formats."""

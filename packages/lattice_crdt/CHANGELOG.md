@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v4.0.0 - 2026-09-11
+
+### Breaking
+
+#### Adopt the breaking subpackage APIs
+
+Counter, sequence, and text edits now return `Result`, and sequence and text merges require a replica ID. LWWRegister updates require a writer ID, the `set_as` aliases are removed, and version 2 snapshots require `replica_id`. ORMap updates now report type mismatches. Labeled LWWRegister calls use `value:` instead of `val:`.
+#### Export typed recursive maps and deltas
+
+The umbrella exports generic Crdt, CrdtSpec, ORMap, and LWWMap types plus CrdtDelta and ORMapDelta. Update type annotations and exhaustive matches for recursive maps, Sequence, and Text; follow the maps migration guide for identities and generation-aware replication.
+
+### Dependencies
+
+#### Updated lattice_sets to 1.2.0
+
 ## v3.0.2 - 2026-08-12
 
 ### Dependencies

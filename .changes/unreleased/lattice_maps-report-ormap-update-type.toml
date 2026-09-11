@@ -1,6 +1,0 @@
-package = "lattice_maps"
-kind = "Breaking"
-body = """
-Report ORMap update type mismatches
-
-or_map.update now returns Result(ORMap, crdt.MergeError), matching update_with_delta. Handle TypeMismatch when a callback returns a variant that differs from the map specification; rejected updates no longer activate keys with fallback values."""

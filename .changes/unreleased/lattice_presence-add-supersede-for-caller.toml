@@ -1,6 +1,0 @@
-package = "lattice_presence"
-kind = "Added"
-body = """
-Remove old presence incarnations
-
-Use `presence_state.supersede` to remove other known incarnations of a replica name and return one combined leave diff. The function keeps the history needed to reject stale updates. It returns `CannotSupersedeLocalReplica` when asked to remove the local writer; the membership protocol must select the current incarnation."""

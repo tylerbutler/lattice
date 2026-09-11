@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-09-11
+
+### Breaking
+
+#### Add typed recursive map composition
+
+Crdt(a), ORMap(a), and LWWMap(a) support recursive CRDT children, Sequence, and Text. ORMap re-adds use fresh generations with deterministic reset winners; sparse nested deltas preserve leaf changes. Update generic types and explicit editing identities, and import a legacy baseline before switching map protocols. LWWMap assignments remain atomic.
+#### Align equal-time LWWMap local writes with merge
+
+At equal timestamps, removals now win, while active assignments use writer identity and never generic child-value ordering. Writer IDs and imported legacy tie keys use UTF-8 byte order on both Erlang and JavaScript. `set("k", value, 10)` followed by `remove("k", 10)` now removes `"k"`; use increasing timestamps for successive writes. Reusing one timestamp and writer for different active children returns `ConflictingWrite`. Upgrade all peers together because values discarded before the upgrade cannot be recovered.
+#### Reject duplicate LWWMap snapshot keys
+
+Modern decoding and legacy v1/v2 import now reject repeated keys. Resolve each exact key before encoding or import; keys are not Unicode-normalized.
+#### Report ORMap update type mismatches
+
+or_map.update now returns Result(ORMap, crdt.MergeError), matching update_with_delta. Handle TypeMismatch when a callback returns a variant that differs from the map specification; rejected updates no longer activate keys with fallback values.
+
+### Dependencies
+
+#### Updated lattice_sets to 1.2.0
+
 ## v1.1.2 - 2026-08-12
 
 ### Dependencies

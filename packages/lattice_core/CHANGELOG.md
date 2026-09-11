@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.0 - 2026-09-11
+
+### Breaking
+
+#### Use the same replica ID order on Erlang and JavaScript
+
+Replica IDs now use UTF-8 byte order on both targets. This keeps equal-time register writes, sequence and text ordering, and anchors consistent. Upgrade all peers together because some JavaScript ties can select a different winner. This change cannot restore values that an older peer discarded.
+
 ## v1.0.0 - 2026-04-11
 
 
@@ -30,5 +38,3 @@ Provides the foundational building blocks used by other lattice packages:
 - **`dot_context`** — Fine-grained causal tracking used internally by observed-remove types (`or_set`, `or_map`).
 
 All types include JSON serialization via `to_json`/`from_json`. See the [version vectors guide](https://lattice.tylerbutler.com/advanced/version-vectors/) for details.
-
-

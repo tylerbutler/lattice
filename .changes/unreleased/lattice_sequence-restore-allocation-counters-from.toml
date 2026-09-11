@@ -1,6 +1,0 @@
-package = "lattice_sequence"
-kind = "Fixed"
-body = """
-Prevent ID reuse after loading a sequence snapshot
-
-Decoding now derives the next allocation counter from retained history when the serialized counter is too low. Later edits do not reuse an ID that already exists in the snapshot."""

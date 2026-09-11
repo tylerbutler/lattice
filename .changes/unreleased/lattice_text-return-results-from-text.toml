@@ -1,6 +1,0 @@
-package = "lattice_text"
-kind = "Breaking"
-body = """
-Return Results from text edits and anchors
-
-Text edits, range edits, moves, append, and their delta variants now return Result, as do anchor_at and resolve_anchor. Replace the removed try_* names with plain equivalents and handle existing typed errors. Clamping substring and strict try_substring are unchanged."""

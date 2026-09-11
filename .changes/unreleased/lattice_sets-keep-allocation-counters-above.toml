@@ -1,6 +1,0 @@
-package = "lattice_sets"
-kind = "Fixed"
-body = """
-Prevent ORSet ID reuse after pruning
-
-ORSet merge and prune keep enough counter history for a rebound writer to create new IDs. JSON round trips preserve this value."""

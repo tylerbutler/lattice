@@ -1,6 +1,0 @@
-package = "lattice_text"
-kind = "Breaking"
-body = """
-Text state JSON is now schema v2
-
-This format supports sequence compaction after move operations. Version 1 snapshots still decode unless they contain both a move record and a compacted block; resync those replicas before upgrading."""

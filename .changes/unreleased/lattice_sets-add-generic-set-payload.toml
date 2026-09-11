@@ -1,6 +1,0 @@
-package = "lattice_sets"
-kind = "Added"
-body = """
-Add generic set payload codecs
-
-Use to_json_with and from_json_with for integer, record, or tagged-union payloads. Generic ORSet uses a versioned value/tag entry format; existing String codecs keep their wire formats and causal metadata."""
