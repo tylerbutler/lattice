@@ -12,7 +12,6 @@ import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_sets/two_p_set
 import lattice_text/text
-import startest/expect
 import support/composition_fixture as fixture
 
 type Point {
@@ -51,7 +50,10 @@ pub fn generic_record_leaf_dispatch_and_recursive_map_codecs_test() {
   ]
   list.each(leaves, fn(leaf) {
     let encoded = crdt.to_json_with(leaf, encode_point) |> json.to_string
-    crdt.from_json_with(encoded, point_decoder()) |> expect.to_equal(Ok(leaf))
+    crdt.from_json_with(encoded, point_decoder())
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(leaf)
+    }
   })
   let map = or_map.new(rid("A"), crdt.OrMapSpec(crdt.LwwRegisterSpec(initial)))
   let assert Ok(map) =
@@ -65,11 +67,17 @@ pub fn generic_record_leaf_dispatch_and_recursive_map_codecs_test() {
     })
   let encoded = or_map.to_json_with(map, encode_point) |> json.to_string
   let assert Ok(decoded) = or_map.from_json_with(encoded, point_decoder())
-  decoded |> expect.to_equal(map)
+  decoded
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == map
+  }
   let assert Ok(crdt.CrdtOrMap(child)) = or_map.get(decoded, "doc")
   let assert Ok(child) = or_map.update(child, "new", fn(value) { value })
   let assert Ok(crdt.CrdtLwwRegister(value)) = or_map.get(child, "new")
-  lww_register.value(value) |> expect.to_equal(initial)
+  lww_register.value(value)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == initial
+  }
   let assert Ok(atomic) =
     lww_map.set(
       lww_map.new(
@@ -84,23 +92,33 @@ pub fn generic_record_leaf_dispatch_and_recursive_map_codecs_test() {
     crdt.to_json_with(crdt.CrdtLwwMap(atomic), encode_point) |> json.to_string,
     point_decoder(),
   )
-  |> expect.to_equal(Ok(crdt.CrdtLwwMap(atomic)))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(crdt.CrdtLwwMap(atomic))
+  }
 }
 
 pub fn text_dispatch_does_not_alias_string_sequence_wire_format_test() {
   let assert Ok(value) = text.append(text.new(rid("A")), "hello")
   let text_json = crdt.to_json(crdt.CrdtText(value)) |> json.to_string
   let assert Ok(crdt.CrdtText(decoded)) = crdt.from_json(text_json)
-  decoded |> expect.to_equal(value)
+  decoded
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == value
+  }
   let assert Ok(crdt.CrdtSequence(decoded)) =
     crdt.from_json(text.to_json(value) |> json.to_string)
-  sequence.values(decoded) |> expect.to_equal(["h", "e", "l", "l", "o"])
+  sequence.values(decoded)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ["h", "e", "l", "l", "o"]
+  }
   let delta = crdt.StateDelta(crdt.CrdtText(value))
   crdt.delta_from_json_with(
     crdt.delta_to_json_with(delta, json.int) |> json.to_string,
     decode.int,
   )
-  |> expect.to_equal(Ok(delta))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(delta)
+  }
 }
 
 pub fn direct_recursive_dispatch_deltas_round_trip_and_apply_test() {
@@ -113,7 +131,10 @@ pub fn direct_recursive_dispatch_deltas_round_trip_and_apply_test() {
   let wrapped = crdt.OrMapChange(delta)
   let encoded = crdt.delta_to_json_with(wrapped, json.int) |> json.to_string
   let assert Ok(decoded) = crdt.delta_from_json_with(encoded, decode.int)
-  decoded |> expect.to_equal(wrapped)
+  decoded
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == wrapped
+  }
   let assert Ok(applied) =
     crdt.apply_delta(
       crdt.CrdtOrMap(before),
@@ -121,19 +142,26 @@ pub fn direct_recursive_dispatch_deltas_round_trip_and_apply_test() {
       crdt.OrMapSpec(crdt.OrMapSpec(crdt.SequenceSpec)),
       rid("A"),
     )
-  applied |> expect.to_equal(crdt.CrdtOrMap(after))
+  applied
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == crdt.CrdtOrMap(after)
+  }
   let nochange = crdt.NoChange(crdt.OrMapSpec(crdt.LwwRegisterSpec(42)))
   crdt.delta_from_json_with(
     crdt.delta_to_json_with(nochange, json.int) |> json.to_string,
     decode.int,
   )
-  |> expect.to_equal(Ok(nochange))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(nochange)
+  }
   let state = crdt.StateDelta(crdt.CrdtOrMap(after))
   crdt.delta_from_json_with(
     crdt.delta_to_json_with(state, json.int) |> json.to_string,
     decode.int,
   )
-  |> expect.to_equal(Ok(state))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(state)
+  }
 }
 
 fn legacy_lww(value: json.Json) -> String {
@@ -178,12 +206,21 @@ pub fn legacy_lww_ties_provenance_and_modern_rank_survive_round_trip_test() {
   let b = legacy_import(json.string("zzz"), "A")
   let assert Ok(ab) = lww_map.merge_as(a, b, rid("R"))
   let assert Ok(ba) = lww_map.merge_as(b, a, rid("R"))
-  ab |> expect.to_equal(ba)
+  ab
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ba
+  }
   let assert Ok(crdt.CrdtLwwRegister(value)) = lww_map.get(ab, "key")
-  lww_register.value(value) |> expect.to_equal("zzz")
+  lww_register.value(value)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "zzz"
+  }
   let assert Ok(loaded) =
     lww_map.from_json(lww_map.to_json(ab) |> json.to_string)
-  loaded |> expect.to_equal(ab)
+  loaded
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ab
+  }
   let modern = lww_map.new(rid("0"), crdt.LwwRegisterSpec("initial"))
   let assert Ok(modern) =
     lww_map.set(
@@ -194,10 +231,16 @@ pub fn legacy_lww_ties_provenance_and_modern_rank_survive_round_trip_test() {
     )
   let assert Ok(merged) = lww_map.merge(loaded, modern)
   let assert Ok(crdt.CrdtLwwRegister(value)) = lww_map.get(merged, "key")
-  lww_register.value(value) |> expect.to_equal("modern")
+  lww_register.value(value)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "modern"
+  }
   let tombstone = legacy_import(json.null(), "old")
   let assert Ok(merged) = lww_map.merge(modern, tombstone)
-  lww_map.get(merged, "key") |> expect.to_equal(Error(Nil))
+  lww_map.get(merged, "key")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
 }
 
 fn legacy_or_snapshot() -> String {
@@ -233,21 +276,27 @@ fn legacy_or_snapshot() -> String {
 
 pub fn legacy_or_map_import_is_explicit_and_readd_resets_initial_generation_test() {
   let input = legacy_or_snapshot()
-  or_map.from_json(input) |> expect.to_be_error
+  let assert Error(_) = or_map.from_json(input)
   let assert Ok(map) =
     or_map.import_legacy(input, crdt.OrSetSpec, decode.string, rid("fresh"))
   let assert Ok(crdt.CrdtOrSet(value)) = or_map.get(map, "key")
-  or_set.contains(value, "item") |> expect.to_be_true
+  or_set.contains(value, "item")
+  |> fn(value) {
+    let assert True = value
+  }
   let assert Ok(fresh) =
     or_map.update(or_map.remove(map, "key"), "key", fn(value) { value })
   let assert Ok(merged) = or_map.merge(map, fresh)
   let assert Ok(crdt.CrdtOrSet(value)) = or_map.get(merged, "key")
-  or_set.contains(value, "item") |> expect.to_be_false
-  or_map.import_legacy(input, crdt.GSetSpec, decode.string, rid("fresh"))
-  |> expect.to_be_error
+  or_set.contains(value, "item")
+  |> fn(value) {
+    let assert True = !value
+  }
+  let assert Error(_) =
+    or_map.import_legacy(input, crdt.GSetSpec, decode.string, rid("fresh"))
   let delta_v1 = "{\"type\":\"or_map_delta\",\"v\":1,\"state\":{}}"
-  or_map.delta_from_json(delta_v1) |> expect.to_be_error
-  lww_map.from_json(legacy_lww(json.string("x"))) |> expect.to_be_error
+  let assert Error(_) = or_map.delta_from_json(delta_v1)
+  let assert Error(_) = lww_map.from_json(legacy_lww(json.string("x")))
   Nil
 }
 
@@ -306,39 +355,49 @@ fn modern_or_wire(
 }
 
 pub fn protocol_rejects_unsupported_versions_schema_and_allocator_corruption_test() {
-  or_map.from_json_with(modern_or_wire(0, 1, json.null()), decode.int)
-  |> expect.to_be_error
-  or_map.from_json_with(modern_or_wire(-1, 1, json.null()), decode.int)
-  |> expect.to_be_error
-  or_map.from_json_with(modern_or_wire(1, -1, json.null()), decode.int)
-  |> expect.to_be_error
+  let assert Error(_) =
+    or_map.from_json_with(modern_or_wire(0, 1, json.null()), decode.int)
+  let assert Error(_) =
+    or_map.from_json_with(modern_or_wire(-1, 1, json.null()), decode.int)
+  let assert Error(_) =
+    or_map.from_json_with(modern_or_wire(1, -1, json.null()), decode.int)
   let wrong = crdt.CrdtGSet(g_set.new() |> g_set.add(1))
   let wrong =
     crdt.to_json_with(wrong, json.int) |> json.to_string |> json.string
-  or_map.from_json_with(modern_or_wire(1, 1, wrong), decode.int)
-  |> expect.to_be_error
+  let assert Error(_) =
+    or_map.from_json_with(modern_or_wire(1, 1, wrong), decode.int)
   let assert Ok(floor) =
     or_map.from_json_with(modern_or_wire(1, 1, json.null()), decode.int)
-  or_map.keys(floor) |> expect.to_equal([])
+  or_map.keys(floor)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
   let assert Ok(exhausted) =
     or_map.from_json_with(
       modern_or_wire(9_007_199_254_740_991, 9_007_199_254_740_991, json.null()),
       decode.int,
     )
   or_map.update(exhausted, "key", fn(value) { value })
-  |> expect.to_equal(Error(crdt.ClockExhausted("key")))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(crdt.ClockExhausted("key"))
+  }
   or_map.from_json_with(
     or_map.to_json_with(floor, json.int) |> json.to_string,
     decode.int,
   )
-  |> expect.to_equal(Ok(floor))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(floor)
+  }
   list.each(
     ["or_map", "or_map_delta", "lww_map", "text", "crdt_delta"],
     fn(kind) {
       let unknown =
         json.object([#("type", json.string(kind)), #("v", json.int(99))])
         |> json.to_string
-      crdt.from_json_with(unknown, decode.int) |> expect.to_be_error
+      crdt.from_json_with(unknown, decode.int)
+      |> fn(result) {
+        let assert Error(_) = result
+      }
     },
   )
 }
@@ -354,12 +413,20 @@ pub fn direct_dispatch_handles_same_immutable_lww_stamp_conflicts_test() {
       decode.int,
     )
   crdt.merge(crdt.CrdtLwwMap(a), b, rid("R"))
-  |> expect.to_equal(Error(crdt.ConflictingWrite("key", 1)))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(crdt.ConflictingWrite("key", 1))
+  }
   let assert Ok(tombstone) = lww_map.remove(map, "key", 1)
   let assert Ok(merged) = lww_map.merge(a, tombstone)
   let assert Ok(reverse) = lww_map.merge(tombstone, a)
-  merged |> expect.to_equal(reverse)
-  lww_map.get(merged, "key") |> expect.to_equal(Error(Nil))
+  merged
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == reverse
+  }
+  lww_map.get(merged, "key")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
 }
 
 pub fn legacy_string_leaf_dispatch_fixture_keeps_original_format_test() {
@@ -368,7 +435,16 @@ pub fn legacy_string_leaf_dispatch_fixture_keeps_original_format_test() {
   let actual =
     crdt.CrdtGSet(g_set.new() |> g_set.add("one") |> g_set.add("two"))
   let encoded = crdt.to_json(actual) |> json.to_string
-  fixture.version(encoded) |> expect.to_equal(1)
-  crdt.from_json(encoded) |> expect.to_equal(Ok(actual))
-  crdt.from_json(legacy) |> expect.to_equal(Ok(actual))
+  fixture.version(encoded)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
+  crdt.from_json(encoded)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(actual)
+  }
+  crdt.from_json(legacy)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(actual)
+  }
 }

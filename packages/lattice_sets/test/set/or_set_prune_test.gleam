@@ -2,7 +2,6 @@ import gleam/json
 import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_sets/or_set
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -15,8 +14,16 @@ pub fn prune_removes_tombstones_test() {
     |> or_set.add("item2")
     |> or_set.remove("item1")
 
-  or_set.contains(s1, "item1") |> expect.to_be_false()
-  or_set.contains(s1, "item2") |> expect.to_be_true()
+  or_set.contains(s1, "item1")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
+  or_set.contains(s1, "item2")
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 
   // Stable vector covering A:1 but not A:2
   let stable = version_vector.new() |> version_vector.increment(rid("A"))
@@ -24,8 +31,16 @@ pub fn prune_removes_tombstones_test() {
   let s2 = or_set.prune(s1, stable)
 
   // Behavior unchanged after prune
-  or_set.contains(s2, "item1") |> expect.to_be_false()
-  or_set.contains(s2, "item2") |> expect.to_be_true()
+  or_set.contains(s2, "item1")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
+  or_set.contains(s2, "item2")
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn prune_prevents_zombies_test() {
@@ -45,7 +60,11 @@ pub fn prune_prevents_zombies_test() {
   let merged = or_set.merge(s_pruned, s_zombie)
 
   // Zombie tag (A:1) should be filtered out by pruned vector
-  or_set.contains(merged, "item1") |> expect.to_be_false()
+  or_set.contains(merged, "item1")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
 }
 
 pub fn active_items_survive_pruning_test() {
@@ -57,7 +76,11 @@ pub fn active_items_survive_pruning_test() {
   let s_pruned = or_set.prune(s, stable)
 
   // Active items are not affected by pruning (pruning only removes tombstones)
-  or_set.contains(s_pruned, "item1") |> expect.to_be_true()
+  or_set.contains(s_pruned, "item1")
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn active_items_survive_pruning_after_merge_test() {
@@ -70,7 +93,11 @@ pub fn active_items_survive_pruning_after_merge_test() {
 
   let merged = or_set.merge(pruned, stale)
 
-  or_set.contains(merged, "item1") |> expect.to_be_true()
+  or_set.contains(merged, "item1")
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn json_round_trip_v2_test() {
@@ -84,10 +111,18 @@ pub fn json_round_trip_v2_test() {
 
   let assert Ok(decoded) = or_set.from_json(json_str)
 
-  or_set.contains(decoded, "item1") |> expect.to_be_false()
+  or_set.contains(decoded, "item1")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
 
   // Pruned vector should survive round-trip: zombie should be rejected
   let s_zombie = or_set.new(rid("A")) |> or_set.add("item1")
   let merged = or_set.merge(decoded, s_zombie)
-  or_set.contains(merged, "item1") |> expect.to_be_false()
+  or_set.contains(merged, "item1")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
 }

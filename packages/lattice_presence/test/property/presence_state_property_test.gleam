@@ -5,7 +5,6 @@ import gleam/list
 import gleam/set
 import lattice_presence/presence_state as state
 import qcheck
-import startest/expect
 
 // ═══════════════════════════════════════════════════════════════════
 // CRDT Mathematical Invariants
@@ -26,7 +25,10 @@ pub fn prop_merge_commutativity_test() {
   let assert Ok(ba) = state.merge(b, a)
 
   crdt_generator.online_ids(ab)
-  |> expect.to_equal(crdt_generator.online_ids(ba))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(ba))
 }
 
 // ── Associativity ───────────────────────────────────────────────────
@@ -51,7 +53,10 @@ pub fn prop_merge_associativity_test() {
   let assert Ok(a_bc) = state.merge(a, bc)
 
   crdt_generator.online_ids(ab_c)
-  |> expect.to_equal(crdt_generator.online_ids(a_bc))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(a_bc))
 }
 
 // ── Idempotency ─────────────────────────────────────────────────────
@@ -64,7 +69,10 @@ pub fn prop_merge_idempotency_test() {
   let assert Ok(merged) = state.merge(s, s)
 
   crdt_generator.online_ids(merged)
-  |> expect.to_equal(crdt_generator.online_ids(s))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(s))
 }
 
 // ── Convergence ─────────────────────────────────────────────────────
@@ -80,16 +88,27 @@ pub fn prop_peer_echo_checks_local_causal_history_test() {
   let assert Ok(peer) = state.merge(state.new("r2"), original)
   let assert Ok(peer) = peer |> state.to_json_string |> state.from_json
 
-  state.merge(original, peer) |> expect.to_equal(Ok(original))
+  state.merge(original, peer)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(original))
   state.merge_with_diff(original, peer)
-  |> expect.to_equal(
-    Ok(#(original, state.Diff(joins: dict.new(), leaves: dict.new()))),
-  )
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(original, state.Diff(joins: dict.new(), leaves: dict.new()))))
 
   state.merge(state.new("r1"), peer)
-  |> expect.to_equal(Error(state.SameReplica("r1")))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Error(state.SameReplica("r1")))
   state.merge_with_diff(state.new("r1"), peer)
-  |> expect.to_equal(Error(state.SameReplica("r1")))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Error(state.SameReplica("r1")))
 }
 
 /// All merge orderings of 3 replicas converge to the same state
@@ -121,8 +140,16 @@ pub fn prop_merge_convergence_test() {
   let ids2 = crdt_generator.online_ids(r2)
   let ids3 = crdt_generator.online_ids(r3)
 
-  ids1 |> expect.to_equal(ids2)
-  ids2 |> expect.to_equal(ids3)
+  ids1
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(ids2)
+  ids2
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(ids3)
 }
 
 // ── Add-wins ────────────────────────────────────────────────────────
@@ -148,7 +175,10 @@ pub fn prop_add_wins_test() {
 
   state.get_by_topic(resolved, topic)
   |> list.length
-  |> expect.to_equal(1)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }
 
 // ── Monotonic clocks ────────────────────────────────────────────────
@@ -171,7 +201,11 @@ pub fn prop_monotonic_clocks_test() {
   let _ =
     dict.each(a_clocks, fn(replica, clock) {
       case dict.get(merged_clocks, replica) {
-        Ok(merged_clock) -> expect.to_be_true(merged_clock >= clock)
+        Ok(merged_clock) ->
+          fn(actual) {
+            let assert True = actual
+            Nil
+          }(merged_clock >= clock)
         Error(_) -> panic as "expected failure"
       }
     })
@@ -179,7 +213,11 @@ pub fn prop_monotonic_clocks_test() {
   // Every clock in B should be <= the corresponding clock in merged
   dict.each(b_clocks, fn(replica, clock) {
     case dict.get(merged_clocks, replica) {
-      Ok(merged_clock) -> expect.to_be_true(merged_clock >= clock)
+      Ok(merged_clock) ->
+        fn(actual) {
+          let assert True = actual
+          Nil
+        }(merged_clock >= clock)
       Error(_) -> panic as "expected failure"
     }
   })
@@ -201,15 +239,24 @@ pub fn prop_compaction_invariant_test() {
 
   // Context should be identical
   state.compacted_clocks(merged)
-  |> expect.to_equal(state.compacted_clocks(double_compacted))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(state.compacted_clocks(double_compacted))
 
   // Clouds should be identical
   state.internal_clouds(merged)
-  |> expect.to_equal(state.internal_clouds(double_compacted))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(state.internal_clouds(double_compacted))
 
   // Online set should be identical
   crdt_generator.online_ids(merged)
-  |> expect.to_equal(crdt_generator.online_ids(double_compacted))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(double_compacted))
 }
 
 // ── Merge diff accuracy ─────────────────────────────────────────────
@@ -229,13 +276,21 @@ pub fn prop_merge_diff_accuracy_test() {
   // All entries reported as joins must be present in the merged state
   let join_ids = crdt_generator.diff_entry_ids(diff.joins)
   let _ =
-    set.each(join_ids, fn(id) { expect.to_be_true(set.contains(after_ids, id)) })
+    set.each(join_ids, fn(id) {
+      fn(actual) {
+        let assert True = actual
+        Nil
+      }(set.contains(after_ids, id))
+    })
 
   // Entries reported as leaves (and not also as joins) must be absent
   let leave_ids = crdt_generator.diff_entry_ids(diff.leaves)
   let leave_only = set.difference(leave_ids, join_ids)
   set.each(leave_only, fn(id) {
-    expect.to_be_false(set.contains(after_ids, id))
+    fn(actual) {
+      let assert False = actual
+      Nil
+    }(set.contains(after_ids, id))
   })
 }
 
@@ -260,7 +315,10 @@ pub fn prop_serialization_roundtrip_test() {
   let assert Ok(m2) = state.merge(decoded, other)
 
   crdt_generator.online_ids(m1)
-  |> expect.to_equal(crdt_generator.online_ids(m2))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(m2))
 }
 
 // ── Double roundtrip stability ──────────────────────────────────────
@@ -277,7 +335,11 @@ pub fn prop_double_roundtrip_stability_test() {
   let encoded3 = state.to_json_string(decoded2)
 
   // Second and third encodings should be identical
-  encoded2 |> expect.to_equal(encoded3)
+  encoded2
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(encoded3)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -315,7 +377,10 @@ pub fn prop_netsplit_heal_convergence_test() {
 
   // Both sides should converge
   crdt_generator.online_ids(a_final)
-  |> expect.to_equal(crdt_generator.online_ids(b_final))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(b_final))
 }
 
 // ── Rapid join/leave cycles ─────────────────────────────────────────
@@ -344,10 +409,18 @@ pub fn prop_rapid_join_leave_cycles_test() {
   let assert Ok(ba) = state.merge(b, a)
 
   crdt_generator.online_ids(ab)
-  |> expect.to_equal(crdt_generator.online_ids(ba))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(ba))
 
   // A's entry should survive (add-wins for concurrent add from A)
-  state.get_by_topic(ab, topic) |> list.length |> expect.to_equal(1)
+  state.get_by_topic(ab, topic)
+  |> list.length
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }
 
 // ── Multi-round gossip convergence ──────────────────────────────────
@@ -380,8 +453,16 @@ pub fn prop_gossip_convergence_test() {
   let ids_b = crdt_generator.online_ids(b)
   let ids_c = crdt_generator.online_ids(c)
 
-  ids_a |> expect.to_equal(ids_b)
-  ids_b |> expect.to_equal(ids_c)
+  ids_a
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(ids_b)
+  ids_b
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(ids_c)
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -402,15 +483,25 @@ pub fn prop_replica_down_up_roundtrip_test() {
   // Down hides r2's entries
   let #(a_down, _) = state.replica_down(a, "r2")
   let down_ids = crdt_generator.online_ids(a_down)
-  expect.to_be_false(set.contains(down_ids, #("p1", "t1", "k1")))
+  fn(actual) {
+    let assert False = actual
+    Nil
+  }(set.contains(down_ids, #("p1", "t1", "k1")))
 
   // Values dict is unchanged (entries still stored, just hidden)
-  state.internal_values(a_down) |> expect.to_equal(values_before)
+  state.internal_values(a_down)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(values_before)
 
   // Up restores visibility
   let #(a_up, _) = state.replica_up(a_down, "r2")
   crdt_generator.online_ids(a_up)
-  |> expect.to_equal(crdt_generator.online_ids(a))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(a))
 }
 
 // ── Remove-down-replicas permanence ─────────────────────────────────
@@ -428,14 +519,22 @@ pub fn prop_remove_down_replicas_permanent_test() {
 
   // The retained high-water mark prevents lagging b from resurrecting r2.
   let r2_context = dict.get(state.compacted_clocks(a), "r2")
-  r2_context |> expect.to_equal(Ok(1))
+  r2_context
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(1))
   let assert Ok(a) = state.merge(a, b)
 
   // r2's entries are gone from values
   let r2_entries =
     dict.to_list(state.internal_values(a))
     |> list.filter(fn(kv) { { kv.0 }.replica == "r2" })
-  list.length(r2_entries) |> expect.to_equal(0)
+  list.length(r2_entries)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(0)
 }
 
 pub fn prop_supersede_preserves_selected_entries_and_rejects_covered_replay_test() {
@@ -483,32 +582,64 @@ pub fn prop_supersede_preserves_selected_entries_and_rejects_covered_replay_test
       crdt_generator.online_ids(old_a),
       crdt_generator.online_ids(old_b),
     )
-  crdt_generator.online_ids(cleaned) |> expect.to_equal(kept_ids)
-  crdt_generator.diff_entry_ids(diff.leaves) |> expect.to_equal(removed_ids)
+  crdt_generator.online_ids(cleaned)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(kept_ids)
+  crdt_generator.diff_entry_ids(diff.leaves)
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(removed_ids)
   dict.values(diff.leaves)
   |> list.flatten
   |> list.length
-  |> expect.to_equal(state.entry_count(old_a) + state.entry_count(old_b))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(state.entry_count(old_a) + state.entry_count(old_b))
   state.entry_count(cleaned)
-  |> expect.to_equal(state.entry_count(current) + state.entry_count(other))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(state.entry_count(current) + state.entry_count(other))
   state.compacted_clocks(cleaned)
-  |> expect.to_equal(state.compacted_clocks(stale))
-  diff.joins |> expect.to_equal(dict.new())
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(state.compacted_clocks(stale))
+  diff.joins
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(dict.new())
   state.supersede(cleaned, selected)
-  |> expect.to_equal(
-    Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))),
-  )
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))))
 
   list.each([#(stale, cleaned), #(cleaned, stale)], fn(snapshots) {
     let assert Ok(observer) = state.merge(state.new("observer"), snapshots.0)
     let assert Ok(observer) = state.merge(observer, snapshots.1)
     let assert Ok(#(replayed, replay_diff)) =
       state.merge_with_diff(observer, stale)
-    crdt_generator.online_ids(replayed) |> expect.to_equal(kept_ids)
+    crdt_generator.online_ids(replayed)
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(kept_ids)
     state.internal_values(replayed)
-    |> expect.to_equal(state.internal_values(cleaned))
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(state.internal_values(cleaned))
     replay_diff
-    |> expect.to_equal(state.Diff(joins: dict.new(), leaves: dict.new()))
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(state.Diff(joins: dict.new(), leaves: dict.new()))
   })
 }
 
@@ -551,14 +682,23 @@ pub fn prop_leave_by_pid_completeness_test() {
 
   // No entries with the target pid should remain
   state.online_list(after)
-  |> list.each(fn(entry) { expect.to_not_equal({ entry }.0, pid) })
+  |> list.each(fn(entry) {
+    fn(actual, expected) {
+      let assert True = actual != expected
+      Nil
+    }({ entry }.0, pid)
+  })
 
   // All non-pid entries should still be present
   let remaining_ids =
     state.online_list(after)
     |> list.map(fn(e) { #({ e }.0, { e }.1, { e }.2) })
     |> set.from_list
-  remaining_ids |> expect.to_equal(non_pid_entries)
+  remaining_ids
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(non_pid_entries)
 }
 
 // ── Extract-then-merge equivalence ──────────────────────────────────
@@ -577,5 +717,8 @@ pub fn prop_extract_merge_equivalence_test() {
   let assert Ok(via_extract) = state.merge(a, extracted)
 
   crdt_generator.online_ids(direct)
-  |> expect.to_equal(crdt_generator.online_ids(via_extract))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(crdt_generator.online_ids(via_extract))
 }

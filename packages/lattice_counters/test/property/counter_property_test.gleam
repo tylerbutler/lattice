@@ -2,7 +2,6 @@ import lattice_core/replica_id
 import lattice_counters/g_counter
 import lattice_counters/pn_counter
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -28,8 +27,8 @@ pub fn g_counter_simple_commutativity__test() {
         g_counter.new(rid("A")) |> g_counter.increment(a)
       let assert Ok(counter_b) =
         g_counter.new(rid("B")) |> g_counter.increment(b)
-      g_counter.value(g_counter.merge(counter_a, counter_b))
-      |> expect.to_equal(g_counter.value(g_counter.merge(counter_b, counter_a)))
+      assert g_counter.value(g_counter.merge(counter_a, counter_b))
+        == g_counter.value(g_counter.merge(counter_b, counter_a))
       Nil
     },
   )
@@ -56,7 +55,7 @@ pub fn g_counter_simple_associativity__test() {
         g_counter.merge(g_counter.merge(counter_a, counter_b), counter_c)
       let merged2 =
         g_counter.merge(counter_a, g_counter.merge(counter_b, counter_c))
-      g_counter.value(merged1) |> expect.to_equal(g_counter.value(merged2))
+      assert g_counter.value(merged1) == g_counter.value(merged2)
       Nil
     },
   )
@@ -65,8 +64,8 @@ pub fn g_counter_simple_associativity__test() {
 pub fn g_counter_simple_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.small_non_negative_int(), fn(n) {
     let assert Ok(counter) = g_counter.new(rid("A")) |> g_counter.increment(n)
-    g_counter.value(g_counter.merge(counter, counter))
-    |> expect.to_equal(g_counter.value(counter))
+    assert g_counter.value(g_counter.merge(counter, counter))
+      == g_counter.value(counter)
     Nil
   })
 }
@@ -89,10 +88,8 @@ pub fn pn_counter_simple_commutativity__test() {
         True -> pn_counter.new(rid("B")) |> pn_counter.increment(b)
         False -> pn_counter.new(rid("B")) |> pn_counter.decrement(-b)
       }
-      pn_counter.value(pn_counter.merge(counter_a, counter_b))
-      |> expect.to_equal(
-        pn_counter.value(pn_counter.merge(counter_b, counter_a)),
-      )
+      assert pn_counter.value(pn_counter.merge(counter_a, counter_b))
+        == pn_counter.value(pn_counter.merge(counter_b, counter_a))
       Nil
     },
   )
@@ -125,7 +122,7 @@ pub fn pn_counter_simple_associativity__test() {
         pn_counter.merge(pn_counter.merge(counter_a, counter_b), counter_c)
       let merged2 =
         pn_counter.merge(counter_a, pn_counter.merge(counter_b, counter_c))
-      pn_counter.value(merged1) |> expect.to_equal(pn_counter.value(merged2))
+      assert pn_counter.value(merged1) == pn_counter.value(merged2)
       Nil
     },
   )
@@ -137,8 +134,8 @@ pub fn pn_counter_simple_idempotency__test() {
       True -> pn_counter.new(rid("A")) |> pn_counter.increment(n)
       False -> pn_counter.new(rid("A")) |> pn_counter.decrement(-n)
     }
-    pn_counter.value(pn_counter.merge(counter, counter))
-    |> expect.to_equal(pn_counter.value(counter))
+    assert pn_counter.value(pn_counter.merge(counter, counter))
+      == pn_counter.value(counter)
     Nil
   })
 }
@@ -162,8 +159,8 @@ pub fn g_counter_delta_correctness__test() {
     let assert Ok(counter) = g_counter.new(rid("A")) |> g_counter.increment(7)
     let assert Ok(direct) = g_counter.increment(counter, n)
     let assert Ok(#(_, delta)) = g_counter.increment_with_delta(counter, n)
-    g_counter.value(g_counter.merge(counter, delta))
-    |> expect.to_equal(g_counter.value(direct))
+    assert g_counter.value(g_counter.merge(counter, delta))
+      == g_counter.value(direct)
     Nil
   })
 }
@@ -188,8 +185,8 @@ pub fn g_counter_delta_sufficiency_on_remote__test() {
       // Arbitrary remote replica B at `c`.
       let assert Ok(remote) = g_counter.new(rid("B")) |> g_counter.increment(c)
       // Applying the delta should converge equivalently to merging full state.
-      g_counter.value(g_counter.merge(remote, delta))
-      |> expect.to_equal(g_counter.value(g_counter.merge(remote, local_after)))
+      assert g_counter.value(g_counter.merge(remote, delta))
+        == g_counter.value(g_counter.merge(remote, local_after))
       Nil
     },
   )
@@ -220,7 +217,7 @@ pub fn g_counter_delta_idempotent_commutative__test() {
         |> g_counter.merge(d1)
         |> g_counter.merge(d3)
         |> g_counter.merge(d2)
-      g_counter.value(merged) |> expect.to_equal(a + b + c)
+      assert g_counter.value(merged) == a + b + c
       Nil
     },
   )
@@ -231,8 +228,8 @@ pub fn pn_counter_increment_delta_correctness__test() {
     let assert Ok(counter) = pn_counter.new(rid("A")) |> pn_counter.increment(3)
     let assert Ok(direct) = pn_counter.increment(counter, n)
     let assert Ok(#(_, delta)) = pn_counter.increment_with_delta(counter, n)
-    pn_counter.value(pn_counter.merge(counter, delta))
-    |> expect.to_equal(pn_counter.value(direct))
+    assert pn_counter.value(pn_counter.merge(counter, delta))
+      == pn_counter.value(direct)
     Nil
   })
 }
@@ -243,8 +240,8 @@ pub fn pn_counter_decrement_delta_correctness__test() {
       pn_counter.new(rid("A")) |> pn_counter.increment(20)
     let assert Ok(direct) = pn_counter.decrement(counter, n)
     let assert Ok(#(_, delta)) = pn_counter.decrement_with_delta(counter, n)
-    pn_counter.value(pn_counter.merge(counter, delta))
-    |> expect.to_equal(pn_counter.value(direct))
+    assert pn_counter.value(pn_counter.merge(counter, delta))
+      == pn_counter.value(direct)
     Nil
   })
 }
@@ -273,7 +270,7 @@ pub fn pn_counter_delta_idempotent_commutative__test() {
         |> pn_counter.merge(d1)
         |> pn_counter.merge(d2)
         |> pn_counter.merge(d1)
-      pn_counter.value(merged) |> expect.to_equal(inc1 - dec1 + inc2)
+      assert pn_counter.value(merged) == inc1 - dec1 + inc2
       Nil
     },
   )

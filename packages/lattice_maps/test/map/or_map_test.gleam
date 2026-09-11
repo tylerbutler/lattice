@@ -11,7 +11,6 @@ import lattice_maps/crdt.{
 import lattice_maps/or_map
 import lattice_registers/lww_register
 import lattice_sets/g_set
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -22,19 +21,25 @@ fn rid(id: String) {
 pub fn new_get_missing_key_test() {
   let m = or_map.new(rid("A"), GCounterSpec)
   or_map.get(m, "any")
-  |> expect.to_equal(Error(Nil))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
 }
 
 pub fn new_keys_empty_test() {
   let m = or_map.new(rid("A"), GCounterSpec)
   or_map.keys(m)
-  |> expect.to_equal([])
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
 }
 
 pub fn new_values_empty_test() {
   let m = or_map.new(rid("A"), GCounterSpec)
   or_map.values(m)
-  |> expect.to_equal([])
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
 }
 
 // --- update() tests ---
@@ -52,8 +57,14 @@ pub fn update_auto_creates_crdt_test() {
       }
     })
   case or_map.get(m, "score") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(5)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 5
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -80,8 +91,14 @@ pub fn update_modifies_existing_value_test() {
       }
     })
   case or_map.get(m, "score") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 10
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -91,7 +108,9 @@ pub fn update_adds_key_to_keys_list_test() {
   let assert Ok(m) = or_map.update(m, "name", fn(c) { c })
   or_map.keys(m)
   |> list.sort(string.compare)
-  |> expect.to_equal(["name", "score"])
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ["name", "score"]
+  }
 }
 
 pub fn update_key_appears_in_values_test() {
@@ -104,7 +123,10 @@ pub fn update_key_appears_in_values_test() {
       }
     })
   let vals = or_map.values(m)
-  list.length(vals) |> expect.to_equal(1)
+  list.length(vals)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 pub fn update_with_delta_rejects_wrong_value_type_test() {
@@ -113,7 +135,10 @@ pub fn update_with_delta_rejects_wrong_value_type_test() {
     or_map.update_with_delta(m, "score", fn(_) { crdt.CrdtGSet(g_set.new()) })
 
   result
-  |> expect.to_equal(Error(crdt.TypeMismatch("g_counter", "g_set")))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == Error(crdt.TypeMismatch("g_counter", "g_set"))
+  }
 }
 
 pub fn update_with_delta_delta_converges_without_callback_supplied_delta_test() {
@@ -134,7 +159,9 @@ pub fn update_with_delta_delta_converges_without_callback_supplied_delta_test() 
   let assert Ok(via_full) = or_map.merge(remote, local)
 
   or_map.get(via_delta, "score")
-  |> expect.to_equal(or_map.get(via_full, "score"))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.get(via_full, "score")
+  }
 }
 
 // --- get() tests ---
@@ -143,8 +170,12 @@ pub fn get_returns_ok_for_active_key_test() {
   let m = or_map.new(rid("A"), GCounterSpec)
   let assert Ok(m) = or_map.update(m, "x", fn(c) { c })
   case or_map.get(m, "x") {
-    Ok(_) -> expect.to_be_true(True)
-    Error(_) -> expect.to_be_true(False)
+    Ok(_) -> {
+      Nil
+    }
+    Error(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -155,7 +186,9 @@ pub fn remove_makes_key_invisible_test() {
   let assert Ok(m) = or_map.update(m, "score", fn(c) { c })
   let m = or_map.remove(m, "score")
   or_map.get(m, "score")
-  |> expect.to_equal(Error(Nil))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
 }
 
 pub fn remove_excludes_key_from_keys_test() {
@@ -164,7 +197,9 @@ pub fn remove_excludes_key_from_keys_test() {
   let assert Ok(m) = or_map.update(m, "b", fn(c) { c })
   let m = or_map.remove(m, "a")
   or_map.keys(m)
-  |> expect.to_equal(["b"])
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == ["b"]
+  }
 }
 
 pub fn remove_excludes_from_values_test() {
@@ -193,7 +228,9 @@ pub fn remove_excludes_from_values_test() {
   // Only "b" value should remain
   or_map.values(m)
   |> list.length
-  |> expect.to_equal(1)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 pub fn re_add_after_remove_works_test() {
@@ -203,8 +240,12 @@ pub fn re_add_after_remove_works_test() {
   let m = or_map.remove(m, "x")
   let assert Ok(m) = or_map.update(m, "x", fn(c) { c })
   case or_map.get(m, "x") {
-    Ok(_) -> expect.to_be_true(True)
-    Error(_) -> expect.to_be_true(False)
+    Ok(_) -> {
+      Nil
+    }
+    Error(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -233,8 +274,14 @@ pub fn re_add_after_remove_resets_value_test() {
     })
 
   case or_map.get(m, "count") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(1)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 1
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -248,7 +295,9 @@ pub fn keys_returns_only_active_keys_test() {
   let m = or_map.remove(m, "b")
   or_map.keys(m)
   |> set.from_list
-  |> expect.to_equal(set.from_list(["a", "c"]))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == set.from_list(["a", "c"])
+  }
 }
 
 pub fn values_returns_only_active_values_test() {
@@ -258,7 +307,9 @@ pub fn values_returns_only_active_values_test() {
   let m = or_map.remove(m, "b")
   or_map.values(m)
   |> list.length
-  |> expect.to_equal(1)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 // --- merge() tests ---
@@ -271,7 +322,9 @@ pub fn merge_disjoint_keys_test() {
   let assert Ok(merged) = or_map.merge(map_a, map_b)
   or_map.keys(merged)
   |> set.from_list
-  |> expect.to_equal(set.from_list(["x", "y"]))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == set.from_list(["x", "y"])
+  }
 }
 
 pub fn merge_nested_values_combined_test() {
@@ -299,8 +352,14 @@ pub fn merge_nested_values_combined_test() {
     })
   let assert Ok(merged) = or_map.merge(map_a, map_b)
   case or_map.get(merged, "score") {
-    Ok(CrdtGCounter(counter)) -> g_counter.value(counter) |> expect.to_equal(10)
-    _ -> expect.to_be_true(False)
+    Ok(CrdtGCounter(counter)) ->
+      g_counter.value(counter)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 10
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -332,11 +391,23 @@ pub fn merge_lww_register_unicode_order_test() {
     [or_map.merge(bmp, supplementary), or_map.merge(supplementary, bmp)],
     fn(result) {
       let assert Ok(merged) = result
-      or_map.keys(merged) |> expect.to_equal(["name"])
+      or_map.keys(merged)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == ["name"]
+      }
       let assert Ok(CrdtLwwRegister(register)) = or_map.get(merged, "name")
-      lww_register.value(register) |> expect.to_equal("supplementary value")
-      lww_register.replica_id(register) |> expect.to_equal(rid("\u{10000}"))
-      lww_register.timestamp(register) |> expect.to_equal(5)
+      lww_register.value(register)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == "supplementary value"
+      }
+      lww_register.replica_id(register)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == rid("\u{10000}")
+      }
+      lww_register.timestamp(register)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 5
+      }
     },
   )
 }
@@ -364,17 +435,31 @@ pub fn concurrent_readd_unicode_order_preserves_winning_generation_state_test() 
   let #(b, db) = reset("\u{10000}", 20)
   let local = rid("R")
   let expected = or_map.bind(b, local)
-  or_map.merge_as(a, b, local) |> expect.to_equal(Ok(expected))
-  or_map.merge_as(b, a, local) |> expect.to_equal(Ok(expected))
+  or_map.merge_as(a, b, local)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(expected)
+  }
+  or_map.merge_as(b, a, local)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(expected)
+  }
   list.each([[da, db], [db, da], [db, da, db]], fn(deltas) {
     let assert Ok(delivered) =
       list.try_fold(deltas, or_map.bind(removed, local), or_map.apply_delta)
-    delivered |> expect.to_equal(expected)
+    delivered
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == expected
+    }
   })
   let assert Ok(CrdtGCounter(counter)) = or_map.get(expected, "key")
-  g_counter.value(counter) |> expect.to_equal(20)
+  g_counter.value(counter)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 20
+  }
   or_map.from_json(or_map.to_json(expected) |> json.to_string)
-  |> expect.to_equal(Ok(expected))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(expected)
+  }
 }
 
 pub fn merge_preserves_active_keys_from_both_sides_test() {
@@ -387,7 +472,10 @@ pub fn merge_preserves_active_keys_from_both_sides_test() {
   let assert Ok(merged) = or_map.merge(map_a, map_b)
   or_map.keys(merged)
   |> set.from_list
-  |> expect.to_equal(set.from_list(["alpha", "beta", "gamma"]))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == set.from_list(["alpha", "beta", "gamma"])
+  }
 }
 
 // --- concurrent update-wins scenario (add-wins semantics) ---
@@ -428,8 +516,12 @@ pub fn concurrent_update_wins_over_remove_test() {
 
   // "x" should still be present
   case or_map.get(merged, "x") {
-    Ok(_) -> expect.to_be_true(True)
-    Error(_) -> expect.to_be_true(False)
+    Ok(_) -> {
+      Nil
+    }
+    Error(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -466,17 +558,31 @@ pub fn merge_add_wins_keys_in_or_set_test() {
   // Use keys() to check "x" is present (active in OR-Set)
   or_map.keys(merged)
   |> list.any(fn(k) { k == "x" })
-  |> expect.to_be_true
+  |> fn(value) {
+    let assert True = value
+  }
 }
 
 pub fn update_rejects_mismatch_for_absent_key_test() {
   let map = or_map.new(rid("A"), GCounterSpec)
 
   or_map.update(map, "x", fn(_) { crdt.CrdtGSet(g_set.new()) })
-  |> expect.to_equal(Error(crdt.TypeMismatch("g_counter", "g_set")))
-  map |> expect.to_equal(or_map.new(rid("A"), GCounterSpec))
-  or_map.keys(map) |> expect.to_equal([])
-  or_map.get(map, "x") |> expect.to_equal(Error(Nil))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == Error(crdt.TypeMismatch("g_counter", "g_set"))
+  }
+  map
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.new(rid("A"), GCounterSpec)
+  }
+  or_map.keys(map)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
+  or_map.get(map, "x")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
 }
 
 pub fn update_rejects_mismatch_for_existing_key_test() {
@@ -489,13 +595,28 @@ pub fn update_rejects_mismatch_for_existing_key_test() {
   let wrong_type = fn(_) { crdt.CrdtGSet(g_set.new()) }
 
   or_map.update(map, "x", wrong_type)
-  |> expect.to_equal(Error(crdt.TypeMismatch("g_counter", "g_set")))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == Error(crdt.TypeMismatch("g_counter", "g_set"))
+  }
   or_map.update_with_delta(map, "x", wrong_type)
-  |> expect.to_equal(Error(crdt.TypeMismatch("g_counter", "g_set")))
-  map |> expect.to_equal(original)
-  or_map.get(map, "x") |> expect.to_equal(or_map.get(original, "x"))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == Error(crdt.TypeMismatch("g_counter", "g_set"))
+  }
+  map
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == original
+  }
+  or_map.get(map, "x")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == or_map.get(original, "x")
+  }
   let assert Ok(CrdtGCounter(bound)) = or_map.get(map, "x")
-  g_counter.value(bound) |> expect.to_equal(7)
+  g_counter.value(bound)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 7
+  }
 }
 
 pub fn update_rejects_mismatch_for_removed_key_test() {
@@ -506,13 +627,31 @@ pub fn update_rejects_mismatch_for_removed_key_test() {
   let wrong_type = fn(_) { crdt.CrdtGSet(g_set.new()) }
 
   or_map.update(map, "x", wrong_type)
-  |> expect.to_equal(Error(crdt.TypeMismatch("g_counter", "g_set")))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == Error(crdt.TypeMismatch("g_counter", "g_set"))
+  }
   or_map.update_with_delta(map, "x", wrong_type)
-  |> expect.to_equal(Error(crdt.TypeMismatch("g_counter", "g_set")))
-  map |> expect.to_equal(original)
-  or_map.keys(map) |> expect.to_equal([])
-  or_map.get(map, "x") |> expect.to_equal(Error(Nil))
-  or_map.internal_value_count(map) |> expect.to_equal(1)
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == Error(crdt.TypeMismatch("g_counter", "g_set"))
+  }
+  map
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == original
+  }
+  or_map.keys(map)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
+  or_map.get(map, "x")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Error(Nil)
+  }
+  or_map.internal_value_count(map)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
 }
 
 pub fn update_state_and_delta_agree_for_all_key_states_test() {
@@ -530,14 +669,26 @@ pub fn update_state_and_delta_agree_for_all_key_states_test() {
     let assert Ok(updated) = or_map.update(map, "x", increment)
     let assert Ok(#(with_delta, delta)) =
       or_map.update_with_delta(map, "x", increment)
-    updated |> expect.to_equal(with_delta)
+    updated
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == with_delta
+    }
     let assert Ok(CrdtGCounter(counter)) = or_map.get(updated, "x")
-    g_counter.value(counter) |> expect.to_equal(expected)
+    g_counter.value(counter)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == expected
+    }
     let remote = or_map.new(rid("B"), GCounterSpec)
     let assert Ok(via_delta) = or_map.apply_delta(remote, delta)
     let assert Ok(via_full) = or_map.merge(remote, updated)
-    or_map.keys(via_delta) |> expect.to_equal(or_map.keys(via_full))
-    or_map.get(via_delta, "x") |> expect.to_equal(or_map.get(via_full, "x"))
+    or_map.keys(via_delta)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == or_map.keys(via_full)
+    }
+    or_map.get(via_delta, "x")
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == or_map.get(via_full, "x")
+    }
   })
 }
 
@@ -546,9 +697,12 @@ pub fn merge_rejects_maps_with_different_specs_test() {
   let sets = or_map.new(rid("B"), GSetSpec)
 
   case or_map.merge(counters, sets) {
-    Error(crdt.TypeMismatch(expected: "g_counter", found: "g_set")) ->
-      expect.to_be_true(True)
-    _ -> expect.to_be_true(False)
+    Error(crdt.TypeMismatch(expected: "g_counter", found: "g_set")) -> {
+      Nil
+    }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -560,5 +714,7 @@ pub fn keys_contains_added_key_test() {
   let assert Ok(m2) = or_map.update(m, "key1", fn(c) { c })
   or_map.keys(m2)
   |> list.any(fn(k) { k == "key1" })
-  |> expect.to_be_true
+  |> fn(value) {
+    let assert True = value
+  }
 }

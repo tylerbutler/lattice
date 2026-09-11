@@ -7,7 +7,6 @@ import lattice_maps/crdt
 import lattice_maps/or_map
 import lattice_sequence/sequence
 import lattice_text/text
-import startest/expect
 import support/composition_fixture as fixture
 
 pub fn nested_sparse_thousand_and_ten_thousand_items_test() {
@@ -20,10 +19,18 @@ pub fn nested_sparse_thousand_and_ten_thousand_items_test() {
     let #(updated, delta) = fixture.append(baseline, size + 1)
     let snapshot = or_map.to_json_with(updated, json.int) |> json.to_string
     let encoded = or_map.delta_to_json_with(delta, json.int) |> json.to_string
-    fixture.version(snapshot) |> expect.to_equal(3)
-    fixture.version(encoded) |> expect.to_equal(2)
+    fixture.version(snapshot)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 3
+    }
+    fixture.version(encoded)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 2
+    }
     { string.byte_size(encoded) * 10 < string.byte_size(snapshot) }
-    |> expect.to_be_true
+    |> fn(value) {
+      let assert True = value
+    }
     let leaf =
       encoded
       |> fixture.delta_child("doc")
@@ -45,10 +52,16 @@ pub fn nested_sparse_thousand_and_ten_thousand_items_test() {
         })
         decode.success(state)
       })
-    segments |> expect.to_equal([#("item", size + 1)])
+    segments
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == [#("item", size + 1)]
+    }
     let assert Ok(decoded) = or_map.delta_from_json_with(encoded, decode.int)
     let assert Ok(applied) = or_map.apply_delta(baseline, decoded)
-    applied |> expect.to_equal(updated)
+    applied
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == updated
+    }
   })
 }
 
@@ -61,10 +74,16 @@ pub fn sparse_nested_batch_remains_sparse_and_matches_complete_delivery_test() {
   let assert Ok(bound) = or_map.merge(blank, baseline)
   let assert Ok(applied) = or_map.apply_delta(bound, batch)
   let assert Ok(expected) = or_map.merge(blank, second)
-  applied |> expect.to_equal(expected)
+  applied
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == expected
+  }
   let assert Ok(reordered) =
     list.try_fold([d2, d1, d2, d1], bound, or_map.apply_delta)
-  reordered |> expect.to_equal(expected)
+  reordered
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == expected
+  }
   let outer = or_map.delta_to_json_with(batch, json.int) |> json.to_string
   let _ =
     outer |> fixture.delta_child("doc") |> fixture.dispatch_payload("or_map")
@@ -76,7 +95,10 @@ pub fn sparse_nested_batch_remains_sparse_and_matches_complete_delivery_test() {
       replica_id.new("R"),
     )
   let assert crdt.StateDelta(crdt.CrdtOrMap(snapshot)) = snapshot_batch
-  snapshot |> expect.to_equal(expected)
+  snapshot
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == expected
+  }
 }
 
 pub fn out_of_order_sparse_origins_eventually_converge_without_pending_queue_test() {
@@ -86,8 +108,15 @@ pub fn out_of_order_sparse_origins_eventually_converge_without_pending_queue_tes
   let assert Ok(incomplete) = or_map.apply_delta(blank, delta)
   let assert Ok(repaired) = or_map.merge(incomplete, baseline)
   let assert Ok(expected) = or_map.merge(blank, later)
-  repaired |> expect.to_equal(expected)
-  fixture.sequence(repaired) |> sequence.values |> expect.to_equal([1, 2, 3])
+  repaired
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == expected
+  }
+  fixture.sequence(repaired)
+  |> sequence.values
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == [1, 2, 3]
+  }
 }
 
 pub fn nested_sparse_thousand_and_ten_thousand_graphemes_test() {
@@ -119,7 +148,9 @@ pub fn nested_sparse_thousand_and_ten_thousand_graphemes_test() {
     let snapshot = or_map.to_json_with(updated, json.int) |> json.to_string
     let encoded = or_map.delta_to_json_with(delta, json.int) |> json.to_string
     { string.byte_size(encoded) * 10 < string.byte_size(snapshot) }
-    |> expect.to_be_true
+    |> fn(value) {
+      let assert True = value
+    }
     let leaf =
       encoded
       |> fixture.delta_child("doc")
@@ -128,10 +159,19 @@ pub fn nested_sparse_thousand_and_ten_thousand_graphemes_test() {
       |> fixture.dispatch_payload("state")
     let assert Ok(crdt.CrdtText(leaf_delta)) =
       crdt.from_json_with(leaf, decode.int)
-    text.length(leaf_delta) |> expect.to_equal(1)
-    text.value(leaf_delta) |> expect.to_equal("!")
+    text.length(leaf_delta)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == 1
+    }
+    text.value(leaf_delta)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == "!"
+    }
     let assert Ok(decoded) = or_map.delta_from_json_with(encoded, decode.int)
     let assert Ok(applied) = or_map.apply_delta(baseline, decoded)
-    applied |> expect.to_equal(updated)
+    applied
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == updated
+    }
   })
 }

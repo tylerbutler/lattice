@@ -1,53 +1,63 @@
 import gleam/order
 import lattice_core/replica_id
-import startest/expect
 
 pub fn new_and_to_string_round_trip_test() {
-  replica_id.new("node-a")
-  |> replica_id.to_string
-  |> expect.to_equal("node-a")
+  assert replica_id.new("node-a")
+    |> replica_id.to_string
+    == "node-a"
 }
 
 pub fn compare_less_than_test() {
-  replica_id.compare(replica_id.new("A"), replica_id.new("B"))
-  |> expect.to_equal(order.Lt)
+  assert replica_id.compare(replica_id.new("A"), replica_id.new("B"))
+    == order.Lt
 }
 
 pub fn compare_greater_than_test() {
-  replica_id.compare(replica_id.new("B"), replica_id.new("A"))
-  |> expect.to_equal(order.Gt)
+  assert replica_id.compare(replica_id.new("B"), replica_id.new("A"))
+    == order.Gt
 }
 
 pub fn compare_equal_test() {
-  replica_id.compare(replica_id.new("A"), replica_id.new("A"))
-  |> expect.to_equal(order.Eq)
+  assert replica_id.compare(replica_id.new("A"), replica_id.new("A"))
+    == order.Eq
 }
 
 pub fn compare_unicode_order_less_than_test() {
-  replica_id.compare(replica_id.new("\u{e000}"), replica_id.new("\u{10000}"))
-  |> expect.to_equal(order.Lt)
+  assert replica_id.compare(
+      replica_id.new("\u{e000}"),
+      replica_id.new("\u{10000}"),
+    )
+    == order.Lt
 }
 
 pub fn compare_unicode_order_greater_than_test() {
-  replica_id.compare(replica_id.new("\u{10000}"), replica_id.new("\u{e000}"))
-  |> expect.to_equal(order.Gt)
+  assert replica_id.compare(
+      replica_id.new("\u{10000}"),
+      replica_id.new("\u{e000}"),
+    )
+    == order.Gt
 }
 
 pub fn compare_unicode_order_equal_test() {
-  replica_id.compare(replica_id.new("\u{e000}"), replica_id.new("\u{e000}"))
-  |> expect.to_equal(order.Eq)
-  replica_id.compare(replica_id.new("\u{10000}"), replica_id.new("\u{10000}"))
-  |> expect.to_equal(order.Eq)
+  assert replica_id.compare(
+      replica_id.new("\u{e000}"),
+      replica_id.new("\u{e000}"),
+    )
+    == order.Eq
+  assert replica_id.compare(
+      replica_id.new("\u{10000}"),
+      replica_id.new("\u{10000}"),
+    )
+    == order.Eq
 }
 
 pub fn compare_unicode_order_common_prefix_test() {
   let bmp = replica_id.new("replica-\u{e000}")
   let supplementary = replica_id.new("replica-\u{10000}")
 
-  replica_id.compare(bmp, supplementary) |> expect.to_equal(order.Lt)
-  replica_id.compare(supplementary, bmp) |> expect.to_equal(order.Gt)
-  replica_id.compare(supplementary, supplementary)
-  |> expect.to_equal(order.Eq)
+  assert replica_id.compare(bmp, supplementary) == order.Lt
+  assert replica_id.compare(supplementary, bmp) == order.Gt
+  assert replica_id.compare(supplementary, supplementary) == order.Eq
 }
 
 pub fn compare_unicode_order_empty_test() {
@@ -55,48 +65,54 @@ pub fn compare_unicode_order_empty_test() {
   let bmp = replica_id.new("\u{e000}")
   let supplementary = replica_id.new("\u{10000}")
 
-  replica_id.compare(empty, empty) |> expect.to_equal(order.Eq)
-  replica_id.compare(empty, bmp) |> expect.to_equal(order.Lt)
-  replica_id.compare(bmp, empty) |> expect.to_equal(order.Gt)
-  replica_id.compare(empty, supplementary) |> expect.to_equal(order.Lt)
-  replica_id.compare(supplementary, empty) |> expect.to_equal(order.Gt)
+  assert replica_id.compare(empty, empty) == order.Eq
+  assert replica_id.compare(empty, bmp) == order.Lt
+  assert replica_id.compare(bmp, empty) == order.Gt
+  assert replica_id.compare(empty, supplementary) == order.Lt
+  assert replica_id.compare(supplementary, empty) == order.Gt
 }
 
 pub fn compare_unicode_order_ascii_test() {
   let a = replica_id.new("A")
   let b = replica_id.new("B")
 
-  replica_id.compare(a, b) |> expect.to_equal(order.Lt)
-  replica_id.compare(b, a) |> expect.to_equal(order.Gt)
-  replica_id.compare(a, a) |> expect.to_equal(order.Eq)
+  assert replica_id.compare(a, b) == order.Lt
+  assert replica_id.compare(b, a) == order.Gt
+  assert replica_id.compare(a, a) == order.Eq
 }
 
 pub fn compare_unicode_order_prefix_test() {
-  replica_id.compare(replica_id.new("a"), replica_id.new("aa"))
-  |> expect.to_equal(order.Lt)
-  replica_id.compare(replica_id.new("aa"), replica_id.new("a"))
-  |> expect.to_equal(order.Gt)
-  replica_id.compare(replica_id.new("\u{10000}"), replica_id.new("\u{10000}a"))
-  |> expect.to_equal(order.Lt)
-  replica_id.compare(replica_id.new("\u{10000}a"), replica_id.new("\u{10000}"))
-  |> expect.to_equal(order.Gt)
+  assert replica_id.compare(replica_id.new("a"), replica_id.new("aa"))
+    == order.Lt
+  assert replica_id.compare(replica_id.new("aa"), replica_id.new("a"))
+    == order.Gt
+  assert replica_id.compare(
+      replica_id.new("\u{10000}"),
+      replica_id.new("\u{10000}a"),
+    )
+    == order.Lt
+  assert replica_id.compare(
+      replica_id.new("\u{10000}a"),
+      replica_id.new("\u{10000}"),
+    )
+    == order.Gt
 }
 
 pub fn compare_unicode_order_lexicographic_not_length_test() {
-  replica_id.compare(replica_id.new("z"), replica_id.new("aa"))
-  |> expect.to_equal(order.Gt)
-  replica_id.compare(replica_id.new("aa"), replica_id.new("z"))
-  |> expect.to_equal(order.Lt)
+  assert replica_id.compare(replica_id.new("z"), replica_id.new("aa"))
+    == order.Gt
+  assert replica_id.compare(replica_id.new("aa"), replica_id.new("z"))
+    == order.Lt
 }
 
 pub fn structural_equality_test() {
   let a = replica_id.new("X")
   let b = replica_id.new("X")
-  expect.to_equal(a, b)
+  assert a == b
 }
 
 pub fn structural_inequality_test() {
   let a = replica_id.new("X")
   let b = replica_id.new("Y")
-  expect.to_not_equal(a, b)
+  assert a != b
 }

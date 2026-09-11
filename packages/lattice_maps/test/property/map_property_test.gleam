@@ -6,7 +6,6 @@ import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
 import qcheck
-import startest/expect
 import support/lww_fixture as lww_map
 
 fn rid(id: String) {
@@ -36,7 +35,10 @@ pub fn lww_map_commutativity__test() {
       let map_a = lww_map.new() |> lww_map.set("key", "val_a", ts_a)
       let map_b = lww_map.new() |> lww_map.set("key", "val_b", ts_b)
       lww_map.get(lww_map.merge(map_a, map_b), "key")
-      |> expect.to_equal(lww_map.get(lww_map.merge(map_b, map_a), "key"))
+      |> fn(actual) {
+        let assert True =
+          actual == lww_map.get(lww_map.merge(map_b, map_a), "key")
+      }
       Nil
     },
   )
@@ -46,7 +48,9 @@ pub fn lww_map_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(1, 100), fn(ts) {
     let map = lww_map.new() |> lww_map.set("key", "val", ts)
     lww_map.get(lww_map.merge(map, map), "key")
-    |> expect.to_equal(lww_map.get(map, "key"))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == lww_map.get(map, "key")
+    }
     Nil
   })
 }
@@ -68,7 +72,9 @@ pub fn lww_map_associativity__test() {
       let merged1 = lww_map.merge(lww_map.merge(map_a, map_b), map_c)
       let merged2 = lww_map.merge(map_a, lww_map.merge(map_b, map_c))
       lww_map.get(merged1, "key")
-      |> expect.to_equal(lww_map.get(merged2, "key"))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == lww_map.get(merged2, "key")
+      }
       Nil
     },
   )
@@ -91,11 +97,22 @@ pub fn lww_map_unicode_order_equal_timestamp_merge_laws__test() {
       let ab = lww_map.merge(a, b)
 
       lww_map.get(ab, "key")
-      |> expect.to_equal(Ok(prefix <> "\u{10000}"))
-      ab |> expect.to_equal(lww_map.merge(b, a))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == Ok(prefix <> "\u{10000}")
+      }
+      ab
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == lww_map.merge(b, a)
+      }
       lww_map.merge(ab, c)
-      |> expect.to_equal(lww_map.merge(a, lww_map.merge(b, c)))
-      lww_map.merge(ab, ab) |> expect.to_equal(ab)
+      |> fn(assertion_actual) {
+        let assert True =
+          assertion_actual == lww_map.merge(a, lww_map.merge(b, c))
+      }
+      lww_map.merge(ab, ab)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == ab
+      }
       Nil
     },
   )
@@ -126,10 +143,19 @@ pub fn lww_map_equal_timestamp_local_and_merge_agree__test() {
         |> lww_map.set("key", "aaa", timestamp)
       let merged = lww_map.merge_as(lesser, greater, greater_writer)
 
-      local |> expect.to_equal(merged)
+      local
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == merged
+      }
       merged
-      |> expect.to_equal(lww_map.merge_as(greater, lesser, greater_writer))
-      lww_map.get(local, "key") |> expect.to_equal(Ok("aaa"))
+      |> fn(actual) {
+        let assert True =
+          actual == lww_map.merge_as(greater, lesser, greater_writer)
+      }
+      lww_map.get(local, "key")
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == Ok("aaa")
+      }
       Nil
     },
   )
@@ -169,9 +195,14 @@ pub fn or_map_commutativity__test() {
       let assert Ok(merged_ab) = or_map.merge(map_a, map_b)
       let assert Ok(merged_ba) = or_map.merge(map_b, map_a)
       set.from_list(or_map.keys(merged_ab))
-      |> expect.to_equal(set.from_list(or_map.keys(merged_ba)))
+      |> fn(assertion_actual) {
+        let assert True =
+          assertion_actual == set.from_list(or_map.keys(merged_ba))
+      }
       or_map.bind(merged_ab, rid("R"))
-      |> expect.to_equal(or_map.bind(merged_ba, rid("R")))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == or_map.bind(merged_ba, rid("R"))
+      }
       Nil
     },
   )
@@ -184,10 +215,14 @@ pub fn or_map_idempotency__test() {
       |> or_map.update("x", increment_g_counter(_, a))
     let assert Ok(merged) = or_map.merge(map, map)
     set.from_list(or_map.keys(merged))
-    |> expect.to_equal(set.from_list(or_map.keys(map)))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == set.from_list(or_map.keys(map))
+    }
 
     or_map.get(merged, "x")
-    |> expect.to_equal(or_map.get(map, "x"))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == or_map.get(map, "x")
+    }
     Nil
   })
 }
@@ -219,11 +254,19 @@ pub fn or_map_associativity__test() {
       let assert Ok(merged2) = or_map.merge(map_a, bc)
 
       set.from_list(or_map.keys(merged1))
-      |> expect.to_equal(set.from_list(or_map.keys(merged2)))
+      |> fn(assertion_actual) {
+        let assert True =
+          assertion_actual == set.from_list(or_map.keys(merged2))
+      }
 
       or_map.get(merged1, "x")
-      |> expect.to_equal(or_map.get(merged2, "x"))
-      merged1 |> expect.to_equal(merged2)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == or_map.get(merged2, "x")
+      }
+      merged1
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == merged2
+      }
       Nil
     },
   )
@@ -266,7 +309,9 @@ pub fn or_map_update_delta_correctness__test() {
         or_map.update_with_delta(map_after_init, "k", inc_with_delta(n))
       let assert Ok(via_delta) = or_map.apply_delta(map_after_init, delta)
       gc_value_for(via_delta, "k")
-      |> expect.to_equal(gc_value_for(direct, "k"))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == gc_value_for(direct, "k")
+      }
       Nil
     },
   )
@@ -300,7 +345,9 @@ pub fn or_map_delta_sufficiency_on_remote__test() {
       let assert Ok(via_delta) = or_map.apply_delta(remote, delta)
       let assert Ok(via_full) = or_map.merge(remote, local_full)
       gc_value_for(via_delta, "k")
-      |> expect.to_equal(gc_value_for(via_full, "k"))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == gc_value_for(via_full, "k")
+      }
       Nil
     },
   )
@@ -321,7 +368,9 @@ pub fn or_map_remove_delta_on_remote__test() {
     // the remove delta because remote's add was concurrent.
     let assert Ok(merged) = or_map.apply_delta(remote, remove_delta)
     set.contains(set.from_list(or_map.keys(merged)), "k")
-    |> expect.to_equal(True)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == True
+    }
     Nil
   })
 }
@@ -352,11 +401,18 @@ pub fn or_map_delta_idempotent_commutative__test() {
       or_map.merge(fresh, local_after_remove)
     // x present in both; y removed in both
     set.contains(set.from_list(or_map.keys(via_deltas)), "x")
-    |> expect.to_equal(True)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == True
+    }
     set.contains(set.from_list(or_map.keys(via_deltas)), "y")
-    |> expect.to_equal(False)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == False
+    }
     gc_value_for(via_deltas, "x")
-    |> expect.to_equal(gc_value_for(via_full_after_remove, "x"))
+    |> fn(assertion_actual) {
+      let assert True =
+        assertion_actual == gc_value_for(via_full_after_remove, "x")
+    }
     // Silence unused warnings when the property holds via the asserts above.
     let _ = via_full
     Nil
@@ -376,9 +432,13 @@ pub fn or_map_merge_deltas_equivalent__test() {
     let assert Ok(step1) = or_map.apply_delta(fresh, d1)
     let assert Ok(via_individual) = or_map.apply_delta(step1, d2)
     gc_value_for(via_combined, "x")
-    |> expect.to_equal(gc_value_for(via_individual, "x"))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == gc_value_for(via_individual, "x")
+    }
     gc_value_for(via_combined, "y")
-    |> expect.to_equal(gc_value_for(via_individual, "y"))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == gc_value_for(via_individual, "y")
+    }
     Nil
   })
 }
@@ -394,7 +454,9 @@ pub fn or_map_delta_json_round_trip__test() {
     let assert Ok(applied_orig) = or_map.apply_delta(fresh, delta)
     let assert Ok(applied_decoded) = or_map.apply_delta(fresh, decoded)
     gc_value_for(applied_orig, "k")
-    |> expect.to_equal(gc_value_for(applied_decoded, "k"))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == gc_value_for(applied_decoded, "k")
+    }
     Nil
   })
 }

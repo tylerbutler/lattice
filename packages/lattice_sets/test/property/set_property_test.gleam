@@ -7,7 +7,6 @@ import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_sets/two_p_set
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -34,7 +33,10 @@ pub fn g_set_commutativity__test() {
       let set_a = g_set.new() |> g_set.add(a)
       let set_b = g_set.new() |> g_set.add(b)
       g_set.value(g_set.merge(set_a, set_b))
-      |> expect.to_equal(g_set.value(g_set.merge(set_b, set_a)))
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(g_set.value(g_set.merge(set_b, set_a)))
       Nil
     },
   )
@@ -56,7 +58,11 @@ pub fn g_set_associativity__test() {
       let set_c = g_set.new() |> g_set.add(c)
       let merged1 = g_set.merge(g_set.merge(set_a, set_b), set_c)
       let merged2 = g_set.merge(set_a, g_set.merge(set_b, set_c))
-      g_set.value(merged1) |> expect.to_equal(g_set.value(merged2))
+      g_set.value(merged1)
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(g_set.value(merged2))
       Nil
     },
   )
@@ -65,7 +71,11 @@ pub fn g_set_associativity__test() {
 pub fn g_set_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 20), fn(a) {
     let s = g_set.new() |> g_set.add(a)
-    g_set.merge(s, s) |> expect.to_equal(s)
+    g_set.merge(s, s)
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(s)
     Nil
   })
 }
@@ -85,7 +95,10 @@ pub fn two_p_set_commutativity__test() {
       let set_a = two_p_set.new() |> two_p_set.add(a)
       let set_b = two_p_set.new() |> two_p_set.add(b)
       two_p_set.value(two_p_set.merge(set_a, set_b))
-      |> expect.to_equal(two_p_set.value(two_p_set.merge(set_b, set_a)))
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(two_p_set.value(two_p_set.merge(set_b, set_a)))
       Nil
     },
   )
@@ -107,7 +120,11 @@ pub fn two_p_set_associativity__test() {
       let set_c = two_p_set.new() |> two_p_set.add(c)
       let merged1 = two_p_set.merge(two_p_set.merge(set_a, set_b), set_c)
       let merged2 = two_p_set.merge(set_a, two_p_set.merge(set_b, set_c))
-      two_p_set.value(merged1) |> expect.to_equal(two_p_set.value(merged2))
+      two_p_set.value(merged1)
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(two_p_set.value(merged2))
       Nil
     },
   )
@@ -116,7 +133,11 @@ pub fn two_p_set_associativity__test() {
 pub fn two_p_set_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 20), fn(a) {
     let s = two_p_set.new() |> two_p_set.add(a)
-    two_p_set.merge(s, s) |> expect.to_equal(s)
+    two_p_set.merge(s, s)
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(s)
     Nil
   })
 }
@@ -136,7 +157,10 @@ pub fn or_set_commutativity__test() {
       let set_a = or_set.new(rid("A")) |> or_set.add(a)
       let set_b = or_set.new(rid("B")) |> or_set.add(b)
       or_set.value(or_set.merge(set_a, set_b))
-      |> expect.to_equal(or_set.value(or_set.merge(set_b, set_a)))
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(or_set.value(or_set.merge(set_b, set_a)))
       Nil
     },
   )
@@ -146,7 +170,10 @@ pub fn or_set_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 10), fn(a) {
     let s = or_set.new(rid("A")) |> or_set.add(a)
     or_set.value(or_set.merge(s, s))
-    |> expect.to_equal(or_set.value(s))
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(or_set.value(s))
     Nil
   })
 }
@@ -171,12 +198,32 @@ pub fn or_set_generic_round_trip_preserves_concurrent_pruned_history__test() {
         or_set.to_json_with(merged, json.int)
         |> json.to_string()
         |> or_set.from_json_with(decode.int)
-      loaded |> expect.to_equal(merged)
-      or_set.merge(loaded, old) |> expect.to_equal(or_set.merge(merged, old))
+      loaded
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(merged)
+      or_set.merge(loaded, old)
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(or_set.merge(merged, old))
       let #(updated, delta) = or_set.add_with_delta(loaded, values.0)
-      or_set.merge(loaded, delta) |> expect.to_equal(updated)
-      or_set.merge(delta, loaded) |> expect.to_equal(updated)
-      or_set.merge(updated, updated) |> expect.to_equal(updated)
+      or_set.merge(loaded, delta)
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(updated)
+      or_set.merge(delta, loaded)
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(updated)
+      or_set.merge(updated, updated)
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(updated)
       Nil
     },
   )
@@ -193,7 +240,10 @@ pub fn g_set_delta_correctness__test() {
     let direct = g_set.add(s, n)
     let #(_, delta) = g_set.add_with_delta(s, n)
     g_set.value(g_set.merge(s, delta))
-    |> expect.to_equal(g_set.value(direct))
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(g_set.value(direct))
     Nil
   })
 }
@@ -221,7 +271,10 @@ pub fn g_set_delta_idempotent_commutative__test() {
         |> g_set.merge(d2)
         |> g_set.merge(d1)
       g_set.value(merged)
-      |> expect.to_equal(gleam_set.from_list([a, b, c]))
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(gleam_set.from_list([a, b, c]))
       Nil
     },
   )
@@ -233,7 +286,10 @@ pub fn two_p_set_add_delta_correctness__test() {
     let direct = two_p_set.add(s, n)
     let #(_, delta) = two_p_set.add_with_delta(s, n)
     two_p_set.value(two_p_set.merge(s, delta))
-    |> expect.to_equal(two_p_set.value(direct))
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(two_p_set.value(direct))
     Nil
   })
 }
@@ -244,7 +300,10 @@ pub fn two_p_set_remove_delta_correctness__test() {
     let direct = two_p_set.remove(s, n)
     let #(_, delta) = two_p_set.remove_with_delta(s, n)
     two_p_set.value(two_p_set.merge(s, delta))
-    |> expect.to_equal(two_p_set.value(direct))
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(two_p_set.value(direct))
     Nil
   })
 }
@@ -257,7 +316,10 @@ pub fn two_p_set_remove_delta_propagates_tombstone__test() {
     let #(_, remove_delta) = two_p_set.remove_with_delta(local, n)
     // Applying the remove delta to the remote must deactivate the element.
     two_p_set.contains(two_p_set.merge(remote, remove_delta), n)
-    |> expect.to_equal(False)
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(False)
     Nil
   })
 }
@@ -268,7 +330,10 @@ pub fn or_set_add_delta_correctness__test() {
     let direct = or_set.add(s, n)
     let #(_, delta) = or_set.add_with_delta(s, n)
     or_set.value(or_set.merge(s, delta))
-    |> expect.to_equal(or_set.value(direct))
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(or_set.value(direct))
     Nil
   })
 }
@@ -280,7 +345,10 @@ pub fn or_set_add_delta_sufficiency_on_fresh_remote__test() {
     let #(_, delta) = or_set.add_with_delta(local, n)
     let remote = or_set.new(rid("B"))
     or_set.contains(or_set.merge(remote, delta), n)
-    |> expect.to_equal(True)
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(True)
     Nil
   })
 }
@@ -293,7 +361,10 @@ pub fn or_set_remove_delta_add_wins__test() {
     let #(_, remove_delta) = or_set.remove_with_delta(a, n)
     let b = or_set.new(rid("B")) |> or_set.add(n)
     or_set.contains(or_set.merge(b, remove_delta), n)
-    |> expect.to_equal(True)
+    |> fn(actual, expected) {
+      let assert True = actual == expected
+      Nil
+    }(True)
     Nil
   })
 }
@@ -329,7 +400,10 @@ pub fn or_set_delta_idempotent_commutative__test() {
       // The two paths must converge to the same observable value, regardless
       // of delta ordering and duplication.
       or_set.value(from_deltas)
-      |> expect.to_equal(or_set.value(from_full))
+      |> fn(actual, expected) {
+        let assert True = actual == expected
+        Nil
+      }(or_set.value(from_full))
       Nil
     },
   )

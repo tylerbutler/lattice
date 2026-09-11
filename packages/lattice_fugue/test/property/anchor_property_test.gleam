@@ -3,7 +3,6 @@ import gleam/result
 import lattice_core/replica_id
 import lattice_fugue/sequence
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -38,7 +37,9 @@ pub fn after_anchor_stable_under_later_inserts__test() {
     // Insert at the very end, strictly after the anchor gap.
     let assert Ok(updated) = sequence.insert(seq, sequence.length(seq), 99)
     sequence.resolve(updated, anchor)
-    |> expect.to_equal(Ok(before))
+    |> fn(actual) {
+      assert actual == Ok(before)
+    }
     Nil
   })
 }
@@ -58,7 +59,9 @@ pub fn before_anchor_shifts_by_earlier_inserts__test() {
       |> sequence.insert(0, 100)
       |> result.try(sequence.insert(_, 0, 101))
     sequence.resolve(updated, anchor)
-    |> expect.to_equal(Ok(before + 2))
+    |> fn(actual) {
+      assert actual == Ok(before + 2)
+    }
     Nil
   })
 }
@@ -79,7 +82,9 @@ pub fn anchor_resolution_merge_order_invariant__test() {
     let backward = sequence.merge(seq_b, seq_a, rid("A"))
     let assert Ok(index) = sequence.resolve(forward, anchor)
     sequence.resolve(backward, anchor)
-    |> expect.to_equal(Ok(index))
+    |> fn(actual) {
+      assert actual == Ok(index)
+    }
     Nil
   })
 }

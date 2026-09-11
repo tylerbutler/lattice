@@ -6,7 +6,6 @@ import lattice_core/replica_id
 import lattice_registers/lww_register
 import lattice_registers/mv_register
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -44,8 +43,8 @@ pub fn lww_register_commutativity_unicode_order_test() {
         let #(id_a, id_b, _) = ids
         let reg_a = lww_register.new("val_a", ts_a, rid(id_a))
         let reg_b = lww_register.new("val_b", ts_b, rid(id_b))
-        lww_register.merge(reg_a, reg_b)
-        |> expect.to_equal(lww_register.merge(reg_b, reg_a))
+        assert lww_register.merge(reg_a, reg_b)
+          == lww_register.merge(reg_b, reg_a)
       })
       Nil
     },
@@ -72,7 +71,7 @@ pub fn lww_register_associativity_unicode_order_test() {
           lww_register.merge(lww_register.merge(reg_a, reg_b), reg_c)
         let merged2 =
           lww_register.merge(reg_a, lww_register.merge(reg_b, reg_c))
-        merged1 |> expect.to_equal(merged2)
+        assert merged1 == merged2
       })
       Nil
     },
@@ -85,7 +84,7 @@ pub fn lww_register_idempotency_unicode_order_test() {
       let #(id_a, id_b, id_c) = ids
       list.each([id_a, id_b, id_c], fn(id) {
         let reg = lww_register.new("val_a", ts, rid(id))
-        lww_register.merge(reg, reg) |> expect.to_equal(reg)
+        assert lww_register.merge(reg, reg) == reg
       })
     })
     Nil
@@ -106,18 +105,18 @@ pub fn lww_register_set_delta_and_author_laws__test() {
         lww_register.set_with_delta(original, 1, clocks.1, rid("A"))
       let #(b, delta_b) =
         lww_register.set_with_delta(original, 2, clocks.1, rid("B"))
-      lww_register.merge(original, delta_a) |> expect.to_equal(a)
-      lww_register.merge(original, delta_b) |> expect.to_equal(b)
-      lww_register.merge(a, b) |> expect.to_equal(lww_register.merge(b, a))
-      lww_register.merge(a, a) |> expect.to_equal(a)
-      lww_register.replica_id(original) |> expect.to_equal(rid("historical"))
+      assert lww_register.merge(original, delta_a) == a
+      assert lww_register.merge(original, delta_b) == b
+      assert lww_register.merge(a, b) == lww_register.merge(b, a)
+      assert lww_register.merge(a, a) == a
+      assert lww_register.replica_id(original) == rid("historical")
       let winner = case clocks.1 > clocks.0 {
         True -> rid("B")
         False -> rid("historical")
       }
-      lww_register.merge(a, b)
-      |> lww_register.replica_id()
-      |> expect.to_equal(winner)
+      assert lww_register.merge(a, b)
+        |> lww_register.replica_id()
+        == winner
       Nil
     },
   )
@@ -141,9 +140,9 @@ pub fn lww_register_merge_then_equal_clock_writes_converge__test() {
       let a = lww_register.set(shared, value + 2, timestamp + 1, rid("A"))
       let b = lww_register.set(shared, value + 3, timestamp + 1, rid("B"))
 
-      lww_register.replica_id(a) |> expect.to_equal(rid("A"))
-      lww_register.replica_id(b) |> expect.to_equal(rid("B"))
-      lww_register.merge(a, b) |> expect.to_equal(lww_register.merge(b, a))
+      assert lww_register.replica_id(a) == rid("A")
+      assert lww_register.replica_id(b) == rid("B")
+      assert lww_register.merge(a, b) == lww_register.merge(b, a)
       Nil
     },
   )
@@ -173,7 +172,7 @@ pub fn mv_register_commutativity__test() {
           mv_register.value(mv_register.merge(reg_b, reg_a)),
           int.compare,
         )
-      sorted_ab |> expect.to_equal(sorted_ba)
+      assert sorted_ab == sorted_ba
       Nil
     },
   )
@@ -197,7 +196,7 @@ pub fn mv_register_associativity__test() {
       let merged2 = mv_register.merge(reg_a, mv_register.merge(reg_b, reg_c))
       let sorted1 = list.sort(mv_register.value(merged1), int.compare)
       let sorted2 = list.sort(mv_register.value(merged2), int.compare)
-      sorted1 |> expect.to_equal(sorted2)
+      assert sorted1 == sorted2
       Nil
     },
   )
@@ -209,7 +208,7 @@ pub fn mv_register_idempotency__test() {
     let sorted_merged =
       list.sort(mv_register.value(mv_register.merge(reg, reg)), int.compare)
     let sorted_original = list.sort(mv_register.value(reg), int.compare)
-    sorted_merged |> expect.to_equal(sorted_original)
+    assert sorted_merged == sorted_original
     Nil
   })
 }
@@ -231,8 +230,8 @@ pub fn lww_register_delta_correctness__test() {
       let r = lww_register.new("v0", ts1, rid("A"))
       let direct = lww_register.set(r, "v1", ts2, rid("B"))
       let #(_, delta) = lww_register.set_with_delta(r, "v1", ts2, rid("B"))
-      lww_register.value(lww_register.merge(r, delta))
-      |> expect.to_equal(lww_register.value(direct))
+      assert lww_register.value(lww_register.merge(r, delta))
+        == lww_register.value(direct)
       Nil
     },
   )
@@ -256,8 +255,8 @@ pub fn lww_register_delta_sufficiency_on_remote_unicode_order_test() {
         let #(_, delta) =
           lww_register.set_with_delta(local, "new", ts_new, rid(id_local))
         let remote = lww_register.new("remote", ts_remote, rid(id_remote))
-        lww_register.merge(remote, delta)
-        |> expect.to_equal(lww_register.merge(remote, local_after))
+        assert lww_register.merge(remote, delta)
+          == lww_register.merge(remote, local_after)
       })
       Nil
     },
@@ -269,9 +268,10 @@ pub fn mv_register_delta_correctness__test() {
     let r = mv_register.new(rid("A")) |> mv_register.set("v0")
     let direct = mv_register.set(r, "v1")
     let #(_, delta) = mv_register.set_with_delta(r, "v1")
-    mv_register.value(mv_register.merge(r, delta))
-    |> list.sort(string_compare)
-    |> expect.to_equal(mv_register.value(direct) |> list.sort(string_compare))
+    assert mv_register.value(mv_register.merge(r, delta))
+      |> list.sort(string_compare)
+      == mv_register.value(direct)
+      |> list.sort(string_compare)
     Nil
   })
 }
@@ -289,11 +289,10 @@ pub fn mv_register_delta_supersedes_on_remote__test() {
     let remote = mv_register.new(rid("C")) |> mv_register.merge(b)
     let merged_via_delta = mv_register.merge(remote, delta)
     let merged_via_full = mv_register.merge(remote, local_after)
-    mv_register.value(merged_via_delta)
-    |> list.sort(string_compare)
-    |> expect.to_equal(
-      mv_register.value(merged_via_full) |> list.sort(string_compare),
-    )
+    assert mv_register.value(merged_via_delta)
+      |> list.sort(string_compare)
+      == mv_register.value(merged_via_full)
+      |> list.sort(string_compare)
     Nil
   })
 }
@@ -312,7 +311,7 @@ pub fn mv_register_delta_idempotent_commutative__test() {
       |> mv_register.merge(d2)
       |> mv_register.merge(d1)
       |> mv_register.merge(d3)
-    mv_register.value(merged) |> expect.to_equal(["v3"])
+    assert mv_register.value(merged) == ["v3"]
     Nil
   })
 }

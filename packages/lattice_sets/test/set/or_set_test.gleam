@@ -3,7 +3,6 @@ import gleam/string
 import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_sets/or_set
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -13,27 +12,39 @@ pub fn new_creates_empty_set_test() {
   let orset = or_set.new(rid("A"))
   orset
   |> or_set.value
-  |> expect.to_equal(set.new())
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
 }
 
 pub fn new_contains_returns_false_test() {
   or_set.new(rid("A"))
   |> or_set.contains("x")
-  |> expect.to_be_false
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
 }
 
 pub fn add_then_contains_returns_true_test() {
   or_set.new(rid("A"))
   |> or_set.add("hello")
   |> or_set.contains("hello")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn add_then_value_contains_element_test() {
   or_set.new(rid("A"))
   |> or_set.add("hello")
   |> or_set.value
-  |> expect.to_equal(set.from_list(["hello"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["hello"]))
 }
 
 pub fn diff_reports_added_and_removed_values_test() {
@@ -49,8 +60,16 @@ pub fn diff_reports_added_and_removed_values_test() {
 
   let or_set.Diff(added, removed) = or_set.diff(before, after)
 
-  added |> expect.to_equal(set.from_list(["added"]))
-  removed |> expect.to_equal(set.from_list(["removed"]))
+  added
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["added"]))
+  removed
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["removed"]))
 }
 
 pub fn diff_empty_when_observable_values_unchanged_test() {
@@ -59,8 +78,16 @@ pub fn diff_empty_when_observable_values_unchanged_test() {
 
   let or_set.Diff(added, removed) = or_set.diff(before, after)
 
-  added |> expect.to_equal(set.new())
-  removed |> expect.to_equal(set.new())
+  added
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
+  removed
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
 }
 
 pub fn add_then_remove_then_contains_false_test() {
@@ -68,7 +95,10 @@ pub fn add_then_remove_then_contains_false_test() {
   |> or_set.add("x")
   |> or_set.remove("x")
   |> or_set.contains("x")
-  |> expect.to_be_false
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
 }
 
 pub fn re_add_after_remove_contains_true_test() {
@@ -79,7 +109,10 @@ pub fn re_add_after_remove_contains_true_test() {
   |> or_set.remove("x")
   |> or_set.add("x")
   |> or_set.contains("x")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn remove_all_removes_each_observed_element_test() {
@@ -92,7 +125,10 @@ pub fn remove_all_removes_each_observed_element_test() {
   orset
   |> or_set.remove_all(["a", "c", "missing"])
   |> or_set.value
-  |> expect.to_equal(set.from_list(["b"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["b"]))
 }
 
 pub fn remove_where_removes_matching_observed_values_test() {
@@ -105,7 +141,10 @@ pub fn remove_where_removes_matching_observed_values_test() {
   orset
   |> or_set.remove_where(fn(value) { string.starts_with(value, "remove") })
   |> or_set.value
-  |> expect.to_equal(set.from_list(["keep"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["keep"]))
 }
 
 pub fn remove_where_preserves_add_wins_semantics_test() {
@@ -118,7 +157,10 @@ pub fn remove_where_preserves_add_wins_semantics_test() {
 
   or_set.merge(replica_a, replica_b)
   |> or_set.contains("x")
-  |> expect.to_be_true()
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn add_multiple_elements_test() {
@@ -129,11 +171,17 @@ pub fn add_multiple_elements_test() {
 
   orset
   |> or_set.contains("a")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 
   orset
   |> or_set.contains("b")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn concurrent_add_wins_test() {
@@ -153,7 +201,10 @@ pub fn concurrent_add_wins_test() {
   // Add wins: A's new tag survives B's remove
   merged
   |> or_set.contains("x")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn stale_replica_does_not_resurrect_removed_element_test() {
@@ -165,7 +216,10 @@ pub fn stale_replica_does_not_resurrect_removed_element_test() {
 
   or_set.merge(original, removed)
   |> or_set.contains("x")
-  |> expect.to_be_false
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
 }
 
 pub fn merge_empty_left_test() {
@@ -173,7 +227,10 @@ pub fn merge_empty_left_test() {
 
   or_set.merge(or_set.new(rid("B")), s)
   |> or_set.contains("x")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn merge_commutativity_on_value_test() {
@@ -191,7 +248,10 @@ pub fn merge_commutativity_on_value_test() {
   let merged_ab = or_set.merge(set_a, set_b) |> or_set.value
   let merged_ba = or_set.merge(set_b, set_a) |> or_set.value
 
-  expect.to_equal(merged_ab, merged_ba)
+  fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(merged_ab, merged_ba)
 }
 
 pub fn merge_union_tags_test() {
@@ -201,7 +261,10 @@ pub fn merge_union_tags_test() {
 
   or_set.merge(set_a, set_b)
   |> or_set.value
-  |> expect.to_equal(set.from_list(["a", "b", "c"]))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["a", "b", "c"]))
 }
 
 pub fn merge_with_diff_matches_merge_result_test() {
@@ -211,7 +274,10 @@ pub fn merge_with_diff_matches_merge_result_test() {
   let #(merged, _) = or_set.merge_with_diff(local, remote)
 
   or_set.value(merged)
-  |> expect.to_equal(or_set.value(or_set.merge(local, remote)))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(or_set.value(or_set.merge(local, remote)))
 }
 
 pub fn merge_with_diff_reports_added_values_test() {
@@ -220,8 +286,16 @@ pub fn merge_with_diff_reports_added_values_test() {
 
   let #(_, or_set.Diff(added, removed)) = or_set.merge_with_diff(local, remote)
 
-  added |> expect.to_equal(set.from_list(["remote"]))
-  removed |> expect.to_equal(set.new())
+  added
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["remote"]))
+  removed
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
 }
 
 pub fn merge_with_diff_reports_removed_values_test() {
@@ -230,8 +304,16 @@ pub fn merge_with_diff_reports_removed_values_test() {
 
   let #(_, or_set.Diff(added, removed)) = or_set.merge_with_diff(local, remote)
 
-  added |> expect.to_equal(set.new())
-  removed |> expect.to_equal(set.from_list(["shared"]))
+  added
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
+  removed
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.from_list(["shared"]))
 }
 
 pub fn repeated_merge_with_diff_returns_empty_diff_test() {
@@ -242,8 +324,16 @@ pub fn repeated_merge_with_diff_returns_empty_diff_test() {
   let #(_, or_set.Diff(added, removed)) =
     or_set.merge_with_diff(merged_once, remote)
 
-  added |> expect.to_equal(set.new())
-  removed |> expect.to_equal(set.new())
+  added
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
+  removed
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(set.new())
 }
 
 pub fn merge_propagates_counter_test() {
@@ -262,7 +352,10 @@ pub fn merge_propagates_counter_test() {
 
   after_add
   |> or_set.contains("new_element")
-  |> expect.to_be_true
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 // --- remove_with_bound ---
@@ -272,8 +365,16 @@ pub fn remove_with_bound_single_tag_test() {
   let s = or_set.new(rid("A")) |> or_set.add("x")
   let #(updated, bound) = or_set.remove_with_bound(s, "x")
 
-  or_set.contains(updated, "x") |> expect.to_be_false()
-  version_vector.get(bound, rid("A")) |> expect.to_equal(1)
+  or_set.contains(updated, "x")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
+  version_vector.get(bound, rid("A"))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }
 
 pub fn remove_with_bound_multi_tag_takes_max_test() {
@@ -284,16 +385,32 @@ pub fn remove_with_bound_multi_tag_takes_max_test() {
     |> or_set.add("x")
   let #(updated, bound) = or_set.remove_with_bound(s, "x")
 
-  or_set.contains(updated, "x") |> expect.to_be_false()
-  version_vector.get(bound, rid("A")) |> expect.to_equal(2)
+  or_set.contains(updated, "x")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
+  version_vector.get(bound, rid("A"))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(2)
 }
 
 pub fn remove_with_bound_missing_element_returns_empty_bound_test() {
   let s = or_set.new(rid("A"))
   let #(updated, bound) = or_set.remove_with_bound(s, "x")
 
-  or_set.contains(updated, "x") |> expect.to_be_false()
-  version_vector.is_empty(bound) |> expect.to_be_true()
+  or_set.contains(updated, "x")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
+  version_vector.is_empty(bound)
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn remove_with_bound_multi_replica_tags_test() {
@@ -304,9 +421,21 @@ pub fn remove_with_bound_multi_replica_tags_test() {
   let merged = or_set.merge(sa, sb)
 
   let #(updated, bound) = or_set.remove_with_bound(merged, "x")
-  or_set.contains(updated, "x") |> expect.to_be_false()
-  version_vector.get(bound, rid("A")) |> expect.to_equal(1)
-  version_vector.get(bound, rid("B")) |> expect.to_equal(1)
+  or_set.contains(updated, "x")
+  |> fn(actual) {
+    let assert False = actual
+    Nil
+  }
+  version_vector.get(bound, rid("A"))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
+  version_vector.get(bound, rid("B"))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }
 
 // --- pruned_vv ---
@@ -315,7 +444,10 @@ pub fn pruned_vv_new_set_is_empty_test() {
   or_set.new(rid("A"))
   |> or_set.pruned_vv()
   |> version_vector.is_empty()
-  |> expect.to_be_true()
+  |> fn(actual) {
+    let assert True = actual
+    Nil
+  }
 }
 
 pub fn pruned_vv_after_prune_reflects_stable_vv_test() {
@@ -330,5 +462,9 @@ pub fn pruned_vv_after_prune_reflects_stable_vv_test() {
     |> or_set.prune(stable)
 
   let pruned = or_set.pruned_vv(s)
-  version_vector.get(pruned, rid("A")) |> expect.to_equal(1)
+  version_vector.get(pruned, rid("A"))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(1)
 }

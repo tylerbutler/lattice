@@ -8,7 +8,6 @@ import lattice_core/replica_id
 import lattice_fugue/sequence
 import lattice_text_fugue/text
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -55,12 +54,15 @@ pub fn canonical_merge_selects_local_identity_for_states_and_deltas_test() {
     let assert Ok(decoded) = round_trip(incoming)
     let forward = text.merge(base, decoded, rid("A"))
     let backward = text.merge(decoded, base, rid("A"))
-    expect.to_equal(forward, backward)
-    expect.to_equal(text.merge_as(base, decoded, rid("A")), forward)
-    expect.to_equal(text.merge_as(decoded, base, rid("A")), forward)
+    assert forward == backward
+    assert text.merge_as(base, decoded, rid("A")) == forward
+    assert text.merge_as(decoded, base, rid("A")) == forward
 
     list.each([forward, backward], fn(received) {
-      text.resolve_anchor(received, anchor) |> expect.to_equal(Ok(1))
+      text.resolve_anchor(received, anchor)
+      |> fn(actual) {
+        assert actual == Ok(1)
+      }
       let assert Ok(#(local, local_delta)) =
         text.append_with_delta(received, "xy")
       let assert Ok(#(remote, remote_delta)) =
@@ -69,30 +71,49 @@ pub fn canonical_merge_selects_local_identity_for_states_and_deltas_test() {
         metadata(local_delta)
       let assert Ok(#(remote_id, remote_counter, remote_ids)) =
         metadata(remote_delta)
-      expect.to_equal(#(local_id, local_counter), #("A", 4))
-      expect.to_equal(#(remote_id, remote_counter), #("B", 4))
-      expect.to_be_true(list.all(local_ids, fn(id) { id.0 == "A" }))
-      expect.to_be_true(list.all(remote_ids, fn(id) { id.0 == "B" }))
+      assert #(local_id, local_counter) == #("A", 4)
+      assert #(remote_id, remote_counter) == #("B", 4)
+      assert list.all(local_ids, fn(id) { id.0 == "A" })
+      assert list.all(remote_ids, fn(id) { id.0 == "B" })
       local_ids
       |> list.map(fn(id) { id.1 })
       |> list.sort(int.compare)
-      |> expect.to_equal([3, 4])
+      |> fn(actual) {
+        assert actual == [3, 4]
+      }
       remote_ids
       |> list.map(fn(id) { id.1 })
       |> list.sort(int.compare)
-      |> expect.to_equal([3, 4])
+      |> fn(actual) {
+        assert actual == [3, 4]
+      }
       let merged = text.merge(local, remote, rid("A"))
-      merged |> expect.to_equal(text.merge(remote, local, rid("A")))
-      text.length(merged) |> expect.to_equal(6)
-      expect.to_be_true(string.contains(text.value(merged), "xy"))
-      expect.to_be_true(string.contains(text.value(merged), "cd"))
-      text.merge(decoded, merged, rid("A")) |> expect.to_equal(merged)
+      merged
+      |> fn(actual) {
+        assert actual == text.merge(remote, local, rid("A"))
+      }
+      text.length(merged)
+      |> fn(actual) {
+        assert actual == 6
+      }
+      assert string.contains(text.value(merged), "xy")
+      assert string.contains(text.value(merged), "cd")
+      text.merge(decoded, merged, rid("A"))
+      |> fn(actual) {
+        assert actual == merged
+      }
       let assert Ok(#(_, next_local_delta)) =
         text.append_with_delta(merged, "!")
       let assert Ok(#(_, next_remote_delta)) =
         text.merge(remote, local, rid("B")) |> text.append_with_delta("?")
-      metadata(next_local_delta) |> expect.to_equal(Ok(#("A", 5, [#("A", 5)])))
-      metadata(next_remote_delta) |> expect.to_equal(Ok(#("B", 5, [#("B", 5)])))
+      metadata(next_local_delta)
+      |> fn(actual) {
+        assert actual == Ok(#("A", 5, [#("A", 5)]))
+      }
+      metadata(next_remote_delta)
+      |> fn(actual) {
+        assert actual == Ok(#("B", 5, [#("B", 5)]))
+      }
     })
   })
 }
@@ -120,39 +141,56 @@ pub fn range_delta_folds_keep_the_editing_identity_test() {
       let #(updated, delta, value, counter, anchor_index) = edit
       let assert Ok(decoded) = round_trip(delta)
       let assert Ok(#(id, actual_counter, _)) = metadata(decoded)
-      expect.to_equal(#(id, actual_counter), #("A", counter))
-      text.value(updated) |> expect.to_equal(value)
+      assert #(id, actual_counter) == #("A", counter)
+      text.value(updated)
+      |> fn(actual) {
+        assert actual == value
+      }
       list.each(
         [
           text.merge(base, decoded, rid("A")),
           text.merge(decoded, base, rid("A")),
         ],
         fn(received) {
-          received |> expect.to_equal(updated)
+          received
+          |> fn(actual) {
+            assert actual == updated
+          }
           text.resolve_anchor(received, anchor)
-          |> expect.to_equal(Ok(anchor_index))
-          text.merge(decoded, received, rid("A")) |> expect.to_equal(updated)
+          |> fn(actual) {
+            assert actual == Ok(anchor_index)
+          }
+          text.merge(decoded, received, rid("A"))
+          |> fn(actual) {
+            assert actual == updated
+          }
           let assert Ok(#(_, next_delta)) =
             text.append_with_delta(received, "!")
           metadata(next_delta)
-          |> expect.to_equal(Ok(#("A", counter + 1, [#("A", counter + 1)])))
+          |> fn(actual) {
+            assert actual == Ok(#("A", counter + 1, [#("A", counter + 1)]))
+          }
         },
       )
     },
   )
   // Deletion deltas retain the target's B node IDs, not the editor's A identity.
   let assert Ok(#(_, _, deleted_ids)) = metadata(delete_delta)
-  expect.to_be_true(list.all(deleted_ids, fn(id) { id.0 == "B" }))
+  assert list.all(deleted_ids, fn(id) { id.0 == "B" })
   deleted_ids
   |> list.map(fn(id) { id.1 })
   |> list.sort(int.compare)
-  |> expect.to_equal([2, 3, 4])
+  |> fn(actual) {
+    assert actual == [2, 3, 4]
+  }
   let assert Ok(#(_, _, replacement_ids)) = metadata(replace_delta)
   replacement_ids
   |> list.filter(fn(id) { id.0 == "A" })
   |> list.map(fn(id) { id.1 })
   |> list.sort(int.compare)
-  |> expect.to_equal([9, 10])
+  |> fn(actual) {
+    assert actual == [9, 10]
+  }
 }
 
 pub fn serialized_empty_deltas_are_neutral_test() {
@@ -168,11 +206,23 @@ pub fn serialized_empty_deltas_are_neutral_test() {
       ],
       fn(operation) {
         let assert Ok(#(updated, delta)) = operation
-        updated |> expect.to_equal(state)
+        updated
+        |> fn(actual) {
+          assert actual == state
+        }
         let assert Ok(delta) = round_trip(delta)
-        delta |> expect.to_equal(text.new(rid("A")))
-        text.merge(delta, state, rid("A")) |> expect.to_equal(state)
-        text.merge(state, delta, rid("A")) |> expect.to_equal(state)
+        delta
+        |> fn(actual) {
+          assert actual == text.new(rid("A"))
+        }
+        text.merge(delta, state, rid("A"))
+        |> fn(actual) {
+          assert actual == state
+        }
+        text.merge(state, delta, rid("A"))
+        |> fn(actual) {
+          assert actual == state
+        }
       },
     )
     list.each(
@@ -182,11 +232,23 @@ pub fn serialized_empty_deltas_are_neutral_test() {
       ],
       fn(operation) {
         let assert Ok(#(updated, delta)) = operation
-        updated |> expect.to_equal(state)
+        updated
+        |> fn(actual) {
+          assert actual == state
+        }
         let assert Ok(delta) = round_trip(delta)
-        delta |> expect.to_equal(text.new(rid("A")))
-        text.merge(delta, state, rid("A")) |> expect.to_equal(state)
-        text.merge(state, delta, rid("A")) |> expect.to_equal(state)
+        delta
+        |> fn(actual) {
+          assert actual == text.new(rid("A"))
+        }
+        text.merge(delta, state, rid("A"))
+        |> fn(actual) {
+          assert actual == state
+        }
+        text.merge(state, delta, rid("A"))
+        |> fn(actual) {
+          assert actual == state
+        }
       },
     )
   })
@@ -204,12 +266,26 @@ pub fn complete_state_merge_laws_with_fixed_identity_test() {
       let assert Ok(b) = text.delete(b, 0)
       let assert Ok(c) = text.insert(text.new(rid("C")), 0, "c")
       let local = rid("local")
-      text.merge(a, b, local) |> expect.to_equal(text.merge(b, a, local))
+      text.merge(a, b, local)
+      |> fn(actual) {
+        assert actual == text.merge(b, a, local)
+      }
       text.merge(text.merge(a, b, local), c, local)
-      |> expect.to_equal(text.merge(a, text.merge(b, c, local), local))
-      text.merge(a, a, rid("A")) |> expect.to_equal(a)
-      text.merge(b, b, rid("B")) |> expect.to_equal(b)
-      text.merge(a, text.new(rid("B")), rid("A")) |> expect.to_equal(a)
+      |> fn(actual) {
+        assert actual == text.merge(a, text.merge(b, c, local), local)
+      }
+      text.merge(a, a, rid("A"))
+      |> fn(actual) {
+        assert actual == a
+      }
+      text.merge(b, b, rid("B"))
+      |> fn(actual) {
+        assert actual == b
+      }
+      text.merge(a, text.new(rid("B")), rid("A"))
+      |> fn(actual) {
+        assert actual == a
+      }
       Nil
     },
   )

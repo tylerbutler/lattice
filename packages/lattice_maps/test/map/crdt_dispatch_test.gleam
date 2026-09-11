@@ -15,7 +15,6 @@ import lattice_registers/mv_register
 import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_sets/two_p_set
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -25,37 +24,54 @@ fn rid(id: String) {
 
 pub fn default_crdt_g_counter_test() {
   crdt.default_crdt(GCounterSpec, rid("A"))
-  |> expect.to_equal(CrdtGCounter(g_counter.new(rid("A"))))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == CrdtGCounter(g_counter.new(rid("A")))
+  }
 }
 
 pub fn default_crdt_pn_counter_test() {
   crdt.default_crdt(PnCounterSpec, rid("A"))
-  |> expect.to_equal(CrdtPnCounter(pn_counter.new(rid("A"))))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == CrdtPnCounter(pn_counter.new(rid("A")))
+  }
 }
 
 pub fn default_crdt_lww_register_test() {
   crdt.default_crdt(LwwRegisterSpec(""), rid("A"))
-  |> expect.to_equal(CrdtLwwRegister(lww_register.new("", 0, rid("A"))))
+  |> fn(actual) {
+    let assert True =
+      actual == CrdtLwwRegister(lww_register.new("", 0, rid("A")))
+  }
 }
 
 pub fn default_crdt_mv_register_test() {
   crdt.default_crdt(MvRegisterSpec, rid("A"))
-  |> expect.to_equal(CrdtMvRegister(mv_register.new(rid("A"))))
+  |> fn(assertion_actual) {
+    let assert True =
+      assertion_actual == CrdtMvRegister(mv_register.new(rid("A")))
+  }
 }
 
 pub fn default_crdt_g_set_test() {
   crdt.default_crdt(GSetSpec, rid("A"))
-  |> expect.to_equal(CrdtGSet(g_set.new()))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == CrdtGSet(g_set.new())
+  }
 }
 
 pub fn default_crdt_two_p_set_test() {
   crdt.default_crdt(TwoPSetSpec, rid("A"))
-  |> expect.to_equal(CrdtTwoPSet(two_p_set.new()))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == CrdtTwoPSet(two_p_set.new())
+  }
 }
 
 pub fn default_crdt_or_set_test() {
   crdt.default_crdt(OrSetSpec, rid("A"))
-  |> expect.to_equal(CrdtOrSet(or_set.new(rid("A"))))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == CrdtOrSet(or_set.new(rid("A")))
+  }
 }
 
 // --- merge dispatch tests ---
@@ -67,8 +83,14 @@ pub fn merge_g_counter_dispatches_test() {
   let b = CrdtGCounter(b)
   let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
-    CrdtGCounter(c) -> g_counter.value(c) |> expect.to_equal(8)
-    _ -> expect.to_be_true(False)
+    CrdtGCounter(c) ->
+      g_counter.value(c)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 8
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -79,8 +101,14 @@ pub fn merge_pn_counter_dispatches_test() {
   let b = CrdtPnCounter(b)
   let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
-    CrdtPnCounter(c) -> pn_counter.value(c) |> expect.to_equal(10)
-    _ -> expect.to_be_true(False)
+    CrdtPnCounter(c) ->
+      pn_counter.value(c)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 10
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -89,8 +117,14 @@ pub fn merge_lww_register_dispatches_test() {
   let b = CrdtLwwRegister(lww_register.new("world", 5, rid("B")))
   let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
-    CrdtLwwRegister(r) -> lww_register.value(r) |> expect.to_equal("world")
-    _ -> expect.to_be_true(False)
+    CrdtLwwRegister(r) ->
+      lww_register.value(r)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == "world"
+      }
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -106,9 +140,18 @@ pub fn merge_lww_register_unicode_order_dispatch_test() {
     ],
     fn(result) {
       let assert Ok(CrdtLwwRegister(merged)) = result
-      lww_register.value(merged) |> expect.to_equal("supplementary value")
-      lww_register.replica_id(merged) |> expect.to_equal(rid("\u{10000}"))
-      lww_register.timestamp(merged) |> expect.to_equal(5)
+      lww_register.value(merged)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == "supplementary value"
+      }
+      lww_register.replica_id(merged)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == rid("\u{10000}")
+      }
+      lww_register.timestamp(merged)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 5
+      }
     },
   )
 }
@@ -119,10 +162,18 @@ pub fn merge_g_set_dispatches_test() {
   let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtGSet(s) -> {
-      g_set.contains(s, "x") |> expect.to_be_true
-      g_set.contains(s, "y") |> expect.to_be_true
+      g_set.contains(s, "x")
+      |> fn(value) {
+        let assert True = value
+      }
+      g_set.contains(s, "y")
+      |> fn(value) {
+        let assert True = value
+      }
     }
-    _ -> expect.to_be_true(False)
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -132,10 +183,18 @@ pub fn merge_or_set_dispatches_test() {
   let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtOrSet(s) -> {
-      or_set.contains(s, "x") |> expect.to_be_true
-      or_set.contains(s, "y") |> expect.to_be_true
+      or_set.contains(s, "x")
+      |> fn(value) {
+        let assert True = value
+      }
+      or_set.contains(s, "y")
+      |> fn(value) {
+        let assert True = value
+      }
     }
-    _ -> expect.to_be_true(False)
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -151,10 +210,18 @@ pub fn merge_version_vector_dispatches_test() {
   let assert Ok(merged) = crdt.merge(a, b, rid("A"))
   case merged {
     CrdtVersionVector(vv) -> {
-      version_vector.get(vv, rid("A")) |> expect.to_equal(1)
-      version_vector.get(vv, rid("B")) |> expect.to_equal(1)
+      version_vector.get(vv, rid("A"))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 1
+      }
+      version_vector.get(vv, rid("B"))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == 1
+      }
     }
-    _ -> expect.to_be_true(False)
+    _ -> {
+      panic as "Unexpected test branch"
+    }
   }
 }
 
@@ -163,9 +230,10 @@ pub fn merge_type_mismatch_returns_error_test() {
   let b = CrdtGSet(g_set.new())
 
   crdt.merge(a, b, rid("A"))
-  |> expect.to_equal(
-    Error(crdt.TypeMismatch(expected: "g_counter", found: "g_set")),
-  )
+  |> fn(actual) {
+    let assert True =
+      actual == Error(crdt.TypeMismatch(expected: "g_counter", found: "g_set"))
+  }
 }
 
 // --- to_json / from_json round-trip tests ---
@@ -175,7 +243,9 @@ pub fn to_json_from_json_g_counter_test() {
   let c = CrdtGCounter(c)
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
-  |> expect.to_equal(Ok(c))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(c)
+  }
 }
 
 pub fn to_json_from_json_pn_counter_test() {
@@ -183,14 +253,18 @@ pub fn to_json_from_json_pn_counter_test() {
   let c = CrdtPnCounter(c)
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
-  |> expect.to_equal(Ok(c))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(c)
+  }
 }
 
 pub fn to_json_from_json_lww_register_test() {
   let c = CrdtLwwRegister(lww_register.new("hello", 42, rid("A")))
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
-  |> expect.to_equal(Ok(c))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(c)
+  }
 }
 
 pub fn from_json_lww_register_requires_v2_replica_id_test() {
@@ -198,23 +272,27 @@ pub fn from_json_lww_register_requires_v2_replica_id_test() {
     "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
 
   crdt.from_json(input)
-  |> expect.to_equal(
-    Error(
-      json.UnableToDecode([
-        decode.DecodeError(expected: "Field", found: "Nothing", path: [
-          "state",
-          "replica_id",
+  |> fn(actual) {
+    let assert True =
+      actual
+      == Error(
+        json.UnableToDecode([
+          decode.DecodeError(expected: "Field", found: "Nothing", path: [
+            "state",
+            "replica_id",
+          ]),
         ]),
-      ]),
-    ),
-  )
+      )
+  }
 }
 
 pub fn to_json_from_json_g_set_test() {
   let c = CrdtGSet(g_set.new() |> g_set.add("a") |> g_set.add("b"))
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
-  |> expect.to_equal(Ok(c))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(c)
+  }
 }
 
 pub fn to_json_from_json_two_p_set_test() {
@@ -227,7 +305,9 @@ pub fn to_json_from_json_two_p_set_test() {
     )
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
-  |> expect.to_equal(Ok(c))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(c)
+  }
 }
 
 pub fn to_json_from_json_or_set_test() {
@@ -238,7 +318,9 @@ pub fn to_json_from_json_or_set_test() {
     )
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
-  |> expect.to_equal(Ok(c))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(c)
+  }
 }
 
 pub fn to_json_from_json_version_vector_test() {
@@ -250,13 +332,19 @@ pub fn to_json_from_json_version_vector_test() {
     )
   let json_str = json.to_string(crdt.to_json(c))
   crdt.from_json(json_str)
-  |> expect.to_equal(Ok(c))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(c)
+  }
 }
 
 pub fn from_json_unknown_type_returns_error_test() {
   let json_str = "{\"type\": \"unknown_type\", \"v\": 1, \"state\": {}}"
   case crdt.from_json(json_str) {
-    Error(_) -> expect.to_be_true(True)
-    Ok(_) -> expect.to_be_true(False)
+    Error(_) -> {
+      Nil
+    }
+    Ok(_) -> {
+      panic as "Unexpected test branch"
+    }
   }
 }

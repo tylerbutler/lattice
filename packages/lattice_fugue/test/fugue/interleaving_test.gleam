@@ -2,7 +2,6 @@ import gleam/list
 import gleam/result
 import lattice_core/replica_id
 import lattice_fugue/sequence
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -34,7 +33,9 @@ pub fn concurrent_prepend_runs_do_not_interleave_test() {
   let values = sequence.values(sequence.merge(a, b, rid("A")))
 
   runs_are_contiguous(values, ["a1", "a2", "a3"], ["b1", "b2", "b3"])
-  |> expect.to_equal(True)
+  |> fn(actual) {
+    assert actual == True
+  }
 }
 
 // Forward non-interleaving (paper Figure 1): two replicas each append a run to
@@ -52,7 +53,9 @@ pub fn concurrent_append_runs_do_not_interleave_test() {
   let values = sequence.values(sequence.merge(a, b, rid("A")))
 
   runs_are_contiguous(values, ["a1", "a2", "a3"], ["b1", "b2", "b3"])
-  |> expect.to_equal(True)
+  |> fn(actual) {
+    assert actual == True
+  }
 }
 
 // Adopt an existing state onto a fresh replica id (a distinct editing identity
@@ -71,7 +74,9 @@ pub fn merge_is_order_independent_test() {
     |> insert_run(0, ["b1", "b2"])
 
   sequence.merge(a, b, rid("A"))
-  |> expect.to_equal(sequence.merge(b, a, rid("A")))
+  |> fn(actual) {
+    assert actual == sequence.merge(b, a, rid("A"))
+  }
 }
 
 fn runs_are_contiguous(

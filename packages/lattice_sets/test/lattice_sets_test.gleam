@@ -1,5 +1,5 @@
-import startest
+import gleeunit
 
 pub fn main() -> Nil {
-  startest.run(startest.default_config())
+  gleeunit.main()
 }

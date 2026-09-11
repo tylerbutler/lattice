@@ -3,7 +3,6 @@ import lattice_core/replica_id
 import lattice_core/version_vector
 import lattice_sequence/sequence
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -65,18 +64,32 @@ fn apply_op(
   case kind {
     2 ->
       case len {
-        0 -> sequence.insert(seq, 0, pos) |> expect.to_be_ok()
-        _ -> sequence.delete(seq, pos % len) |> expect.to_be_ok()
+        0 -> {
+          let assert Ok(asserted_9) = sequence.insert(seq, 0, pos)
+          asserted_9
+        }
+        _ -> {
+          let assert Ok(asserted_8) = sequence.delete(seq, pos % len)
+          asserted_8
+        }
       }
     3 ->
       case len < 2 {
-        True -> sequence.insert(seq, 0, pos * 31 + kind) |> expect.to_be_ok()
-        False ->
-          sequence.move(seq, pos % len, { pos / 3 } % len) |> expect.to_be_ok()
+        True -> {
+          let assert Ok(asserted_7) = sequence.insert(seq, 0, pos * 31 + kind)
+          asserted_7
+        }
+        False -> {
+          let assert Ok(asserted_6) =
+            sequence.move(seq, pos % len, { pos / 3 } % len)
+          asserted_6
+        }
       }
-    _ ->
-      sequence.insert(seq, pos % { len + 1 }, pos * 31 + kind)
-      |> expect.to_be_ok()
+    _ -> {
+      let assert Ok(asserted_5) =
+        sequence.insert(seq, pos % { len + 1 }, pos * 31 + kind)
+      asserted_5
+    }
   }
 }
 
@@ -113,7 +126,10 @@ pub fn compaction_preserves_visible_order__test() {
     let merged = sequence.merge(base, b_state, rid("A"))
     let #(compacted, _) = sequence.compact(merged, frontier)
 
-    sequence.values(compacted) |> expect.to_equal(sequence.values(merged))
+    sequence.values(compacted)
+    |> fn(actual) {
+      assert actual == { sequence.values(merged) }
+    }
     Nil
   })
 }
@@ -141,9 +157,14 @@ pub fn merge_commutes_with_compaction_for_deltas_above_frontier__test() {
     let #(right, _) =
       sequence.compact(sequence.merge(base, b_state, rid("A")), frontier)
 
-    sequence.values(left) |> expect.to_equal(sequence.values(right))
+    sequence.values(left)
+    |> fn(actual) {
+      assert actual == { sequence.values(right) }
+    }
     sequence.values(sequence.merge(b_state, compacted_base, rid("A")))
-    |> expect.to_equal(sequence.values(right))
+    |> fn(actual) {
+      assert actual == { sequence.values(right) }
+    }
     Nil
   })
 }
@@ -159,8 +180,14 @@ pub fn moves_above_frontier_still_converge_on_merge__test() {
     let left = sequence.merge(compacted_base, b_state, rid("A"))
     let swapped = sequence.merge(b_state, compacted_base, rid("A"))
 
-    left |> expect.to_equal(swapped)
-    sequence.merge(left, swapped, rid("A")) |> expect.to_equal(left)
+    left
+    |> fn(actual) {
+      assert actual == { swapped }
+    }
+    sequence.merge(left, swapped, rid("A"))
+    |> fn(actual) {
+      assert actual == { left }
+    }
     Nil
   })
 }
@@ -179,16 +206,32 @@ pub fn anchor_resolution_agrees_across_compaction__test() {
       let assert Ok(after_bias) =
         sequence.anchor_at(merged, position, sequence.After)
 
-      sequence.resolve(compacted, before_bias)
-      |> expect.to_be_ok()
-      |> expect.to_equal(
-        sequence.resolve(merged, before_bias) |> expect.to_be_ok(),
-      )
-      sequence.resolve(compacted, after_bias)
-      |> expect.to_be_ok()
-      |> expect.to_equal(
-        sequence.resolve(merged, after_bias) |> expect.to_be_ok(),
-      )
+      {
+        let assert Ok(asserted_4) = sequence.resolve(compacted, before_bias)
+        asserted_4
+      }
+      |> fn(actual) {
+        assert actual
+          == {
+            {
+              let assert Ok(asserted_3) = sequence.resolve(merged, before_bias)
+              asserted_3
+            }
+          }
+      }
+      {
+        let assert Ok(asserted_2) = sequence.resolve(compacted, after_bias)
+        asserted_2
+      }
+      |> fn(actual) {
+        assert actual
+          == {
+            {
+              let assert Ok(asserted_1) = sequence.resolve(merged, after_bias)
+              asserted_1
+            }
+          }
+      }
     })
     Nil
   })
@@ -202,8 +245,14 @@ pub fn compact_twice_equals_compact_once__test() {
     let #(once, _) = sequence.compact(merged, frontier)
     let #(twice, round) = sequence.compact(once, frontier)
 
-    twice |> expect.to_equal(once)
-    sequence.forwarding_size(round) |> expect.to_equal(0)
+    twice
+    |> fn(actual) {
+      assert actual == { once }
+    }
+    sequence.forwarding_size(round)
+    |> fn(actual) {
+      assert actual == { 0 }
+    }
     Nil
   })
 }
@@ -215,7 +264,9 @@ pub fn compacted_merge_stays_commutative__test() {
     let #(compacted, _) = sequence.compact(base, frontier)
 
     sequence.merge(compacted, b_state, rid("A"))
-    |> expect.to_equal(sequence.merge(b_state, compacted, rid("A")))
+    |> fn(actual) {
+      assert actual == { sequence.merge(b_state, compacted, rid("A")) }
+    }
     Nil
   })
 }
@@ -251,8 +302,14 @@ pub fn concurrent_replicas_converge_across_compaction__test() {
         rid("A"),
       )
 
-    two |> expect.to_equal(one)
-    three |> expect.to_equal(one)
+    two
+    |> fn(actual) {
+      assert actual == { one }
+    }
+    three
+    |> fn(actual) {
+      assert actual == { one }
+    }
     Nil
   })
 }

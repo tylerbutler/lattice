@@ -3,7 +3,7 @@ version = "1.1.0"
 description = "Plain-text CRDT for Gleam using YATA-style left/right origins"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
-gleam = ">= 1.7.0"
+gleam = ">= 1.13.0"
 
 [dependencies]
 gleam_stdlib = ">= 0.48.0 and < 2.0.0"
@@ -13,7 +13,7 @@ lattice_sequence = { path = "../lattice_sequence" }
 lattice_text_core = { path = "../lattice_text_core" }
 
 [dev-dependencies]
-startest = ">= 0.8.0 and < 1.0.0"
+gleeunit = ">= 1.11.0 and < 2.0.0"
 qcheck = ">= 1.0.0 and < 2.0.0"
 glinter = ">= 2.19.0 and < 3.0.0"
 
@@ -34,4 +34,4 @@ label_possible = "off"
 # Tests use `let assert Ok(...)`, discard errors, panic in unreachable match
 # arms, and skip return-type annotations by convention; these rules apply to
 # src/ only.
-"test/**/*.gleam" = ["assert_ok_pattern", "thrown_away_error", "discarded_result", "avoid_panic", "missing_type_annotation", "short_variable_name"]
+"test/**/*.gleam" = ["assert_ok_pattern", "thrown_away_error", "discarded_result", "avoid_panic", "missing_type_annotation", "short_variable_name", "deep_nesting"]

@@ -5,7 +5,6 @@ import lattice_counters/g_counter
 import lattice_maps/crdt
 import lattice_maps/or_map
 import qcheck
-import startest/expect
 import support/lww_fixture as lww_map
 
 fn rid(id: String) {
@@ -28,7 +27,9 @@ pub fn lww_map_bottom_identity__test() {
     let m = lww_map.new() |> lww_map.set("key", "value", ts)
     let bottom = lww_map.new()
     lww_map.get(lww_map.merge(m, bottom), "key")
-    |> expect.to_equal(lww_map.get(m, "key"))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == lww_map.get(m, "key")
+    }
     Nil
   })
 }
@@ -41,8 +42,13 @@ pub fn or_map_bottom_identity__test() {
     let bottom = or_map.new(rid("B"), spec)
     let assert Ok(merged) = or_map.merge(m, bottom)
     set.from_list(or_map.keys(merged))
-    |> expect.to_equal(set.from_list(or_map.keys(m)))
-    merged |> expect.to_equal(m)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == set.from_list(or_map.keys(m))
+    }
+    merged
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == m
+    }
     Nil
   })
 }
@@ -71,9 +77,13 @@ pub fn lww_map_convergence__test() {
       let mb_final = lww_map.merge(lww_map.merge(mb, ma), mc)
       let mc_final = lww_map.merge(lww_map.merge(mc, ma), mb)
       lww_map.get(ma_final, "key")
-      |> expect.to_equal(lww_map.get(mb_final, "key"))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == lww_map.get(mb_final, "key")
+      }
       lww_map.get(mb_final, "key")
-      |> expect.to_equal(lww_map.get(mc_final, "key"))
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == lww_map.get(mc_final, "key")
+      }
       Nil
     },
   )
@@ -87,7 +97,10 @@ pub fn lww_map_target_agnostic_json_round_trip__test() {
   let m = lww_map.new() |> lww_map.set("k", "v", 100)
   let encoded = json.to_string(lww_map.to_json(m))
   let assert Ok(decoded) = lww_map.from_json(encoded)
-  lww_map.get(decoded, "k") |> expect.to_equal(lww_map.get(m, "k"))
+  lww_map.get(decoded, "k")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == lww_map.get(m, "k")
+  }
 }
 
 pub fn or_map_target_agnostic_json_round_trip__test() {
@@ -105,6 +118,11 @@ pub fn or_map_target_agnostic_json_round_trip__test() {
   let encoded = json.to_string(or_map.to_json(map))
   let assert Ok(decoded) = or_map.from_json(encoded)
   set.from_list(or_map.keys(decoded))
-  |> expect.to_equal(set.from_list(or_map.keys(map)))
-  decoded |> expect.to_equal(map)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == set.from_list(or_map.keys(map))
+  }
+  decoded
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == map
+  }
 }

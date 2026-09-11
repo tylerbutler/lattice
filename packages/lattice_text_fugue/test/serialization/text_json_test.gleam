@@ -1,7 +1,6 @@
 import gleam/json
 import lattice_core/replica_id
 import lattice_text_fugue/text
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -17,7 +16,9 @@ fn round_trip(doc: text.Text) {
 pub fn empty_round_trips_test() {
   let doc = text.new(rid("A"))
   round_trip(doc)
-  |> expect.to_equal(Ok(doc))
+  |> fn(actual) {
+    assert actual == Ok(doc)
+  }
 }
 
 pub fn populated_round_trips_test() {
@@ -25,7 +26,9 @@ pub fn populated_round_trips_test() {
     text.new(rid("A"))
     |> text.insert(0, "hello world")
   round_trip(doc)
-  |> expect.to_equal(Ok(doc))
+  |> fn(actual) {
+    assert actual == Ok(doc)
+  }
 }
 
 pub fn value_survives_round_trip_test() {
@@ -35,7 +38,9 @@ pub fn value_survives_round_trip_test() {
   let assert Ok(doc) = text.delete(inserted, 1)
   let assert Ok(decoded) = round_trip(doc)
   text.value(decoded)
-  |> expect.to_equal("ac")
+  |> fn(actual) {
+    assert actual == "ac"
+  }
 }
 
 pub fn wrong_envelope_fails_test() {
@@ -44,5 +49,7 @@ pub fn wrong_envelope_fails_test() {
     Error(_) -> True
     Ok(_) -> False
   }
-  |> expect.to_be_true()
+  |> fn(actual) {
+    assert actual
+  }
 }

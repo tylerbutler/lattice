@@ -181,11 +181,11 @@ just test-js
 # Single package
 just test-pkg lattice_counters
 
-# Single test by name
-cd packages/lattice_counters && gleam test -- --test-name-filter="test_name"
 ```
 
-Tests use the `startest` framework with `startest/expect`. Property-based tests use `qcheck`.
+Tests use Gleeunit with Gleam's native `assert` and `let assert` syntax.
+Property-based tests use `qcheck`. Gleeunit does not support filtering tests by
+name; use `just test-pkg <package>` to limit a run to one package.
 
 ## Delta-State CRDTs
 
@@ -370,8 +370,8 @@ just clean
 # Rebuild from scratch
 just deps && just build
 
-# Run a specific test
-cd packages/<pkg> && gleam test -- --test-name-filter="test_name"
+# Run one package's tests
+just test-pkg <pkg>
 ```
 
 ## Getting Help

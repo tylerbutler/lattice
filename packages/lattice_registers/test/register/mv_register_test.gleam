@@ -3,31 +3,30 @@ import gleam/order
 import gleam/string
 import lattice_core/replica_id
 import lattice_registers/mv_register
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
 }
 
 pub fn new_creates_empty_register_test() {
-  mv_register.new(rid("A"))
-  |> mv_register.value
-  |> expect.to_equal([])
+  assert mv_register.new(rid("A"))
+    |> mv_register.value
+    == []
 }
 
 pub fn set_then_value_returns_single_value_test() {
-  mv_register.new(rid("A"))
-  |> mv_register.set("hello")
-  |> mv_register.value
-  |> expect.to_equal(["hello"])
+  assert mv_register.new(rid("A"))
+    |> mv_register.set("hello")
+    |> mv_register.value
+    == ["hello"]
 }
 
 pub fn set_twice_supersedes_previous_value_test() {
-  mv_register.new(rid("A"))
-  |> mv_register.set("hello")
-  |> mv_register.set("world")
-  |> mv_register.value
-  |> expect.to_equal(["world"])
+  assert mv_register.new(rid("A"))
+    |> mv_register.set("hello")
+    |> mv_register.set("world")
+    |> mv_register.value
+    == ["world"]
 }
 
 pub fn concurrent_writes_preserved_after_merge_test() {
@@ -37,17 +36,15 @@ pub fn concurrent_writes_preserved_after_merge_test() {
   let merged = mv_register.merge(reg_a, reg_b)
   let vals = mv_register.value(merged)
 
-  vals
-  |> list.length
-  |> expect.to_equal(2)
+  assert vals
+    |> list.length
+    == 2
 
-  vals
-  |> list.contains("alice_val")
-  |> expect.to_be_true
+  assert vals
+    |> list.contains("alice_val")
 
-  vals
-  |> list.contains("bob_val")
-  |> expect.to_be_true
+  assert vals
+    |> list.contains("bob_val")
 }
 
 pub fn sequential_write_dominates_earlier_value_test() {
@@ -64,8 +61,7 @@ pub fn sequential_write_dominates_earlier_value_test() {
   let merged = mv_register.merge(reg_a, reg_b)
   let vals = mv_register.value(merged)
 
-  vals
-  |> expect.to_equal(["v2"])
+  assert vals == ["v2"]
 }
 
 pub fn merge_commutativity_test() {
@@ -86,5 +82,5 @@ pub fn merge_commutativity_test() {
     |> mv_register.value
     |> list.sort(by: string_compare)
 
-  expect.to_equal(vals_ab, vals_ba)
+  assert vals_ab == vals_ba
 }

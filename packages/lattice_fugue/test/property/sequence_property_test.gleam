@@ -3,7 +3,6 @@ import gleam/result
 import lattice_core/replica_id
 import lattice_fugue/sequence
 import qcheck
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -46,7 +45,9 @@ pub fn merge_commutativity__test() {
       let assert Ok(right) = doc("B", b)
 
       sequence.merge(left, right, rid("local"))
-      |> expect.to_equal(sequence.merge(right, left, rid("local")))
+      |> fn(actual) {
+        assert actual == sequence.merge(right, left, rid("local"))
+      }
       Nil
     },
   )
@@ -55,7 +56,10 @@ pub fn merge_commutativity__test() {
 pub fn merge_idempotency__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 100), fn(n) {
     let assert Ok(d) = doc("A", n)
-    sequence.merge(d, d, sequence.replica_id(d)) |> expect.to_equal(d)
+    sequence.merge(d, d, sequence.replica_id(d))
+    |> fn(actual) {
+      assert actual == d
+    }
     Nil
   })
 }
@@ -77,11 +81,10 @@ pub fn merge_associativity__test() {
       let local = rid("local")
 
       sequence.merge(sequence.merge(doc_a, doc_b, local), doc_c, local)
-      |> expect.to_equal(sequence.merge(
-        doc_a,
-        sequence.merge(doc_b, doc_c, local),
-        local,
-      ))
+      |> fn(actual) {
+        assert actual
+          == sequence.merge(doc_a, sequence.merge(doc_b, doc_c, local), local)
+      }
       Nil
     },
   )
@@ -108,11 +111,26 @@ pub fn merge_laws_unicode_order_test() {
       let right =
         sequence.merge(doc_a, sequence.merge(doc_b, doc_c, local), local)
 
-      forward |> expect.to_equal(backward)
-      sequence.values(forward) |> expect.to_equal(sequence.values(backward))
-      left |> expect.to_equal(right)
-      sequence.values(left) |> expect.to_equal(sequence.values(right))
-      sequence.merge(left, left, local) |> expect.to_equal(left)
+      forward
+      |> fn(actual) {
+        assert actual == backward
+      }
+      sequence.values(forward)
+      |> fn(actual) {
+        assert actual == sequence.values(backward)
+      }
+      left
+      |> fn(actual) {
+        assert actual == right
+      }
+      sequence.values(left)
+      |> fn(actual) {
+        assert actual == sequence.values(right)
+      }
+      sequence.merge(left, left, local)
+      |> fn(actual) {
+        assert actual == left
+      }
       Nil
     },
   )
@@ -124,9 +142,13 @@ pub fn merge_bottom_identity__test() {
     let empty = sequence.new(rid("A"))
 
     sequence.merge(state, empty, rid("A"))
-    |> expect.to_equal(state)
+    |> fn(actual) {
+      assert actual == state
+    }
     sequence.merge(empty, state, rid("A"))
-    |> expect.to_equal(state)
+    |> fn(actual) {
+      assert actual == state
+    }
     Nil
   })
 }
@@ -151,7 +173,10 @@ pub fn merge_convergence__test() {
       let left = sequence.merge(da, db, rid("local"))
       let right = sequence.merge(db, da, rid("local"))
 
-      left |> expect.to_equal(right)
+      left
+      |> fn(actual) {
+        assert actual == right
+      }
       Nil
     },
   )
@@ -173,7 +198,7 @@ pub fn non_interleaving__test() {
     // element of run B: equivalently, each run occupies a contiguous block.
     let contiguous_a = contiguous(values, run_a)
     let contiguous_b = contiguous(values, run_b)
-    expect.to_equal(contiguous_a && contiguous_b, True)
+    assert contiguous_a && contiguous_b == True
     Nil
   })
 }

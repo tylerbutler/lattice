@@ -11,7 +11,6 @@ import lattice_sequence/sequence
 import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_text/text
-import startest/expect
 
 fn rid(value: String) {
   replica_id.new(value)
@@ -57,13 +56,25 @@ pub fn lww_frozen_removed_or_map_child_round_trip_does_not_conflict_test() {
   list.each([assigned, edited], fn(original) {
     let assert Ok(loaded) =
       lww_map.from_json(lww_map.to_json(original) |> json.to_string)
-    loaded |> expect.to_equal(original)
-    lww_map.merge(original, loaded) |> expect.to_equal(Ok(original))
-    lww_map.merge(loaded, original) |> expect.to_equal(Ok(original))
+    loaded
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == original
+    }
+    lww_map.merge(original, loaded)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(original)
+    }
+    lww_map.merge(loaded, original)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(original)
+    }
     let assert Ok(conflicting) =
       lww_map.set(empty, "snapshot", crdt.CrdtOrMap(active), 1)
     lww_map.merge(loaded, conflicting)
-    |> expect.to_equal(Error(crdt.ConflictingWrite("snapshot", 1)))
+    |> fn(assertion_actual) {
+      let assert True =
+        assertion_actual == Error(crdt.ConflictingWrite("snapshot", 1))
+    }
 
     let assert Ok(outer) =
       lww_map.set(
@@ -77,7 +88,10 @@ pub fn lww_frozen_removed_or_map_child_round_trip_does_not_conflict_test() {
       )
     let assert Ok(loaded_outer) =
       lww_map.from_json(lww_map.to_json(outer) |> json.to_string)
-    lww_map.merge(outer, loaded_outer) |> expect.to_equal(Ok(outer))
+    lww_map.merge(outer, loaded_outer)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(outer)
+    }
   })
 }
 
@@ -110,8 +124,14 @@ pub fn lww_frozen_pruned_map_allocator_round_trip_is_stable_test() {
     )
   let assert Ok(loaded) =
     lww_map.from_json(lww_map.to_json(original) |> json.to_string)
-  loaded |> expect.to_equal(original)
-  lww_map.merge(original, loaded) |> expect.to_equal(Ok(original))
+  loaded
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == original
+  }
+  lww_map.merge(original, loaded)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(original)
+  }
 }
 
 pub fn binding_and_frozen_round_trips_preserve_sequence_text_compaction_history_test() {
@@ -121,11 +141,17 @@ pub fn binding_and_frozen_round_trips_preserve_sequence_text_compaction_history_
     sequence.insert_many(sequence.new(author), 0, ["a", "b", "c"])
   let assert Ok(sequence) = sequence.delete(sequence, 1)
   let #(sequence, sequence_forwardings) = sequence.compact(sequence, stable)
-  sequence.forwarding_size(sequence_forwardings) |> expect.to_equal(1)
+  sequence.forwarding_size(sequence_forwardings)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
   let assert Ok(text) = text.append(text.new(author), "abc")
   let assert Ok(text) = text.delete(text, 1)
   let #(text, text_forwardings) = text.compact(text, stable)
-  sequence.forwarding_size(text_forwardings) |> expect.to_equal(1)
+  sequence.forwarding_size(text_forwardings)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 1
+  }
   list.each(
     [
       #(crdt.SequenceSpec, crdt.CrdtSequence(sequence)),
@@ -136,12 +162,17 @@ pub fn binding_and_frozen_round_trips_preserve_sequence_text_compaction_history_
       child
       |> crdt.bind(rid("B"))
       |> crdt.bind(author)
-      |> expect.to_equal(child)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == child
+      }
       let assert Ok(direct) =
         lww_map.set(lww_map.new(author, spec), "snapshot", child, 1)
       let assert Ok(view) =
         lww_map.get(lww_map.bind(direct, rid("B")), "snapshot")
-      crdt.bind(view, author) |> expect.to_equal(child)
+      crdt.bind(view, author)
+      |> fn(assertion_actual) {
+        let assert True = assertion_actual == child
+      }
       let assert Ok(nested) =
         or_map.update(or_map.new(author, spec), "history", fn(_) { child })
       let assert Ok(recursive) =
@@ -154,9 +185,18 @@ pub fn binding_and_frozen_round_trips_preserve_sequence_text_compaction_history_
       list.each([direct, recursive], fn(original) {
         let assert Ok(loaded) =
           lww_map.from_json(lww_map.to_json(original) |> json.to_string)
-        loaded |> expect.to_equal(original)
-        lww_map.merge(original, loaded) |> expect.to_equal(Ok(original))
-        lww_map.merge(loaded, original) |> expect.to_equal(Ok(original))
+        loaded
+        |> fn(assertion_actual) {
+          let assert True = assertion_actual == original
+        }
+        lww_map.merge(original, loaded)
+        |> fn(assertion_actual) {
+          let assert True = assertion_actual == Ok(original)
+        }
+        lww_map.merge(loaded, original)
+        |> fn(assertion_actual) {
+          let assert True = assertion_actual == Ok(original)
+        }
       })
     },
   )
@@ -173,20 +213,28 @@ fn check_delivery(
   list.each([[da, db], [db, da], [db, da, db, da]], fn(delivery) {
     let assert Ok(delivered) =
       list.try_fold(delivery, receiver, or_map.apply_delta)
-    delivered |> expect.to_equal(full)
+    delivered
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == full
+    }
   })
   list.each([#(da, db), #(db, da)], fn(pair) {
     let assert Ok(batch) = or_map.merge_deltas(pair.0, pair.1)
     let assert Ok(batch) =
       or_map.delta_from_json(or_map.delta_to_json(batch) |> json.to_string)
-    or_map.apply_delta(receiver, batch) |> expect.to_equal(Ok(full))
+    or_map.apply_delta(receiver, batch)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(full)
+    }
     crdt.apply_delta(
       crdt.CrdtOrMap(receiver),
       crdt.OrMapChange(batch),
       crdt.OrMapSpec(or_map.spec(a)),
       rid("R"),
     )
-    |> expect.to_equal(Ok(crdt.CrdtOrMap(full)))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(crdt.CrdtOrMap(full))
+    }
     let assert Ok(dispatch_batch) =
       crdt.merge_deltas(
         crdt.OrMapChange(pair.0),
@@ -200,7 +248,9 @@ fn check_delivery(
       crdt.OrMapSpec(or_map.spec(a)),
       rid("R"),
     )
-    |> expect.to_equal(Ok(crdt.CrdtOrMap(full)))
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(crdt.CrdtOrMap(full))
+    }
   })
 }
 
@@ -218,19 +268,32 @@ pub fn absent_nochange_register_initialization_converges_in_all_delivery_orders_
     check_delivery(a, da, b, db)
     let assert Ok(full) = or_map.merge(a, b)
     register_value(full)
-    |> expect.to_equal(case author {
-      "A" -> "seed"
-      _ -> "other"
-    })
+    |> fn(actual) {
+      let assert True =
+        actual
+        == case author {
+          "A" -> "seed"
+          _ -> "other"
+        }
+    }
     let assert Ok(local) =
       or_map.update(or_map.new(rid("B"), spec), "key", fn(_) { value })
-    local |> expect.to_equal(b)
-    or_map.apply_delta(or_map.new(rid("B"), spec), db) |> expect.to_equal(Ok(b))
+    local
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == b
+    }
+    or_map.apply_delta(or_map.new(rid("B"), spec), db)
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == Ok(b)
+    }
     let assert Ok(#(sparse, sparse_delta)) =
       or_map.update_delta(or_map.new(rid("B"), spec), "key", fn(_, _) {
         Ok(crdt.StateDelta(value))
       })
-    sparse |> expect.to_equal(b)
+    sparse
+    |> fn(assertion_actual) {
+      let assert True = assertion_actual == b
+    }
     check_delivery(a, da, sparse, sparse_delta)
   })
 }
@@ -261,9 +324,18 @@ pub fn reset_nochange_register_initialization_is_carried_by_generation_delta_tes
   let assert [encoded_child] = encoded_child
   let assert Ok(crdt.StateDelta(crdt.CrdtLwwRegister(initial))) =
     crdt.delta_from_json(encoded_child)
-  lww_register.value(initial) |> expect.to_equal("seed")
-  or_map.apply_delta(old, delta) |> expect.to_equal(Ok(reset))
-  register_value(reset) |> expect.to_equal("seed")
+  lww_register.value(initial)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "seed"
+  }
+  or_map.apply_delta(old, delta)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(reset)
+  }
+  register_value(reset)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "seed"
+  }
 }
 
 pub fn nested_nochange_register_initialization_converges_through_sparse_parent_test() {
@@ -289,7 +361,10 @@ pub fn nested_nochange_register_initialization_converges_through_sparse_parent_t
     )
   check_delivery(a, da, b, db)
   let assert Ok(crdt.CrdtOrMap(child)) = or_map.get(a, "key")
-  register_value(child) |> expect.to_equal("seed")
+  register_value(child)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "seed"
+  }
 }
 
 fn import_legacy_child(value: String, receiver: String) {
@@ -327,11 +402,20 @@ fn import_legacy_child(value: String, receiver: String) {
 pub fn legacy_lww_imported_children_merge_commutatively_test() {
   let a = import_legacy_child("aaa", "A")
   let b = import_legacy_child("zzz", "B")
-  import_legacy_child("aaa", "other-receiver") |> expect.to_equal(a)
+  import_legacy_child("aaa", "other-receiver")
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == a
+  }
   let assert Ok(ab) = crdt.merge(a, b, rid("R"))
-  crdt.merge(b, a, rid("R")) |> expect.to_equal(Ok(ab))
+  crdt.merge(b, a, rid("R"))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(ab)
+  }
   let assert crdt.CrdtLwwRegister(winner) = ab
-  lww_register.value(winner) |> expect.to_equal("zzz")
+  lww_register.value(winner)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "zzz"
+  }
   let assert Ok(ma) =
     or_map.update(or_map.new(rid("A"), crdt.LwwRegisterSpec("")), "key", fn(_) {
       a
@@ -341,8 +425,14 @@ pub fn legacy_lww_imported_children_merge_commutatively_test() {
       b
     })
   let assert Ok(merged) = or_map.merge_as(ma, mb, rid("R"))
-  or_map.merge_as(mb, ma, rid("R")) |> expect.to_equal(Ok(merged))
-  register_value(merged) |> expect.to_equal("zzz")
+  or_map.merge_as(mb, ma, rid("R"))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(merged)
+  }
+  register_value(merged)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == "zzz"
+  }
 }
 
 fn missing_value_snapshot(active: Bool, delta: Bool) {
@@ -414,12 +504,20 @@ pub fn or_map_snapshot_rejects_active_membership_without_value_test() {
   let assert Error(_) = or_map.from_json(missing_value_snapshot(True, False))
   let assert Error(_) = crdt.from_json(missing_value_snapshot(True, False))
   let assert Ok(floor) = or_map.from_json(missing_value_snapshot(False, False))
-  or_map.keys(floor) |> expect.to_equal([])
+  or_map.keys(floor)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
   or_map.from_json(or_map.to_json(floor) |> json.to_string)
-  |> expect.to_equal(Ok(floor))
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == Ok(floor)
+  }
   let assert Ok(removal) =
     or_map.delta_from_json(missing_value_snapshot(False, True))
   let assert Ok(removed) =
     or_map.apply_delta(or_map.new(rid("A"), crdt.SequenceSpec), removal)
-  or_map.keys(removed) |> expect.to_equal([])
+  or_map.keys(removed)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
 }

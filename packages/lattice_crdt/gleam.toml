@@ -3,7 +3,7 @@ version = "3.0.2"
 description = "Conflict-free replicated data types (CRDTs) for Gleam — umbrella package that includes all lattice sub-packages"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }
-gleam = ">= 1.7.0"
+gleam = ">= 1.13.0"
 
 [dependencies]
 lattice_core = { path = "../lattice_core" }
@@ -15,7 +15,7 @@ lattice_sequence = { path = "../lattice_sequence" }
 lattice_text = { path = "../lattice_text" }
 
 [dev-dependencies]
-startest = ">= 0.8.0 and < 1.0.0"
+gleeunit = ">= 1.11.0 and < 2.0.0"
 qcheck = ">= 1.0.0 and < 2.0.0"
 glinter = ">= 2.19.0 and < 3.0.0"
 

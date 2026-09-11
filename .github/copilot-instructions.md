@@ -16,11 +16,13 @@ just ci              # Full CI: format-check, check, test-all, build-strict-all
 just pr              # Alias for ci — run before opening a PR
 ```
 
-Run a single test by name:
+Run one package's tests:
 
 ```bash
-gleam test -- --filter "test_name"
+just test-pkg lattice_core
 ```
+
+Gleeunit does not support filtering tests by name.
 
 Tool versions are pinned in `.tool-versions` (Erlang 27.2.1, Gleam 1.16.0).
 
@@ -46,7 +48,9 @@ Each module exposes: `new`, type-specific mutators, `merge`, `value` (query), `t
 
 ## Testing
 
-Tests use the `startest` framework with `startest/expect` (not `gleeunit/should` despite what some docs say). Test files mirror the source structure under `test/`:
+Tests use Gleeunit with Gleam's native `assert` and `let assert` syntax. Do not
+use the deprecated `gleeunit/should` module. Test files mirror the source
+structure under `test/`:
 
 - `test/counter/`, `test/register/`, `test/set/`, `test/map/`, `test/clock/` — unit tests
 - `test/serialization/` — JSON round-trip tests

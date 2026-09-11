@@ -1,6 +1,5 @@
 import gleam/list
 import lattice_text_core/grapheme
-import startest/expect
 
 // ---------------------------------------------------------------------------
 // A trivial in-memory backend used to exercise the generic fold helpers. State
@@ -59,33 +58,42 @@ fn delete(
 
 pub fn validate_range_accepts_valid_test() {
   grapheme.validate_range(1, 3, 4)
-  |> expect.to_equal(Ok(Nil))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(Nil))
 }
 
 pub fn validate_range_accepts_empty_range_test() {
   grapheme.validate_range(2, 2, 4)
-  |> expect.to_equal(Ok(Nil))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(Nil))
 }
 
 pub fn validate_range_rejects_negative_start_test() {
   grapheme.validate_range(-1, 2, 4)
-  |> expect.to_equal(
-    Error(grapheme.RangeOutOfBounds(start: -1, end: 2, length: 4)),
-  )
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Error(grapheme.RangeOutOfBounds(start: -1, end: 2, length: 4)))
 }
 
 pub fn validate_range_rejects_end_past_length_test() {
   grapheme.validate_range(0, 5, 3)
-  |> expect.to_equal(
-    Error(grapheme.RangeOutOfBounds(start: 0, end: 5, length: 3)),
-  )
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Error(grapheme.RangeOutOfBounds(start: 0, end: 5, length: 3)))
 }
 
 pub fn validate_range_rejects_inverted_range_test() {
   grapheme.validate_range(3, 1, 4)
-  |> expect.to_equal(
-    Error(grapheme.RangeOutOfBounds(start: 3, end: 1, length: 4)),
-  )
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Error(grapheme.RangeOutOfBounds(start: 3, end: 1, length: 4)))
 }
 
 // ---------------------------------------------------------------------------
@@ -94,17 +102,26 @@ pub fn validate_range_rejects_inverted_range_test() {
 
 pub fn value_concatenates_test() {
   grapheme.value(["a", "b", "c"])
-  |> expect.to_equal("abc")
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("abc")
 }
 
 pub fn slice_returns_subrange_test() {
   grapheme.slice(["a", "b", "c", "d"], 1, 3)
-  |> expect.to_equal("bc")
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("bc")
 }
 
 pub fn slice_empty_range_is_empty_test() {
   grapheme.slice(["a", "b", "c"], 2, 2)
-  |> expect.to_equal("")
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }("")
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +137,10 @@ pub fn insert_graphemes_into_empty_test() {
     insert_many,
     IndexOutOfBounds,
   )
-  |> expect.to_equal(Ok(#(["a", "b", "c"], ["a", "b", "c"])))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(["a", "b", "c"], ["a", "b", "c"])))
 }
 
 pub fn insert_graphemes_in_middle_test() {
@@ -132,7 +152,10 @@ pub fn insert_graphemes_in_middle_test() {
     insert_many,
     IndexOutOfBounds,
   )
-  |> expect.to_equal(Ok(#(["a", "x", "y", "d"], ["x", "y"])))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(["a", "x", "y", "d"], ["x", "y"])))
 }
 
 pub fn insert_empty_graphemes_is_noop_test() {
@@ -144,7 +167,10 @@ pub fn insert_empty_graphemes_is_noop_test() {
     insert_many,
     IndexOutOfBounds,
   )
-  |> expect.to_equal(Ok(#(["a", "b"], [])))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(["a", "b"], [])))
 }
 
 pub fn insert_empty_graphemes_at_bad_index_errors_test() {
@@ -156,7 +182,10 @@ pub fn insert_empty_graphemes_at_bad_index_errors_test() {
     insert_many,
     IndexOutOfBounds,
   )
-  |> expect.to_equal(Error(IndexOutOfBounds(index: 9, length: 2)))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Error(IndexOutOfBounds(index: 9, length: 2)))
 }
 
 pub fn insert_graphemes_out_of_bounds_test() {
@@ -168,7 +197,10 @@ pub fn insert_graphemes_out_of_bounds_test() {
     insert_many,
     IndexOutOfBounds,
   )
-  |> expect.to_equal(Error(IndexOutOfBounds(index: 5, length: 1)))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Error(IndexOutOfBounds(index: 5, length: 1)))
 }
 
 // ---------------------------------------------------------------------------
@@ -177,15 +209,24 @@ pub fn insert_graphemes_out_of_bounds_test() {
 
 pub fn delete_graphemes_range_test() {
   grapheme.delete_graphemes(["a", "b", "c", "d"], 1, 3, delete, insert_merge)
-  |> expect.to_equal(Ok(#(["a", "d"], ["b", "c"])))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(["a", "d"], ["b", "c"])))
 }
 
 pub fn delete_graphemes_empty_range_is_noop_test() {
   grapheme.delete_graphemes(["a", "b"], 1, 1, delete, insert_merge)
-  |> expect.to_equal(Ok(#(["a", "b"], ["a", "b"])))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#(["a", "b"], ["a", "b"])))
 }
 
 pub fn delete_graphemes_all_test() {
   grapheme.delete_graphemes(["a", "b", "c"], 0, 3, delete, insert_merge)
-  |> expect.to_equal(Ok(#([], ["a", "b", "c"])))
+  |> fn(actual, expected) {
+    let assert True = actual == expected
+    Nil
+  }(Ok(#([], ["a", "b", "c"])))
 }

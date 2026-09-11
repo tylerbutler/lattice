@@ -13,7 +13,6 @@ import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_sets/two_p_set
 import lattice_text/text
-import startest/expect
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -37,7 +36,7 @@ pub fn cross_package_imports_compile_test() {
   let _om = or_map.new(rid("a"), crdt.GCounterSpec)
 
   // If we got here, all packages import and construct successfully
-  expect.to_be_true(True)
+  Nil
 }
 
 pub fn or_map_with_g_counter_cross_package_test() {
@@ -63,7 +62,9 @@ pub fn or_map_with_g_counter_cross_package_test() {
 
   // Both increments should be preserved after merge
   g_counter.value(gc)
-  |> expect.to_equal(15)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 15
+  }
 }
 
 pub fn crdt_dispatch_merge_heterogeneous_test() {
@@ -75,7 +76,9 @@ pub fn crdt_dispatch_merge_heterogeneous_test() {
 
   let assert crdt.CrdtGCounter(gc) = merged
   g_counter.value(gc)
-  |> expect.to_equal(10)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == 10
+  }
 }
 
 pub fn version_vector_used_by_mv_register_test() {
@@ -92,7 +95,7 @@ pub fn version_vector_used_by_mv_register_test() {
 
   // Concurrent writes should both appear
   let vals = mv_register.value(merged)
-  expect.to_be_true(vals == ["hello", "world"] || vals == ["world", "hello"])
+  let assert True = vals == ["hello", "world"] || vals == ["world", "hello"]
 }
 
 pub fn lww_register_replica_id_tiebreak_test() {
@@ -104,7 +107,8 @@ pub fn lww_register_replica_id_tiebreak_test() {
   let merged_ba = lww_register.merge(b, a)
 
   // Merge should be commutative even with equal timestamps
-  expect.to_equal(lww_register.value(merged_ab), lww_register.value(merged_ba))
+  let assert True =
+    lww_register.value(merged_ab) == lww_register.value(merged_ba)
 }
 
 pub fn or_set_add_remove_merge_test() {
@@ -120,9 +124,9 @@ pub fn or_set_add_remove_merge_test() {
     |> or_set.add("z")
 
   let merged = or_set.merge(set_a, set_b)
-  expect.to_be_true(or_set.contains(merged, "x"))
-  expect.to_be_true(or_set.contains(merged, "y"))
-  expect.to_be_true(or_set.contains(merged, "z"))
+  let assert True = or_set.contains(merged, "x")
+  let assert True = or_set.contains(merged, "y")
+  let assert True = or_set.contains(merged, "z")
 }
 
 pub fn recursive_umbrella_types_compile_test() {
@@ -131,10 +135,16 @@ pub fn recursive_umbrella_types_compile_test() {
   let value: lattice_crdt.Crdt(Int) = crdt.default_crdt(schema, rid("a"))
   let assert crdt.CrdtOrMap(map) = value
   let map: lattice_crdt.ORMap(Int) = map
-  or_map.keys(map) |> expect.to_equal([])
+  or_map.keys(map)
+  |> fn(assertion_actual) {
+    let assert True = assertion_actual == []
+  }
 
   let delta: lattice_crdt.CrdtDelta(Int) = crdt.NoChange(schema)
-  crdt.is_empty_delta(delta) |> expect.to_be_true
+  crdt.is_empty_delta(delta)
+  |> fn(value) {
+    let assert True = value
+  }
 }
 
 pub fn sequence_and_text_dispatch_cross_package_test() {
@@ -144,6 +154,12 @@ pub fn sequence_and_text_dispatch_cross_package_test() {
   let items: lattice_crdt.Crdt(Int) = crdt.CrdtSequence(items)
   let document: lattice_crdt.Crdt(Int) = crdt.CrdtText(document)
 
-  crdt.matches_spec(items, crdt.SequenceSpec) |> expect.to_be_true
-  crdt.matches_spec(document, crdt.TextSpec) |> expect.to_be_true
+  crdt.matches_spec(items, crdt.SequenceSpec)
+  |> fn(value) {
+    let assert True = value
+  }
+  crdt.matches_spec(document, crdt.TextSpec)
+  |> fn(value) {
+    let assert True = value
+  }
 }
