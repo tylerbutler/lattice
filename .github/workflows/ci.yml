@@ -11,13 +11,15 @@ on:
         description: Hex API key for dependency resolution and downloads
         required: false
 
-env:
-  HEXPM_READ_API_KEY: ${{ secrets.HEXPM_API_KEY }}
+permissions:
+  contents: read
 
 jobs:
   dependencies:
     name: Dependencies
     runs-on: ubuntu-latest
+    env:
+      HEXPM_READ_API_KEY: ${{ secrets.HEXPM_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -48,6 +50,8 @@ jobs:
     name: Workspace validation
     needs: dependencies
     runs-on: ubuntu-latest
+    env:
+      HEXPM_READ_API_KEY: ${{ secrets.HEXPM_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -63,13 +67,71 @@ jobs:
         run: trellis run test --target javascript
       - name: Docs
         run: trellis run docs --serial
+      - name: Archive CI builds
+        shell: bash
+        run: |
+          mkdir -p build/supply-chain
+          trellis list --json > build/supply-chain/members.json
+          for target in erlang javascript; do
+            paths="build/supply-chain/${target}-paths.txt"
+            jq -er --arg target "$target" \
+              '.packages[].path + "/build/dev/" + $target' \
+              build/supply-chain/members.json > "$paths"
+            while IFS= read -r path; do
+              if [ ! -d "$path" ]; then
+                echo "::error::Missing CI build output: $path"
+                exit 1
+              fi
+            done < "$paths"
+            tar -czf "build/supply-chain/lattice-ci-${target}.tar.gz" -T "$paths"
+          done
+      - name: Upload CI builds
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7.0.1
+        with:
+          name: lattice-ci-builds
+          path: build/supply-chain/lattice-ci-*.tar.gz
+          if-no-files-found: error
 
   licence-audit:
-    name: Licence audit
+    name: Licence and vulnerability audit
+    needs: dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
       - uses: ./.github/actions/setup
-        with:
-          cache: "false"
       - run: just licence-audit
+
+  provenance:
+    name: CI build provenance
+    needs: [doctor, format, workspace-validation, licence-audit]
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'tylerbutler/lattice' &&
+      github.ref == 'refs/heads/main' &&
+      github.workflow_ref == 'tylerbutler/lattice/.github/workflows/ci.yml@refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download this run's CI builds
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # ratchet:actions/download-artifact@v8.0.1
+        with:
+          name: lattice-ci-builds
+          path: build/supply-chain
+      - name: Attest CI build archives
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # ratchet:actions/attest@v4.2.2
+        with:
+          subject-path: |
+            build/supply-chain/lattice-ci-erlang.tar.gz
+            build/supply-chain/lattice-ci-javascript.tar.gz
+          create-storage-record: false
+      - name: Upload provenance bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7.0.1
+        with:
+          name: lattice-ci-provenance
+          path: ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error

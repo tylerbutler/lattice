@@ -94,7 +94,7 @@ build-pkg pkg:
 doctor:
     trellis doctor
 
-# Enforce the licence allow-list for every workspace member
+# Enforce licences and the vulnerability threshold for every workspace member
 licence-audit *ARGS:
     trellis run licence-audit --serial {{ ARGS }}
 
@@ -141,7 +141,7 @@ examples:
 
 # === CI ===
 
-# Run all CI checks (doctor, licence audit, format, check, lint, test, build strict)
+# Run all CI checks (doctor, dependency audit, format, check, lint, test, build strict)
 ci:
     trellis doctor
     just licence-audit

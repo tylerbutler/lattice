@@ -11,8 +11,8 @@ Ensure you have the following installed:
 | Erlang/OTP | 28.5.0.5 | BEAM runtime |
 | Gleam | 1.16.0+ | Compiler and tooling |
 | just | 1.38.0+ | Task runner (thin delegation layer) |
-| [trellis](https://github.com/tylerbutler/trellis) | 0.1.0 | Workspace CLI: task fan-out, changelog, versioning, publishing |
-| [licence_audit](https://licence-audit.tylerbutler.com) | 0.8.0 | Dependency licence policy enforcement |
+| [trellis](https://github.com/tylerbutler/trellis) | 1.6.1 | Workspace CLI: task fan-out, changelog, versioning, publishing |
+| [licence_audit](https://licence-audit.tylerbutler.com) | 1.0.0-rc.2 | Dependency licence and vulnerability policy enforcement |
 
 **Recommended:** Use [mise](https://mise.jdx.dev/) — `mise install` installs
 everything above (including trellis and licence_audit via the `github:` backend in
@@ -22,6 +22,58 @@ CI toolchains can't drift.
 ```bash
 mise install
 ```
+
+mise installs licence_audit's self-contained platform archive. The audit tool
+does not add dependencies to the published Gleam packages.
+
+### Dependency policy and CI evidence
+
+Run `just licence-audit` to enforce the root `gleam.toml` policy across all
+13 Gleam workspace members, including development dependencies and examples.
+The task runs `licence_audit check --vulns` in each member. The licence allowlist
+is MIT and Apache-2.0. The vulnerability gate blocks high and critical findings;
+it reports lower and unknown severities without blocking them. Input,
+configuration, and network failures also fail the check. Do not treat an
+unavailable OSV service as a clean audit.
+
+licence_audit checks Hex package licence metadata and supported external
+dependencies for OSV advisories. It reports local workspace packages as skipped;
+it does not audit unpublished local code. Website/pnpm dependencies are outside
+this gate's scope. Keep policy decisions and exceptions in the root configuration,
+not in CI-only command flags.
+
+After successful build, test, and documentation checks, CI retains two archives
+in the `lattice-ci-builds` artifact: `lattice-ci-erlang.tar.gz` and
+`lattice-ci-javascript.tar.gz`. They contain the members' development-mode
+compiled output and build dependencies, including tests. These are CI snapshots,
+not published Hex packages or deployment artifacts.
+
+Only direct pushes to this repository's `main` branch through `ci.yml` generate
+GitHub SLSA provenance. A separate job downloads this run's archives without
+executing their contents and attests the SHA-256 digest of each archive file.
+PRs, forks, and reusable-workflow callers receive no provenance signing
+permissions. The `lattice-ci-provenance` artifact retains the attestation bundle.
+The release workflows retain their existing publication and tagging behavior.
+
+Download `lattice-ci-builds` and `lattice-ci-provenance` from the same successful
+main-branch CI run. Verify an archive with:
+
+```sh
+gh attestation verify lattice-ci-erlang.tar.gz --repo tylerbutler/lattice
+# Or verify against the downloaded provenance bundle:
+gh attestation verify lattice-ci-erlang.tar.gz --bundle <bundle-path>
+```
+
+Use the JavaScript archive name to verify that target. These commands verify
+the archive bytes, not GitHub's artifact download ZIP. Local workflow checks
+cannot exercise hosted OIDC signing; a successful main-branch run must generate
+the attestations before verification is possible.
+
+**SBOM work is paused.** licence_audit 1.0.0-rc.2 rejects the local path
+dependencies in Lattice's manifests. High-priority
+[tylerbutler/licence_audit#258](https://github.com/tylerbutler/licence_audit/issues/258)
+tracks complete workspace SBOM support. CI does not produce partial SBOMs or
+SBOM attestations while that dependency scope is unsupported.
 
 ## Getting Started
 
