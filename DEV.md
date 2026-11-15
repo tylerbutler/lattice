@@ -12,10 +12,10 @@ Ensure you have the following installed:
 | Gleam | 1.16.0+ | Compiler and tooling |
 | just | 1.38.0+ | Task runner (thin delegation layer) |
 | [trellis](https://github.com/tylerbutler/trellis) | 1.6.1 | Workspace CLI: task fan-out, changelog, versioning, publishing |
-| [licence_audit](https://licence-audit.tylerbutler.com) | 1.0.0-rc.2 | Dependency licence and vulnerability policy enforcement |
+| [licence_audit](https://licence-audit.tylerbutler.com) | Git `main` (locked commit) | Development dependency for licence and vulnerability checks |
 
 **Recommended:** Use [mise](https://mise.jdx.dev/) — `mise install` installs
-everything above (including trellis and licence_audit via the `github:` backend in
+the toolchain (including trellis via the `github:` backend in
 `.mise.toml`). CI uses the same files through `jdx/mise-action`, so local and
 CI toolchains can't drift.
 
@@ -23,18 +23,30 @@ CI toolchains can't drift.
 mise install
 ```
 
-mise installs licence_audit's self-contained platform archive. The audit tool
-does not add dependencies to the published Gleam packages.
+`just deps` downloads licence_audit as a Git development dependency of
+`tools/audit`. Its manifest tracks `main`; the committed `manifest.toml` locks
+the resolved commit. To refresh it, run `cd tools/audit && gleam update licence_audit`
+and review the lockfile changes. The tool runs through
+`gleam run --target erlang -m licence_audit -- <args>`. The separate tooling
+project keeps its Erlang-only dependencies out of published packages and
+JavaScript builds.
 
 ### Dependency policy and CI evidence
 
 Run `just licence-audit` to enforce the root `gleam.toml` policy across all
-13 Gleam workspace members, including development dependencies and examples.
-The task runs `licence_audit check --vulns` in each member. The licence allowlist
+13 Gleam workspace members, including development dependencies and examples,
+and the audit tooling's own dependencies. The task runs
+`gleam run --target erlang -m licence_audit -- check --checks=all` from
+`tools/audit`, selecting each member's manifest and the root policy. The licence allowlist
 is MIT and Apache-2.0. The vulnerability gate blocks high and critical findings;
 it reports lower and unknown severities without blocking them. Input,
 configuration, and network failures also fail the check. Do not treat an
 unavailable OSV service as a clean audit.
+
+The audit tooling uses its own policy in `tools/audit/gleam.toml`, which also
+allows ISC (`gun`, `cowlib`) and BSD-3-Clause (`william`). These development-tool
+approvals do not change Lattice's member policy. Both policies use the same
+vulnerability threshold.
 
 licence_audit checks Hex package licence metadata and supported external
 dependencies for OSV advisories. It reports local workspace packages as skipped;
@@ -69,11 +81,14 @@ the archive bytes, not GitHub's artifact download ZIP. Local workflow checks
 cannot exercise hosted OIDC signing; a successful main-branch run must generate
 the attestations before verification is possible.
 
-**SBOM work is paused.** licence_audit 1.0.0-rc.2 rejects the local path
-dependencies in Lattice's manifests. High-priority
+**SBOM CI work remains paused.** licence_audit `main` includes local path
+dependency support from
 [tylerbutler/licence_audit#258](https://github.com/tylerbutler/licence_audit/issues/258)
-tracks complete workspace SBOM support. CI does not produce partial SBOMs or
-SBOM attestations while that dependency scope is unsupported.
+and verifies Hex publication identities without claiming that local files
+match release archives. At locked commit `69182d2eab91e911dd71e7d36b646f637830acb9`,
+the local reproducible SBOM check still fails publication identity verification
+for `lattice_core@2.0.0`. This source-install change does not add CI SBOM
+generation or SBOM attestations.
 
 ## Getting Started
 
