@@ -1,3 +1,5 @@
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import gleam/set
 import lattice_core/replica_id
@@ -5,6 +7,7 @@ import lattice_core/version_vector
 import lattice_counters/g_counter
 import lattice_maps/crdt.{type Crdt, CrdtGCounter, GCounterSpec}
 import lattice_maps/or_map
+import lattice_sets/or_set
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -18,6 +21,47 @@ fn inc(c: Crdt(String), amount: Int) -> Crdt(String) {
     }
     _ -> c
   }
+}
+
+pub fn removal_after_live_membership_prune_stays_removed_test() {
+  let assert Ok(original) =
+    or_map.new(rid("A"), GCounterSpec)
+    |> or_map.update("item", fn(c) { inc(c, 5) })
+  let assert Ok(observed) =
+    or_map.merge(or_map.new(rid("B"), GCounterSpec), original)
+
+  // Membership clocks are scoped per key/generation, not the logical writer.
+  let assert Ok([membership]) =
+    original
+    |> or_map.to_json
+    |> json.to_string
+    |> json.parse({
+      use entries <- decode.subfield(
+        ["state", "entries"],
+        decode.list({
+          use membership <- decode.field("membership", decode.string)
+          decode.success(membership)
+        }),
+      )
+      decode.success(entries)
+    })
+  let assert Ok(membership) = or_set.from_json_with(membership, decode.string)
+  let #(_, stable) = or_set.remove_with_bound(membership, "item")
+  let pruned = or_map.prune(original, stable)
+  let #(removed, delta) = or_map.remove_with_delta(observed, "item")
+  let assert Ok(forward) = or_map.merge(pruned, removed)
+  let assert Ok(reverse) = or_map.merge(removed, pruned)
+  let assert Ok(applied) = or_map.apply_delta(pruned, delta)
+
+  list.each([forward, reverse, applied], fn(merged) {
+    let assert True = or_map.keys(merged) == []
+    let assert True = or_map.values(merged) == []
+    let assert True = or_map.get(merged, "item") == Error(Nil)
+    let assert Ok(replayed) = or_map.apply_delta(merged, delta)
+    let assert True = replayed == merged
+    let assert Ok(delayed) = or_map.merge(merged, original)
+    let assert True = or_map.keys(delayed) == []
+  })
 }
 
 // --- Removed values stay available for future merges ---
