@@ -315,6 +315,10 @@ pub fn merge(local: State, remote: State) -> Result(State, MergeError) {
 /// restarted state back to peers removes any cached entries from that earlier
 /// incarnation.
 ///
+/// The diff follows local query visibility: entries owned by replicas marked
+/// down produce no joins or leaves. Their data and causal history still merge;
+/// `replica_up` reports any retained entries when they become visible.
+///
 /// ## Examples
 ///
 /// ```gleam
@@ -418,9 +422,17 @@ fn merge_distinct_replicas(local: State, remote: State) -> #(State, Diff) {
   // 5. Merge clouds
   let new_clouds = merge_clouds(local.clouds, remote.clouds)
 
-  // 6. Build diff
-  let join_diff = entries_to_topic_diff(list.map(joins, fn(kv) { kv.1 }))
-  let leave_diff = entries_to_topic_diff(list.map(removes, fn(kv) { kv.1 }))
+  // 6. Report only changes visible under the local liveness view.
+  let join_diff =
+    joins
+    |> list.filter(fn(kv) { is_replica_up(local, kv.0.replica) })
+    |> list.map(fn(kv) { kv.1 })
+    |> entries_to_topic_diff
+  let leave_diff =
+    removes
+    |> list.filter(fn(kv) { is_replica_up(local, kv.0.replica) })
+    |> list.map(fn(kv) { kv.1 })
+    |> entries_to_topic_diff
   let diff = Diff(joins: join_diff, leaves: leave_diff)
 
   let new_state =
