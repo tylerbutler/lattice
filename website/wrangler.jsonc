@@ -1,0 +1,16 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "lattice-docs",
+	"compatibility_date": "2026-11-16",
+	"workers_dev": true,
+	"routes": [
+		{
+			"pattern": "lattice.tylerbutler.com",
+			"custom_domain": true
+		}
+	],
+	"assets": {
+		"directory": "./dist",
+		"not_found_handling": "404-page"
+	}
+}

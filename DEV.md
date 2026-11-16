@@ -110,6 +110,57 @@ just deps
 just ci
 ```
 
+## Website deployment
+
+Deploy the static Astro site in `website/` with Cloudflare Workers Static
+Assets. Use `website/wrangler.jsonc` to configure the Worker, the `dist/`
+output directory, and the custom domain `lattice.tylerbutler.com`.
+The site needs no server-side adapter or Worker script.
+
+For local development and deployment, use Node.js 24 and pnpm:
+
+```sh
+cd website
+pnpm install --frozen-lockfile
+pnpm dev
+# Build and preview with the Workers asset server:
+pnpm build:site
+pnpm exec wrangler dev
+# Authenticate, then build and deploy to Cloudflare:
+pnpm exec wrangler login
+pnpm run deploy
+```
+
+For Git-based deployments, connect `tylerbutler/lattice` through
+**Workers & Pages** in the Cloudflare dashboard. Use Workers Builds, not
+Cloudflare Pages, with these settings:
+
+| Setting | Value |
+|---------|-------|
+| Worker name | `lattice-docs` |
+| Production branch | `main` |
+| Root directory | `website` |
+| Build command | `pnpm build:site` |
+| Deploy command | `pnpm exec wrangler deploy` |
+| Preview command | `pnpm exec wrangler preview` |
+| Build variable | `NODE_VERSION=24` |
+| Build variable | `PNPM_VERSION=12.14.0` |
+
+Keep the build and deploy commands separate in Workers Builds to avoid
+building twice. Use `pnpm run deploy` for local deployments. Do not add a
+GitHub Actions deployment workflow.
+
+Before the first production deployment, ensure the Cloudflare account has
+an active `tylerbutler.com` zone. Remove the existing Netlify CNAME for
+`lattice.tylerbutler.com` at cutover; Cloudflare cannot attach a Workers
+custom domain while that CNAME exists. Deploy to create the replacement
+DNS record and certificate. Check the home page, a nested documentation
+page, and an unknown URL (which must return the site's 404 page), then
+disable Netlify's Git deployments and remove its domain mapping.
+Account authorization, the Git connection, and the DNS cutover require
+Cloudflare/Netlify dashboard access; merging the configuration does not
+perform those steps.
+
 ## Monorepo Structure
 
 This project is a monorepo of independently-versioned Gleam packages managed
