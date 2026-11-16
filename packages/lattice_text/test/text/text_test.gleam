@@ -9,6 +9,23 @@ fn rid(id: String) {
   replica_id.new(id)
 }
 
+pub fn append_and_replace_after_moved_grapheme_test() {
+  let assert Ok(base) = text.insert(text.new(rid("A")), 0, "abc")
+  let assert Ok(moved) = text.move(base, 0, 2)
+  let assert Ok(#(appended, append_delta)) = text.append_with_delta(moved, "XY")
+  assert text.value(appended) == "bcaXY"
+  assert text.merge(moved, append_delta, rid("A")) == appended
+  let assert Ok(#(replaced, replace_delta)) =
+    text.replace_range_with_delta(appended, 3, 5, "Z")
+  assert text.value(replaced) == "bcaZ"
+  assert text.merge(appended, replace_delta, rid("A")) == replaced
+  let assert Ok(before_mover) = text.replace_range(moved, 1, 2, "PQ")
+  assert text.value(before_mover) == "bPQa"
+  let assert Ok(decoded) =
+    text.to_json(replaced) |> json.to_string() |> text.from_json()
+  assert decoded == replaced
+}
+
 pub fn new_value_is_empty_test() {
   text.new(rid("A"))
   |> text.value()

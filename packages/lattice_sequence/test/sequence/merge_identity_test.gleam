@@ -36,7 +36,7 @@ fn assert_insert_identity(
   |> json.to_string()
   |> json.parse(decode.at(["state", "counter"], decode.int))
   |> fn(actual) {
-    assert actual == { Ok(counter) }
+    assert actual == { Ok(counter + 1) }
   }
   sequence.replica_id(state)
   |> fn(actual) {
@@ -116,8 +116,8 @@ pub fn canonical_and_alias_merge_preserve_explicit_identity_and_counters_test() 
 
   let assert Ok(edited) = sequence.insert(merged, 5, "local")
   let assert Ok(peer_edit) = sequence.insert(peer, 5, "remote")
-  assert_insert_identity(edited, "local", identity, 9)
-  assert_insert_identity(peer_edit, "remote", "B", 9)
+  assert_insert_identity(edited, "local", identity, 11)
+  assert_insert_identity(peer_edit, "remote", "B", 11)
 
   let joined = merge(edited, peer_edit, replica)
   merge(peer_edit, edited, replica)
@@ -139,7 +139,7 @@ pub fn canonical_and_alias_merge_preserve_explicit_identity_and_counters_test() 
     assert value
   }
   let assert Ok(next) = sequence.insert(joined, 7, "next")
-  assert_insert_identity(next, "next", identity, 10)
+  assert_insert_identity(next, "next", identity, 13)
 }
 
 pub fn empty_delta_matches_new_and_preserves_compacted_moved_state_test() {

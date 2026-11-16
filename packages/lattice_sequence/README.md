@@ -47,7 +47,7 @@ pub fn main() {
 - `merge(a, b, replica)` requires the identity for subsequent local edits. `merge_as` is a forwarding alias. Either operand order produces the same full state for a fixed output identity. Independent writers must use distinct replica IDs.
 - Decoded remote snapshots retain their serialized identity. Use `bind(state, local_id)` to adopt a snapshot without rebuilding it, or `merge` to combine it with local history.
 - Position anchors: `anchor_at` (and the `start_anchor`/`end_anchor` sentinels) create a stable position that survives concurrent edits and merges, `resolve` maps it back to a current index, and `anchor_to_json`/`anchor_from_json` let anchors travel between replicas (e.g. shared cursors).
-- `compact` reclaims space from tombstones and origins once a host-supplied stability frontier confirms no in-flight op can reference them, emitting a `ForwardingMap` so anchors and rebased ops keep resolving after the region shrinks.
+- `compact` reclaims space from tombstones and origins once a host-supplied stability frontier confirms no in-flight op can reference them, emitting a `ForwardingMap` so anchors and rebased ops keep resolving after the region shrinks. It retains move records, including deleted movers and initial placements for inserts after moves, as replay-gap anchors.
 - `merge`, `to_json`, and `from_json` round-trip the full CRDT state; convergence holds on both Erlang and JavaScript targets.
 
 ## Map composition

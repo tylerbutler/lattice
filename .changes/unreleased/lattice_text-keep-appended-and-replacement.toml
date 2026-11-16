@@ -1,0 +1,3 @@
+package = "lattice_text"
+kind = "Fixed"
+body = "Keep appended and replacement text at the requested position after moves"
