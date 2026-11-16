@@ -14,6 +14,19 @@ pub fn version_vector_to_json_simple_test() {
   assert version_vector.from_json(json_str) == Ok(vv)
 }
 
+pub fn version_vector_explicit_zero_round_trip_test() {
+  let encoded =
+    "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{\"A\":0}}}"
+  let assert Ok(zero) = version_vector.from_json(encoded)
+  let round_trip = json.to_string(version_vector.to_json(zero))
+  assert version_vector.from_json(round_trip) == Ok(zero)
+  assert !version_vector.is_empty(zero)
+  assert version_vector.compare(version_vector.new(), zero)
+    == version_vector.Equal
+  assert version_vector.compare(zero, version_vector.new())
+    == version_vector.Equal
+}
+
 pub fn version_vector_round_trip_multi_replica_test() {
   let vv =
     version_vector.new()

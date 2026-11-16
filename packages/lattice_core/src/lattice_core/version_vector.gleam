@@ -87,7 +87,8 @@ pub fn get(vector: VersionVector, replica_id: ReplicaId) -> Int {
 ///
 /// Returns `Equal` if all clocks match, `Before` if `a` is strictly dominated
 /// by `b`, `After` if `a` strictly dominates `b`, or `Concurrent` if neither
-/// dominates the other.
+/// dominates the other. Missing entries compare as zero, so an explicit zero
+/// clock does not affect the ordering.
 pub fn compare(a: VersionVector, b: VersionVector) -> Order {
   let VersionVector(a_clocks) = a
   let VersionVector(b_clocks) = b
@@ -100,14 +101,13 @@ pub fn compare(a: VersionVector, b: VersionVector) -> Order {
       #(greater || a_clock > b_clock, less || a_clock < b_clock)
     })
 
-  // Pass 2: Check keys in B that are NOT in A. If a key is in B but not A,
-  // then its B clock is > 0 (implicitly 0 in A), so A < B => less=True
+  // Pass 2: Compare right-only clocks against the implicit zero in A.
   let #(greater, less) =
-    dict.fold(b_clocks, #(greater, less), fn(acc, key, _b_clock) {
-      let #(greater, _) = acc
+    dict.fold(b_clocks, #(greater, less), fn(acc, key, b_clock) {
+      let #(greater, less) = acc
       case dict.has_key(a_clocks, key) {
         True -> acc
-        False -> #(greater, True)
+        False -> #(greater || 0 > b_clock, less || 0 < b_clock)
       }
     })
 
