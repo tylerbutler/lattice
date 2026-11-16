@@ -1816,8 +1816,10 @@ fn identity_ranges_are_disjoint(ranges: List(#(ItemId, Int))) -> Bool {
   case ranges {
     [] | [_] -> True
     [#(first, last), #(next, _) as following, ..rest] ->
-      { first.replica_id != next.replica_id || last < next.counter }
-      && identity_ranges_are_disjoint([following, ..rest])
+      case first.replica_id != next.replica_id || last < next.counter {
+        True -> identity_ranges_are_disjoint([following, ..rest])
+        False -> False
+      }
   }
 }
 

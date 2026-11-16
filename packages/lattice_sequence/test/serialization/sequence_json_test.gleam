@@ -532,6 +532,18 @@ pub fn sequence_from_json_sparse_delta_self_merge_test() {
     == ["a", "x", "b", "c"]
 }
 
+pub fn sequence_from_json_large_forwarding_table_test() {
+  let forwardings =
+    list.repeat(Nil, 20_000)
+    |> list.index_map(fn(_, index) {
+      forwarding_json(index + 1, json.null(), json.null())
+    })
+  let assert Ok(loaded) =
+    allocation_snapshot(2, [], forwardings, version_vector.new())
+    |> sequence.from_json(decode.string)
+  assert sequence.values(loaded) == []
+}
+
 fn allocation_snapshot(
   version: Int,
   segments: List(json.Json),
