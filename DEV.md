@@ -15,13 +15,15 @@ Ensure you have the following installed:
 | [trellis](https://github.com/tylerbutler/trellis) | 1.6.1 | Workspace CLI: task fan-out, changelog, versioning, publishing |
 | [licence_audit](https://licence-audit.tylerbutler.com) | Git `main` (locked commit) | Development dependency for licence and vulnerability checks |
 
-**Recommended:** Use [mise](https://mise.jdx.dev/) — `mise install` installs
-the toolchain (including trellis via the `github:` backend in
-`.mise.toml`). CI uses the same files through `jdx/mise-action`, so local and
-CI toolchains can't drift.
+Use [mise](https://mise.jdx.dev/) — `.mise.toml` is the single source for the
+local and CI toolchain, including trellis via the `github:` backend.
+`mise install` installs the configured tools. CI reads the same configuration
+through `jdx/mise-action`; PR title validation installs only its Node tool.
 
 ```bash
 mise install
+# Run tasks without activating mise in your shell:
+mise exec -- just ci
 ```
 
 `just deps` downloads licence_audit as a Git development dependency of
@@ -32,7 +34,7 @@ and review the lockfile changes. The tool runs through
 project keeps its Erlang-only dependencies out of published packages and
 JavaScript builds.
 Its `cowlib`, `gun`, and `cvss` dependencies require `rebar3`; mise installs
-the pinned `rebar` tool from `.tool-versions` locally and in CI.
+the pinned `rebar` tool from `.mise.toml` locally and in CI.
 
 ### Dependency policy and CI evidence
 
@@ -123,7 +125,7 @@ lattice/                               # git repo root
 ├── gleam.toml                         # Workspace root: [tools.trellis] config
 ├── justfile                           # Thin recipes delegating to trellis
 ├── .changes/                          # Changelog fragments + version sections
-└── .tool-versions                     # Tool version pinning
+└── .mise.toml                         # Shared local and CI toolchain
 ```
 
 Run `trellis list` for the members in dependency order, and `trellis info
