@@ -5,14 +5,14 @@
 
 [tools.trellis]
 # examples participates in format/lint/build/test, but not docs.
-exclude = { docs = ["examples"] }
+exclude = { "@members" = ["tools/audit"], docs = ["examples"] }
 
 [tools.trellis.tasks.lint]
 command = "gleam run -m glinter"
 needs_deps = true
 
 [tools.trellis.tasks.licence-audit]
-command = "licence_audit check --config=\"$(git rev-parse --show-toplevel)/gleam.toml\""
+command = "manifest=\"$PWD/manifest.toml\"; root=\"$(git rev-parse --show-toplevel)\"; cd \"$root/tools/audit\" && gleam run --target erlang -m licence_audit -- check --checks=all --manifest=\"$manifest\" --config=\"$root/gleam.toml\""
 
 [tools.trellis.publish]
 exact_tag_format = "{name}-v{version}"
@@ -52,3 +52,5 @@ kinds = [
 
 [tools.licence_audit]
 allow = ["Apache-2.0", "MIT"]
+vuln_severity = "high"
+vuln_block_unknown = false

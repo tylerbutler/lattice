@@ -456,7 +456,8 @@ pub fn generic_set_payload_decoders_are_applied_test() {
   Nil
 }
 
-const empty_pruned = "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{}}}"
+const empty_pruned =
+  "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{}}}"
 
 fn generic_or_set_json(entries: String, tombstones: String) -> String {
   "{\"type\":\"or_set\",\"v\":3,\"state\":{\"replica_id\":\"A\",\"counter\":1,\"entries\":"

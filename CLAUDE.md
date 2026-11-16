@@ -30,7 +30,7 @@ lattice/                               # git repo root
 ├── gleam.toml                         # Workspace root: [tools.trellis] config
 ├── justfile                           # Thin recipes delegating to trellis
 ├── .changes/                          # Changelog fragments + version sections
-└── .tool-versions                     # Tool version pinning
+└── .mise.toml                         # Shared local and CI toolchain
 ```
 
 ### Dependency Graph
@@ -99,10 +99,11 @@ just test-pkg <name>   # Single package
 
 ## Tool Versions
 
-Managed via `.tool-versions` (erlang, gleam, just — exact pins) plus
-`.mise.toml` (node, trellis). CI installs everything with `jdx/mise-action`
+Managed via `.mise.toml` (erlang, gleam, just, rebar, node, trellis).
+CI installs the toolchain with `jdx/mise-action`
 (cached) in `.github/actions/setup`, so local and CI toolchains come from the
-same two files; `mise install` sets up a dev machine.
+same file; `mise install` sets up a dev machine. Use `mise exec -- just ci`
+without shell activation.
 
 ## CI/CD
 

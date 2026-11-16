@@ -10,9 +10,8 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # Installs everything from .tool-versions + .mise.toml in one cached step:
-    # erlang (precompiled on ubuntu runners), gleam, just, node, trellis,
-    # licence_audit.
+    # Installs everything from .mise.toml in one cached step:
+    # erlang (precompiled on ubuntu runners), gleam, just, rebar, node, trellis.
     - name: Install tools with mise
       uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # ratchet:jdx/mise-action@v4.2.0
       env:
@@ -29,8 +28,9 @@ runs:
         path: |
           packages/*/build/packages
           examples/build/packages
+          tools/audit/build/packages
           ~/.cache/gleam
         # Hash all package manifests so the cache invalidates when any package
         # adds, removes, or changes a dependency.
-        key: gleam-v2-${{ runner.os }}-${{ hashFiles('packages/*/gleam.toml', 'packages/*/manifest.toml', 'examples/gleam.toml', 'examples/manifest.toml') }}
+        key: gleam-v2-${{ runner.os }}-${{ hashFiles('packages/*/gleam.toml', 'packages/*/manifest.toml', 'examples/gleam.toml', 'examples/manifest.toml', 'tools/audit/gleam.toml', 'tools/audit/manifest.toml') }}
         restore-keys: gleam-v2-${{ runner.os }}-

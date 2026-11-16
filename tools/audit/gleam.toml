@@ -1,0 +1,12 @@
+name = "lattice_audit"
+version = "0.0.0"
+description = "Development-only dependency audit tooling for Lattice"
+target = "erlang"
+
+[dev-dependencies]
+licence_audit = { git = "https://github.com/tylerbutler/licence_audit", ref = "main" }
+
+[tools.licence_audit]
+allow = ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT"]
+vuln_severity = "high"
+vuln_block_unknown = false

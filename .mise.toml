@@ -1,10 +1,11 @@
-# erlang/gleam/just exact pins live in .tool-versions (asdf-compatible; also
-# read by trellis doctor). This file adds the tools .tool-versions can't
-# express: backend-prefixed installs and env.
+# Shared local and CI toolchain. Install with `mise install`.
 [tools]
+erlang = "28.5.0.5"
+gleam = "1.19.2"
+just = "1.38.0"
+rebar = "3.28.0"
 node = "24"
-"github:tylerbutler/trellis" = "0.11.2"
-"github:tylerbutler/licence_audit" = { version = "0.8.0", asset_pattern = "licence_audit", bin = "licence_audit" }
+"github:tylerbutler/trellis" = "1.6.1"
 
 [env]
 LC_ALL = "en_US.UTF-8"

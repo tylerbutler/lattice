@@ -20,6 +20,7 @@ default:
 # Download dependencies for all packages
 deps *ARGS:
     trellis run deps {{ ARGS }}
+    cd tools/audit && gleam deps download
 
 # === BUILD ===
 
@@ -94,8 +95,9 @@ build-pkg pkg:
 doctor:
     trellis doctor
 
-# Enforce the licence allow-list for every workspace member
+# Enforce licences and the vulnerability threshold for every workspace member
 licence-audit *ARGS:
+    cd tools/audit && gleam run --target erlang -m licence_audit -- check --checks=all
     trellis run licence-audit --serial {{ ARGS }}
 
 # === DOCUMENTATION ===
@@ -141,7 +143,7 @@ examples:
 
 # === CI ===
 
-# Run all CI checks (doctor, licence audit, format, check, lint, test, build strict)
+# Run all CI checks (doctor, dependency audit, format, check, lint, test, build strict)
 ci:
     trellis doctor
     just licence-audit

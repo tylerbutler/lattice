@@ -9,19 +9,92 @@ Ensure you have the following installed:
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Erlang/OTP | 28.5.0.5 | BEAM runtime |
-| Gleam | 1.16.0+ | Compiler and tooling |
+| Gleam | 1.19.2 | Compiler and tooling |
 | just | 1.38.0+ | Task runner (thin delegation layer) |
-| [trellis](https://github.com/tylerbutler/trellis) | 0.1.0 | Workspace CLI: task fan-out, changelog, versioning, publishing |
-| [licence_audit](https://licence-audit.tylerbutler.com) | 0.8.0 | Dependency licence policy enforcement |
+| Rebar3 | 3.28.0 | Build Erlang dependencies of the audit tooling |
+| [trellis](https://github.com/tylerbutler/trellis) | 1.6.1 | Workspace CLI: task fan-out, changelog, versioning, publishing |
+| [licence_audit](https://licence-audit.tylerbutler.com) | Git `main` (locked commit) | Development dependency for licence and vulnerability checks |
 
-**Recommended:** Use [mise](https://mise.jdx.dev/) — `mise install` installs
-everything above (including trellis and licence_audit via the `github:` backend in
-`.mise.toml`). CI uses the same files through `jdx/mise-action`, so local and
-CI toolchains can't drift.
+Use [mise](https://mise.jdx.dev/) — `.mise.toml` is the single source for the
+local and CI toolchain, including trellis via the `github:` backend.
+`mise install` installs the configured tools. CI reads the same configuration
+through `jdx/mise-action`; PR title validation installs only its Node tool.
 
 ```bash
 mise install
+# Run tasks without activating mise in your shell:
+mise exec -- just ci
 ```
+
+`just deps` downloads licence_audit as a Git development dependency of
+`tools/audit`. Its manifest tracks `main`; the committed `manifest.toml` locks
+the resolved commit. To refresh it, run `cd tools/audit && gleam update licence_audit`
+and review the lockfile changes. The tool runs through
+`gleam run --target erlang -m licence_audit -- <args>`. The separate tooling
+project keeps its Erlang-only dependencies out of published packages and
+JavaScript builds.
+Its `cowlib`, `gun`, and `cvss` dependencies require `rebar3`; mise installs
+the pinned `rebar` tool from `.mise.toml` locally and in CI.
+
+### Dependency policy and CI evidence
+
+Run `just licence-audit` to enforce the root `gleam.toml` policy across all
+13 Gleam workspace members, including development dependencies and examples,
+and the audit tooling's own dependencies. The task runs
+`gleam run --target erlang -m licence_audit -- check --checks=all` from
+`tools/audit`, selecting each member's manifest and the root policy. The licence allowlist
+is MIT and Apache-2.0. The vulnerability gate blocks high and critical findings;
+it reports lower and unknown severities without blocking them. Input,
+configuration, and network failures also fail the check. Do not treat an
+unavailable OSV service as a clean audit.
+
+The audit tooling uses its own policy in `tools/audit/gleam.toml`, which also
+allows ISC (`gun`, `cowlib`) and BSD-3-Clause (`william`). These development-tool
+approvals do not change Lattice's member policy. Both policies use the same
+vulnerability threshold.
+
+licence_audit checks Hex package licence metadata and supported external
+dependencies for OSV advisories. It reports local workspace packages as skipped;
+it does not audit unpublished local code. Website/pnpm dependencies are outside
+this gate's scope. Keep policy decisions and exceptions in the root configuration,
+not in CI-only command flags.
+
+After successful build, test, and documentation checks, CI retains two archives
+in the `lattice-ci-builds` artifact: `lattice-ci-erlang.tar.gz` and
+`lattice-ci-javascript.tar.gz`. They contain the members' development-mode
+compiled output and build dependencies, including tests. These are CI snapshots,
+not published Hex packages or deployment artifacts.
+
+Only direct pushes to this repository's `main` branch through `ci.yml` generate
+GitHub SLSA provenance. A separate job downloads this run's archives without
+executing their contents and attests the SHA-256 digest of each archive file.
+PRs, forks, and reusable-workflow callers receive no provenance signing
+permissions. The `lattice-ci-provenance` artifact retains the attestation bundle.
+The release workflows retain their existing publication and tagging behavior.
+
+Download `lattice-ci-builds` and `lattice-ci-provenance` from the same successful
+main-branch CI run. Verify an archive with:
+
+```sh
+gh attestation verify lattice-ci-erlang.tar.gz --repo tylerbutler/lattice
+# Or verify against the downloaded provenance bundle:
+gh attestation verify lattice-ci-erlang.tar.gz --bundle <bundle-path>
+```
+
+Use the JavaScript archive name to verify that target. These commands verify
+the archive bytes, not GitHub's artifact download ZIP. Local workflow checks
+cannot exercise hosted OIDC signing; a successful main-branch run must generate
+the attestations before verification is possible.
+
+**SBOM CI work remains paused.** licence_audit `main` includes local path
+dependency support from
+[tylerbutler/licence_audit#258](https://github.com/tylerbutler/licence_audit/issues/258)
+and verifies Hex publication identities without claiming that local files
+match release archives. The pinned Gleam 1.19.2 compiler avoids the Erlang
+string-guard miscompilation in 1.18.0, and the local reproducible SBOM check
+for `lattice_counters` succeeds. The compatibility report is
+[tylerbutler/licence_audit#293](https://github.com/tylerbutler/licence_audit/issues/293).
+This change does not add CI SBOM generation or SBOM attestations.
 
 ## Getting Started
 
@@ -52,7 +125,7 @@ lattice/                               # git repo root
 ├── gleam.toml                         # Workspace root: [tools.trellis] config
 ├── justfile                           # Thin recipes delegating to trellis
 ├── .changes/                          # Changelog fragments + version sections
-└── .tool-versions                     # Tool version pinning
+└── .mise.toml                         # Shared local and CI toolchain
 ```
 
 Run `trellis list` for the members in dependency order, and `trellis info
