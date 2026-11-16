@@ -1,3 +1,5 @@
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import lattice_core/replica_id
 import lattice_core/version_vector
@@ -103,20 +105,32 @@ fn apply_ops(
   })
 }
 
-/// A two-replica scenario: replica A applies a random history (every op
-/// mints exactly one counter, so `A: length(ops)` is a causal cut over it),
-/// replica B forks from that state and applies its own random history above
-/// the frontier.
+fn history_frontier(state: sequence.Sequence(Int)) {
+  let assert Ok(counter) =
+    sequence.to_json(state, json.int)
+    |> json.to_string()
+    |> json.parse(decode.at(["state", "counter"], decode.int))
+  version_vector.new() |> version_vector.set_max(rid("A"), counter)
+}
+
+/// Replica B forks after A's full history, including initial insertion
+/// placements, and applies its own random history above the frontier.
 fn scenario(seed_a: Int, seed_b: Int) {
   let ops_a = expand_ops(seed_a + 1, 10)
   let ops_b = expand_ops(seed_b + 2, 10)
   let base = apply_ops(sequence.new(rid("A")), ops_a)
-  let frontier =
-    version_vector.new()
-    |> version_vector.set_max(rid("A"), list.length(ops_a))
+  let frontier = history_frontier(base)
   let b_state =
     apply_ops(sequence.merge(sequence.new(rid("B")), base, rid("B")), ops_b)
   #(base, b_state, frontier)
+}
+
+pub fn deleted_insert_placement_keeps_compaction_replay_gap_test() {
+  let #(base, peer, _) = scenario(9475, 6323)
+  let merged = sequence.merge(base, peer, rid("A"))
+  let floor = version_vector.new() |> version_vector.set_max(rid("A"), 10)
+  let #(compacted, _) = sequence.compact(merged, floor)
+  assert sequence.values(compacted) == sequence.values(merged)
 }
 
 pub fn compaction_preserves_visible_order__test() {
@@ -144,9 +158,7 @@ pub fn merge_commutes_with_compaction_for_deltas_above_frontier__test() {
     let #(seed_a, seed_b) = seeds
     let ops_a = expand_ops(seed_a + 1, 10)
     let base = apply_ops(sequence.new(rid("A")), ops_a)
-    let frontier =
-      version_vector.new()
-      |> version_vector.set_max(rid("A"), list.length(ops_a))
+    let frontier = history_frontier(base)
     let b_state =
       apply_ops(
         sequence.merge(sequence.new(rid("B")), base, rid("B")),

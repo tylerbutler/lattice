@@ -25,10 +25,12 @@
 //// tombstone and every item carries origins. `compact` takes a stability
 //// frontier — a `VersionVector` meaning "everything causally at or below
 //// this is stable; no in-flight or future op references it" — and rewrites
-//// the stable region: stable tombstones are dropped, runs of adjacent stable
-//// items from the same replica with sequential counters are merged into
+//// the stable region: stable tombstones without move records are dropped,
+//// runs of adjacent stable items from the same replica with sequential
+//// counters are merged into
 //// compact blocks, and origins of stable items are discarded. Items above
-//// the frontier keep their full YATA representation.
+//// the frontier keep their full YATA representation. Move records, including
+//// those on deleted items, remain live as replay-gap anchors.
 ////
 //// Every dropped ID gets a forwarding entry pointing at its retained
 //// neighbors, so anchors and rebased operations that still hold the ID can
@@ -244,9 +246,10 @@ pub fn insert_many(
 /// Each new item's left origin is the previous new item (the first pins to the
 /// visible left neighbor) and every item shares the same right origin — the
 /// left neighbor's canonical successor — so the run integrates contiguously on
-/// every replica. When the state holds no live move record, stored order is
-/// already the canonical order, so the run is spliced directly in place rather
-/// than re-deriving the whole order; otherwise it falls back to a full rebuild.
+/// every replica. In move-bearing states each new item also records its initial
+/// visible placement as a move, with a separate operation ID. This preserves
+/// the requested visible gap without changing the canonical insertion origins
+/// or discarding earlier moves.
 ///
 /// Apply the delta with `merge(peer_state, delta, peer_replica)`.
 pub fn insert_many_with_delta(
@@ -277,6 +280,11 @@ pub fn insert_many_with_delta(
           // Stored order IS the canonical base, so its stored successor is
           // the canonical successor — no rebuild needed even with moves live.
           let origin_right = canonical_successor(elements, origin_left)
+          // Some(None) records an explicit placement at the visible end.
+          let placement = case list.any(live_items_of(elements), has_move) {
+            True -> Some(visible_element_id_at(visible, index))
+            False -> None
+          }
           let #(items, last_counter) =
             build_insert_run(
               sequence.replica_id,
@@ -284,6 +292,7 @@ pub fn insert_many_with_delta(
               values,
               origin_left,
               origin_right,
+              placement,
             )
           let new_elements = list.map(items, LiveEl)
           // The run's origins name a gap in the base, so splicing it there is
@@ -312,7 +321,7 @@ pub fn insert_many_with_delta(
 }
 
 /// Build a contiguous run of new items with chained left origins and a shared
-/// right origin, minting consecutive counters from `start_counter`. Returns
+/// right origin, minting counters from `start_counter`. Returns
 /// the items in insertion order and the last counter used.
 fn build_insert_run(
   replica_id: ReplicaId,
@@ -320,29 +329,37 @@ fn build_insert_run(
   values: List(a),
   origin_left: Option(ItemId),
   origin_right: Option(ItemId),
+  placement: Option(Option(ItemId)),
 ) -> #(List(Item(a)), Int) {
+  let stride = case placement {
+    None -> 1
+    Some(_) -> 2
+  }
   let items =
     list.index_map(values, fn(value, offset) {
-      // IDs are consecutive, so each item's left origin is simply the
-      // previous item's (deterministic) ID; the first pins to origin_left.
+      let counter = start_counter + offset * stride
       let left = case offset {
         0 -> origin_left
-        _ ->
-          Some(ItemId(
-            replica_id: replica_id,
-            counter: start_counter + offset - 1,
-          ))
+        _ -> Some(ItemId(replica_id: replica_id, counter: counter - stride))
       }
       Item(
-        id: ItemId(replica_id: replica_id, counter: start_counter + offset),
+        id: ItemId(replica_id: replica_id, counter: counter),
         origin_left: left,
         origin_right: origin_right,
         value: value,
         deleted: None,
-        move: None,
+        move: case placement {
+          None -> None
+          Some(right) ->
+            Some(Move(
+              op_id: OpId(replica_id: replica_id, counter: counter + 1),
+              origin_left: left,
+              origin_right: right,
+            ))
+        },
       )
     })
-  #(items, start_counter + list.length(values) - 1)
+  #(items, start_counter + list.length(values) * stride - 1)
 }
 
 /// Splice a run of elements into the stored order immediately after `after`
@@ -1361,7 +1378,7 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// op can reference (e.g. the version vector accumulated by replaying ops up
 /// to a global sequencer's acknowledgement floor). For the stable region the
 /// pass drops tombstones, merges runs of adjacent same-replica items with
-/// sequential counters into blocks, and strips origins and move slots.
+/// sequential counters into blocks, and strips origins from plain items.
 ///
 /// Returns the compacted sequence and the forwarding entries emitted by this
 /// pass (one per dropped ID). The cumulative forwarding map is also carried
@@ -1370,7 +1387,8 @@ fn compare_lamport(x: Item(a), y: Item(a)) -> order.Order {
 /// Compacting at the current frontier, at an older one, or at one concurrent
 /// with it is a no-op — frontiers only advance.
 ///
-/// Moved items remain live so their move records and insertion origins survive.
+/// Moved items, including deleted movers and initial insertion placements,
+/// remain live so their move records and insertion origins survive replay.
 /// The pass can still stabilize unrelated items and reclaim tombstones, while
 /// retaining any target-gap boundaries referenced by a live move.
 pub fn compact(
@@ -1494,15 +1512,14 @@ type Stability {
 fn item_stability(item: Item(a), stable: VersionVector) -> Stability {
   use <- bool.guard(!frontier_covers(stable, item.id), KeepLive)
   case item.deleted, item.move {
-    Some(op), _ ->
+    // Even a deleted mover participates in replay's gap ordering.
+    _, Some(_) -> KeepLive
+    Some(op), None ->
       case frontier_covers_op(stable, op) {
         True -> DropTombstone
         False -> KeepLive
       }
     None, None -> ToStable
-    // A mover keeps its record and the origins naming its target gap:
-    // the overlay is re-applied on every read, so both stay live data.
-    None, Some(_) -> KeepLive
   }
 }
 

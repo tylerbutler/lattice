@@ -2,10 +2,86 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import lattice_core/replica_id
+import lattice_core/version_vector
 import lattice_sequence/sequence
 
 fn rid(id: String) {
   replica_id.new(id)
+}
+
+pub fn moved_insertion_uses_every_visible_gap_test() {
+  let assert Ok(base) =
+    sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c"])
+  use from <- list.each([0, 1, 2])
+  use to <- list.each([0, 1, 2])
+  let assert Ok(moved) = sequence.move(base, from, to)
+  let floor = version_vector.new() |> version_vector.set_max(rid("A"), 4)
+  let #(compacted, _) = sequence.compact(moved, floor)
+  use state <- list.each([moved, compacted])
+  use index <- list.each([0, 1, 2, 3])
+  let visible = sequence.values(state)
+  let assert Ok(anchor) = sequence.anchor_at(state, to, sequence.Before)
+  let assert Ok(single) = sequence.insert(state, index, "X")
+  assert sequence.values(single)
+    == list.append(list.take(visible, index), ["X", ..list.drop(visible, index)])
+  let assert Ok(looped) = sequence.insert(single, index + 1, "Y")
+  let assert Ok(#(updated, delta)) =
+    sequence.insert_many_with_delta(state, index, ["X", "Y"])
+  assert sequence.values(updated)
+    == list.append(list.take(visible, index), [
+      "X",
+      "Y",
+      ..list.drop(visible, index)
+    ])
+  assert updated == looped
+  assert sequence.resolve(updated, anchor)
+    == Ok(
+      to
+      + case index <= to {
+        True -> 2
+        False -> 0
+      },
+    )
+  let assert Ok(decoded) =
+    sequence.to_json(updated, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+  let assert Ok(decoded_delta) =
+    sequence.to_json(delta, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+  assert decoded == updated
+  use incoming <- list.each([delta, decoded_delta, decoded])
+  assert sequence.merge(state, incoming, rid("A")) == updated
+  assert sequence.merge(incoming, state, rid("A")) == updated
+  assert sequence.merge(updated, incoming, rid("A")) == updated
+  let floor = version_vector.new() |> version_vector.set_max(rid("A"), 8)
+  let #(settled, _) = sequence.compact(updated, floor)
+  assert sequence.values(settled) == sequence.values(updated)
+  assert sequence.merge(settled, updated, rid("A")) == settled
+  assert sequence.merge(updated, settled, rid("A")) == settled
+}
+
+pub fn concurrent_insertions_after_moved_item_converge_test() {
+  let assert Ok(base) =
+    sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c"])
+  let assert Ok(#(moved, move_delta)) = sequence.move_with_delta(base, 0, 2)
+  let peer = sequence.bind(moved, rid("B"))
+  let assert Ok(#(left, left_delta)) =
+    sequence.insert_many_with_delta(moved, 3, ["X", "Y"])
+  let assert Ok(#(right, right_delta)) =
+    sequence.insert_many_with_delta(peer, 3, ["P", "Q"])
+  let joined = sequence.merge(left, right, rid("A"))
+  assert sequence.values(joined) == ["b", "c", "a", "X", "Y", "P", "Q"]
+  assert sequence.merge(right, left, rid("A")) == joined
+  assert sequence.merge(left, right_delta, rid("A")) == joined
+  assert sequence.merge(right, left_delta, rid("A")) == joined
+  let replayed =
+    sequence.merge(base, left_delta, rid("A"))
+    |> sequence.merge(right_delta, rid("A"))
+    |> sequence.merge(move_delta, rid("A"))
+  assert replayed == joined
+  assert sequence.merge(joined, replayed, rid("A")) == joined
 }
 
 pub fn new_values_is_empty_test() {

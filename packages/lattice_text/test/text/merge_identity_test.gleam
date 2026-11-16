@@ -42,7 +42,7 @@ fn assert_insert_identity(
   |> json.to_string()
   |> json.parse(decode.at(["state"], state_decoder))
   |> fn(actual) {
-    assert actual == Ok(#(replica, counter))
+    assert actual == Ok(#(replica, counter + 1))
   }
 }
 
@@ -65,7 +65,7 @@ pub fn canonical_and_alias_merge_preserve_explicit_identity_and_counters_test() 
   let peer = text.merge(base, text.new(rid("B")), rid("B"))
   let assert Ok(#(peer, delta)) =
     text.replace_range_with_delta(peer, 1, 3, "RS")
-  assert_insert_identity(delta, "S", "B", 10)
+  assert_insert_identity(delta, "S", "B", 11)
   let assert Ok(decoded_state) =
     text.to_json(peer) |> json.to_string() |> text.from_json()
   let assert Ok(decoded_delta) =
@@ -101,8 +101,8 @@ pub fn canonical_and_alias_merge_preserve_explicit_identity_and_counters_test() 
 
   let assert Ok(edited) = text.append(merged, "x")
   let assert Ok(peer_edit) = text.append(peer, "y")
-  assert_insert_identity(edited, "x", identity, 11)
-  assert_insert_identity(peer_edit, "y", "B", 11)
+  assert_insert_identity(edited, "x", identity, 13)
+  assert_insert_identity(peer_edit, "y", "B", 13)
 
   let joined = merge(edited, peer_edit, replica)
   merge(peer_edit, edited, replica)
@@ -124,7 +124,7 @@ pub fn canonical_and_alias_merge_preserve_explicit_identity_and_counters_test() 
     assert actual
   }
   let assert Ok(next) = text.append(joined, "z")
-  assert_insert_identity(next, "z", identity, 12)
+  assert_insert_identity(next, "z", identity, 15)
 }
 
 pub fn empty_deltas_match_new_and_preserve_compacted_moved_state_test() {
