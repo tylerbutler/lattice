@@ -93,6 +93,11 @@ Those entries become visible again and appear as joins. This keeps cluster
 liveness decisions in the embedding application instead of trying to replicate
 up/down status as CRDT data.
 
+While a replica is down, merges still apply its entries, removals, and causal
+history, but `merge_with_diff` reports no joins or leaves for those hidden
+entries. When `replica_up` makes the replica visible again, its diff includes
+only entries that remain after those merges.
+
 ## Leaving and cleanup
 
 `leave` removes one local pid/topic/key entry:

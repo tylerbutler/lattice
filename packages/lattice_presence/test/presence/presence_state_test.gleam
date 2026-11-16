@@ -366,6 +366,56 @@ pub fn merge_returns_diff_with_leaves_test() {
   }
 }
 
+pub fn merge_hides_down_replica_joins_until_up_test() {
+  let b =
+    state.new("node_b")
+    |> state.join("pid_b", "lobby", "bob", json.null())
+  let c =
+    state.new("node_c")
+    |> state.join("pid_c", "lobby", "carol", json.null())
+  let assert Ok(remote) = state.merge(c, b)
+  let #(local, _) = state.replica_down(state.new("node_a"), "node_b")
+
+  let assert Ok(#(merged, diff)) = state.merge_with_diff(local, remote)
+  let assert Ok([#("carol", "pid_c", _)]) = dict.get(diff.joins, "lobby")
+  assert dict.size(diff.leaves) == 0
+  let assert [#("pid_c", "lobby", "carol", _)] = state.online_list(merged)
+  assert dict.size(state.internal_values(merged)) == 2
+
+  let #(visible, up_diff) = state.replica_up(merged, "node_b")
+  let assert Ok([#("bob", "pid_b", _)]) = dict.get(up_diff.joins, "lobby")
+  assert dict.size(up_diff.leaves) == 0
+  assert list.length(state.online_list(visible)) == 2
+  let assert Ok(#(_, repeated_diff)) = state.merge_with_diff(visible, remote)
+  assert dict.size(repeated_diff.joins) == 0
+  assert dict.size(repeated_diff.leaves) == 0
+}
+
+pub fn merge_hides_down_replica_removal_without_resurrection_test() {
+  let remote =
+    state.new("node_b")
+    |> state.join("pid_b", "lobby", "bob", json.null())
+  let assert Ok(local) = state.merge(state.new("node_a"), remote)
+  let #(local, down_diff) = state.replica_down(local, "node_b")
+  let assert Ok([#("bob", "pid_b", _)]) = dict.get(down_diff.leaves, "lobby")
+  let removed = state.leave(remote, "pid_b", "lobby", "bob")
+
+  let assert Ok(#(merged, diff)) = state.merge_with_diff(local, removed)
+  assert dict.size(diff.joins) == 0
+  assert dict.size(diff.leaves) == 0
+  assert state.online_list(merged) == []
+  assert dict.size(state.internal_values(merged)) == 0
+
+  let #(visible, up_diff) = state.replica_up(merged, "node_b")
+  assert dict.size(up_diff.joins) == 0
+  assert dict.size(up_diff.leaves) == 0
+  let assert Ok(#(replayed, replay_diff)) =
+    state.merge_with_diff(visible, remote)
+  assert state.online_list(replayed) == []
+  assert dict.size(replay_diff.joins) == 0
+  assert dict.size(replay_diff.leaves) == 0
+}
+
 pub fn merge_three_nodes_test() {
   // Three nodes, each with one user
   let a = state.new("node_a")
@@ -671,17 +721,16 @@ pub fn phoenix_joins_via_intermediate_node_test() {
     Nil
   }(2)
 
-  // C merges B — should get bob (which C hasn't seen yet)
-  let assert Ok(#(_c, diff)) = state.merge_with_diff(c, b)
-  case dict.get(diff.joins, "lobby") {
-    Ok(joins) ->
-      list.length(joins)
-      |> fn(actual, expected) {
-        let assert True = actual == expected
-        Nil
-      }(1)
-    Error(_) -> panic as "expected failure"
-  }
+  // C retains bob via B, but A's entries stay hidden until A is up.
+  let assert Ok(#(c, diff)) = state.merge_with_diff(c, b)
+  assert dict.size(diff.joins) == 0
+  assert dict.size(diff.leaves) == 0
+  assert state.get_by_topic(c, "lobby") == []
+  assert dict.size(state.internal_values(c)) == 2
+  let #(c, up_diff) = state.replica_up(c, "node_a")
+  let assert Ok(joins) = dict.get(up_diff.joins, "lobby")
+  assert list.length(joins) == 2
+  assert list.length(state.get_by_topic(c, "lobby")) == 2
 }
 
 /// Phoenix test: "removes are observed via other node" (3-node with netsplit)
@@ -720,17 +769,14 @@ pub fn phoenix_removes_via_intermediate_node_test() {
   // B observes remove via A
   let assert Ok(b) = state.merge(b, a)
 
-  // C observes remove via B (not directly from A due to netsplit)
-  let assert Ok(#(_c, diff)) = state.merge_with_diff(c, b)
-  case dict.get(diff.leaves, "lobby") {
-    Ok(leaves) ->
-      list.length(leaves)
-      |> fn(actual, expected) {
-        let assert True = actual == expected
-        Nil
-      }(1)
-    Error(_) -> panic as "expected failure"
-  }
+  // C observes the remove via B without another leave for hidden alice.
+  let assert Ok(#(c, diff)) = state.merge_with_diff(c, b)
+  assert dict.size(diff.joins) == 0
+  assert dict.size(diff.leaves) == 0
+  assert dict.size(state.internal_values(c)) == 1
+  let #(c, up_diff) = state.replica_up(c, "node_a")
+  assert dict.size(up_diff.joins) == 0
+  let assert [#("pid_bob", "bob", _)] = state.get_by_topic(c, "lobby")
 }
 
 // ── extract (delta) ──────────────────────────────────────────────────
