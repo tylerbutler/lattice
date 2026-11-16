@@ -11,6 +11,7 @@
 	"license": "MIT",
 	"author": "Tyler Butler <tyler@tylerbutler.com>",
 	"type": "module",
+	"packageManager": "pnpm@12.18.0",
 	"scripts": {
 		"astro": "astro",
 		"build:site": "astro build",
