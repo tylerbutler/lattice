@@ -74,8 +74,13 @@ Both `merge(a, b, local_replica)` and its safe alias
 edits, whether the inputs are full states or deltas. Operand order does not
 change that identity. Give each independent writer a distinct identity.
 Decoded snapshots retain their serialized identity: merge a remote snapshot
-with your local identity before editing it. The Fugue v1 wire format is
-unchanged.
+with your local identity before editing it.
+
+Text snapshots and deltas use the Fugue v2 JSON envelope, which separates node
+deletion from nullable payloads. `from_json` accepts v1 and v2; encoding a decoded
+v1 snapshot upgrades it to v2. Upgrade readers before sending v2: old v1-only
+readers need not accept it. Text payloads remain strings, public function
+signatures are unchanged, and anchors still use their separate v1 format.
 
 ## Choosing a backend
 

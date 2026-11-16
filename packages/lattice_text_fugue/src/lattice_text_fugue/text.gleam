@@ -341,13 +341,13 @@ pub fn merge_as(a: Text, b: Text, replica: ReplicaId) -> Text {
   merge(a, b, replica)
 }
 
-/// Encode text using the canonical fugue sequence JSON envelope.
+/// Encode text using the canonical Fugue v2 sequence JSON envelope.
 pub fn to_json(text: Text) -> json.Json {
   let Text(seq) = text
   sequence.to_json(seq, json.string)
 }
 
-/// Decode text from the canonical fugue sequence JSON envelope.
+/// Decode text from a Fugue v1 or v2 sequence JSON envelope.
 ///
 /// Decoded snapshots retain their serialized identity. Merge a remote
 /// snapshot with the local identity before making local edits.

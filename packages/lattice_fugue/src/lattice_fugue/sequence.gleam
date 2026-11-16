@@ -677,17 +677,18 @@ fn merge_node(a: Node(a), b: Node(a)) -> Node(a) {
 
 /// Encode a sequence CRDT as a self-describing JSON value.
 ///
-/// Produces an envelope with `type`, `v` (schema version), and `state`. The
+/// Produces a v2 envelope with `type`, `v` (schema version), and `state`. The
 /// state includes this replica ID, local counter, and a flat array of nodes
-/// (`id`, `value` (nullable), `parent` (nullable), `side`), tombstones
-/// included.
+/// (`id`, `deleted`, `value`, `parent` (nullable), `side`), tombstones included.
+/// The `deleted` flag distinguishes tombstones from live JSON null payloads.
+/// Readers that only support v1 must be upgraded before receiving v2.
 pub fn to_json(
   sequence: Sequence(a),
   encode_value: fn(a) -> json.Json,
 ) -> json.Json {
   json.object([
     #("type", json.string("fugue")),
-    #("v", json.int(1)),
+    #("v", json.int(2)),
     #(
       "state",
       json.object([
@@ -705,18 +706,19 @@ pub fn to_json(
 /// Decode a sequence CRDT from a JSON string produced by `to_json`.
 ///
 /// Returns `Ok(Sequence)` on success, or `Error(json.DecodeError)` if the
-/// input is not a valid Fugue JSON envelope.
+/// input is not a valid Fugue v1 or v2 JSON envelope. Legacy v1 null values
+/// remain tombstones; live null payloads lost in v1 cannot be recovered.
 pub fn from_json(
   json_string: String,
   value_decoder: decode.Decoder(a),
 ) -> Result(Sequence(a), json.DecodeError) {
-  let state_decoder = {
+  let state_decoder = fn(version) {
     use state <- decode.field("state", {
       use self_id <- decode.field("self_id", replica_id.decoder())
       use counter <- decode.field("counter", non_negative_int_decoder())
       use nodes <- decode.field(
         "nodes",
-        decode.list(node_decoder(value_decoder)),
+        decode.list(node_decoder(value_decoder, version)),
       )
       let node_dict =
         list.fold(nodes, dict.new(), fn(acc, node) {
@@ -739,13 +741,13 @@ pub fn from_json(
   case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
-      case type_tag == "fugue" && version == 1 {
-        True -> json.parse(from: json_string, using: state_decoder)
+      case type_tag == "fugue" && { version == 1 || version == 2 } {
+        True -> json.parse(from: json_string, using: state_decoder(version))
         False ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
-                expected: "type=fugue and v=1",
+                expected: "type=fugue and v=1 or v=2",
                 found: type_tag <> " v=" <> int.to_string(version),
                 path: [],
               ),
@@ -758,6 +760,7 @@ pub fn from_json(
 fn encode_node(node: Node(a), encode_value: fn(a) -> json.Json) -> json.Json {
   json.object([
     #("id", encode_node_id(node.id)),
+    #("deleted", json.bool(option.is_none(node.value))),
     #("value", json.nullable(node.value, encode_value)),
     #("parent", json.nullable(node.parent, encode_node_id)),
     #("side", encode_side(node.side)),
@@ -779,9 +782,23 @@ fn encode_side(side: Side) -> json.Json {
   }
 }
 
-fn node_decoder(value_decoder: decode.Decoder(a)) -> decode.Decoder(Node(a)) {
+fn node_decoder(
+  value_decoder: decode.Decoder(a),
+  version: Int,
+) -> decode.Decoder(Node(a)) {
   use id <- decode.field("id", node_id_decoder())
-  use value <- decode.field("value", decode.optional(value_decoder))
+  use value <- decode.then(case version {
+    1 -> decode.at(["value"], decode.optional(value_decoder))
+    _ -> {
+      use deleted <- decode.field("deleted", decode.bool)
+      decode.at(["value"], case deleted {
+        True ->
+          decode.optional(decode.failure(Nil, "null for a deleted node"))
+          |> decode.map(fn(_) { None })
+        False -> decode.map(value_decoder, Some)
+      })
+    }
+  })
   use parent <- decode.field("parent", decode.optional(node_id_decoder()))
   use side <- decode.field("side", side_decoder())
   decode.success(Node(id: id, value: value, parent: parent, side: side))
