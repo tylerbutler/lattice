@@ -50,6 +50,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order
 import gleam/result
+import gleam/set.{type Set}
 import lattice_core/replica_id.{type ReplicaId}
 import lattice_core/version_vector.{type VersionVector}
 
@@ -705,7 +706,12 @@ pub fn to_json(
 /// Decode a sequence CRDT from a JSON string produced by `to_json`.
 ///
 /// Returns `Ok(Sequence)` on success, or `Error(json.DecodeError)` if the
-/// input is not a valid Fugue JSON envelope.
+/// input is not a valid Fugue JSON envelope. Duplicate node IDs and parent
+/// cycles are rejected. Missing parents are allowed for sparse deltas.
+///
+/// The allocation counter is raised to cover all retained node IDs and
+/// referenced parent IDs, including tombstones and other replicas. This
+/// prevents ID reuse when editing under the decoded or a new replica identity.
 pub fn from_json(
   json_string: String,
   value_decoder: decode.Decoder(a),
@@ -718,15 +724,7 @@ pub fn from_json(
         "nodes",
         decode.list(node_decoder(value_decoder)),
       )
-      let node_dict =
-        list.fold(nodes, dict.new(), fn(acc, node) {
-          dict.insert(acc, node.id, node)
-        })
-      decode.success(Sequence(
-        replica_id: self_id,
-        counter: counter,
-        nodes: node_dict,
-      ))
+      decoded_sequence(self_id, counter, nodes)
     })
     decode.success(state)
   }
@@ -752,6 +750,70 @@ pub fn from_json(
             ]),
           )
       }
+  }
+}
+
+fn decoded_sequence(
+  self_id: ReplicaId,
+  counter: Int,
+  nodes: List(Node(a)),
+) -> decode.Decoder(Sequence(a)) {
+  let node_dict =
+    list.fold(nodes, dict.new(), fn(acc, node) {
+      dict.insert(acc, node.id, node)
+    })
+  use <- bool.guard(
+    dict.size(node_dict) != list.length(nodes),
+    decode.failure(new(self_id), "unique Fugue node IDs"),
+  )
+
+  case
+    list.try_fold(nodes, set.new(), fn(checked, node) {
+      validate_parent_path(node_dict, Some(node.id), set.new(), checked)
+    })
+  {
+    Error(Nil) ->
+      decode.failure(new(self_id), "acyclic Fugue parent references")
+    Ok(_) -> {
+      let counter =
+        list.fold(nodes, counter, fn(max, node) {
+          let max = int.max(max, node.id.counter)
+          case node.parent {
+            None -> max
+            Some(parent) -> int.max(max, parent.counter)
+          }
+        })
+      decode.success(Sequence(
+        replica_id: self_id,
+        counter: counter,
+        nodes: node_dict,
+      ))
+    }
+  }
+}
+
+fn validate_parent_path(
+  nodes: Dict(NodeId, Node(a)),
+  parent: Option(NodeId),
+  path: Set(NodeId),
+  checked: Set(NodeId),
+) -> Result(Set(NodeId), Nil) {
+  case parent {
+    None -> Ok(set.union(checked, path))
+    Some(id) -> {
+      use <- bool.guard(set.contains(path, id), Error(Nil))
+      use <- bool.guard(set.contains(checked, id), Ok(set.union(checked, path)))
+      case dict.get(nodes, id) {
+        Error(Nil) -> Ok(set.union(checked, path))
+        Ok(node) ->
+          validate_parent_path(
+            nodes,
+            node.parent,
+            set.insert(path, id),
+            checked,
+          )
+      }
+    }
   }
 }
 
