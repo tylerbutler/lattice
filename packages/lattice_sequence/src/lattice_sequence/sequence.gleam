@@ -1726,6 +1726,10 @@ pub fn to_json(
 /// returned. If retained IDs or the compaction frontier exceed the encoded
 /// allocation counter, the counter is raised to that high-water mark. This
 /// prevents ID reuse when the snapshot is edited under any replica identity.
+///
+/// Rejects repeated item IDs, overlapping compact block ranges, repeated
+/// forwarding keys, and IDs that are both retained and forwarded. Origins
+/// may name absent items, as required for sparse deltas.
 pub fn from_json(
   json_string: String,
   value_decoder: decode.Decoder(a),
@@ -1742,6 +1746,16 @@ pub fn from_json(
       use segments <- decode.field(
         "segments",
         decode.list(segment_decoder(value_decoder)),
+      )
+      use segments <- decode.then(
+        case decoded_identities_are_unique(segments, forwardings) {
+          True -> decode.success(segments)
+          False ->
+            decode.failure(
+              [],
+              "unique, disjoint retained and forwarded item IDs",
+            )
+        },
       )
       let counter = allocation_counter(counter, segments, forwardings, frontier)
       let forwarding_map = dict.from_list(forwardings)
@@ -1790,6 +1804,38 @@ pub fn from_json(
               ),
             ]),
           )
+      }
+  }
+}
+
+fn decoded_identities_are_unique(
+  segments: List(Segment(a)),
+  forwardings: List(#(ItemId, Forwarding)),
+) -> Bool {
+  // A block occupies one inclusive counter interval, not one entry per value.
+  let retained_ranges =
+    list.filter_map(segments, fn(segment) {
+      case segment {
+        Block(_, []) -> Error(Nil)
+        Block(first, values) ->
+          Ok(#(first, first.counter + list.length(values) - 1))
+        Live(item) -> Ok(#(item.id, item.id.counter))
+      }
+    })
+  let forwarded_ranges =
+    list.map(forwardings, fn(entry) { #(entry.0, entry.0.counter) })
+  list.append(retained_ranges, forwarded_ranges)
+  |> list.sort(fn(a, b) { compare_item_ids(a.0, b.0) })
+  |> identity_ranges_are_disjoint()
+}
+
+fn identity_ranges_are_disjoint(ranges: List(#(ItemId, Int))) -> Bool {
+  case ranges {
+    [] | [_] -> True
+    [#(first, last), #(next, _) as following, ..rest] ->
+      case first.replica_id != next.replica_id || last < next.counter {
+        True -> identity_ranges_are_disjoint([following, ..rest])
+        False -> False
       }
   }
 }

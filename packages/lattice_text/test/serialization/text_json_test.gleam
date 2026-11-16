@@ -115,6 +115,49 @@ pub fn text_from_json_negative_item_id_counter_rejected_test() {
   let assert Error(_) = text.from_json(payload)
 }
 
+pub fn text_from_json_duplicate_sequence_identities_rejected_test() {
+  let id = "{\"replica_id\":\"A\",\"counter\":1}"
+  let item =
+    "{\"kind\":\"item\",\"id\":"
+    <> id
+    <> ",\"origin_left\":null,\"origin_right\":null,\"value\":\"x\",\"deleted\":null}"
+  let block =
+    "{\"kind\":\"block\",\"first_id\":" <> id <> ",\"values\":[\"x\",\"y\"]}"
+  let forwarding = "{\"id\":" <> id <> ",\"left\":null,\"right\":null}"
+  use version <- list.each(["1", "2"])
+  use pair <- list.each([
+    #(item <> "," <> item, ""),
+    #(block <> "," <> item, ""),
+    #("", forwarding <> "," <> forwarding),
+    #(item, forwarding),
+  ])
+  let payload =
+    "{\"type\":\"sequence\",\"v\":"
+    <> version
+    <> ",\"state\":{\"self_id\":\"A\",\"counter\":2,\"frontier\":"
+    <> "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{}}}"
+    <> ",\"segments\":["
+    <> pair.0
+    <> "],\"forwardings\":["
+    <> pair.1
+    <> "]}}"
+  let assert Error(_) = text.from_json(payload)
+}
+
+pub fn text_from_json_sparse_delta_self_merge_test() {
+  let assert Ok(base) = text.insert(text.new(rid("A")), 0, "abc")
+  let assert Ok(#(_, delta)) = text.insert_with_delta(base, 1, "x")
+  use version <- list.each(["1", "2"])
+  let assert Ok(loaded) =
+    text.to_json(delta)
+    |> json.to_string()
+    |> string.replace("\"v\":2", "\"v\":" <> version)
+    |> text.from_json()
+  assert text.value(loaded) == "x"
+  assert text.merge(loaded, loaded, rid("A")) == loaded
+  assert text.value(text.merge(base, loaded, rid("A"))) == "axbc"
+}
+
 pub fn text_load_reconstructs_counter_and_keeps_sequence_envelope_test() {
   let assert Ok(base) = text.insert(text.new(rid("A")), 0, "abcd")
   let assert Ok(deleted) = text.delete(base, 1)

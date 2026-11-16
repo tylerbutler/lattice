@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Fixed"
+body = """
+Reject duplicate identities in decoded text
+
+Text decoding inherits sequence identity checks so malformed snapshots cannot lose characters during self-merge. Sparse text deltas remain valid."""

@@ -1,0 +1,6 @@
+package = "lattice_sequence"
+kind = "Fixed"
+body = """
+Reject duplicate decoded sequence identities
+
+Reject repeated item IDs, overlapping compact blocks, duplicate forwarding keys, and IDs that are both retained and forwarded before they can lose data during merge. Sparse deltas with missing origins remain valid."""

@@ -440,6 +440,110 @@ fn forwarding_json(id: Int, left: json.Json, right: json.Json) -> json.Json {
   ])
 }
 
+fn block_json(first: json.Json, values: List(String)) -> json.Json {
+  json.object([
+    #("kind", json.string("block")),
+    #("first_id", first),
+    #("values", json.array(values, json.string)),
+  ])
+}
+
+pub fn sequence_from_json_duplicate_identities_rejected_test() {
+  let nil = json.null()
+  let live = item_json(id_json(2), nil, nil, nil, nil)
+  let deleted = item_json(id_json(2), nil, nil, id_json(5), nil)
+  let block = block_json(id_json(1), ["a", "b", "c"])
+  let forwarding = forwarding_json(2, nil, nil)
+  use version <- list.each([1, 2])
+  use pair <- list.each([
+    #([live, live], []),
+    #([live, item_json(id_json(2), id_json(1), nil, nil, nil)], []),
+    #([live, deleted], []),
+    #([deleted, deleted], []),
+    #([block, live], []),
+    #([live, block], []),
+    #([block, item_json(id_json(1), nil, nil, nil, nil)], []),
+    #([item_json(id_json(3), nil, nil, nil, nil), block], []),
+    #([block, deleted], []),
+    #([block, block], []),
+    #([block, block_json(id_json(3), ["c", "d"])], []),
+    #([block_json(id_json(3), ["c", "d"]), block], []),
+    #([block, block_json(id_json(2), ["b"])], []),
+    #([], [forwarding, forwarding]),
+    #([], [forwarding, forwarding_json(2, id_json(1), id_json(3))]),
+    #([live], [forwarding]),
+    #([deleted], [forwarding]),
+    #([block], [forwarding]),
+    #([block], [forwarding_json(1, nil, nil)]),
+    #([block], [forwarding_json(3, nil, nil)]),
+  ])
+  let assert Error(_) =
+    allocation_snapshot(version, pair.0, pair.1, version_vector.new())
+    |> sequence.from_json(decode.string)
+}
+
+pub fn sequence_from_json_unique_identities_self_merge_test() {
+  let nil = json.null()
+  let block = block_json(id_json(1), ["a", "b"])
+  let other_replica =
+    json.object([
+      #("replica_id", json.string("C")),
+      #("counter", json.int(1)),
+    ])
+  use version <- list.each([1, 2])
+  use pair <- list.each([
+    #([], []),
+    #([block, block_json(id_json(3), ["c"])], []),
+    #([block, block_json(other_replica, ["c"])], []),
+    #([block, item_json(id_json(3), id_json(2), nil, nil, nil)], []),
+    #([item_json(id_json(3), id_json(1), id_json(5), nil, nil)], []),
+    #([item_json(id_json(3), nil, nil, id_json(4), nil)], []),
+    #([item_json(id_json(3), nil, nil, nil, move_json(6, id_json(1), nil))], []),
+    #([block], [forwarding_json(3, id_json(2), nil)]),
+    #([], [forwarding_json(3, id_json(1), id_json(5))]),
+    #([block_json(id_json(1), []), block], []),
+  ])
+  let assert Ok(loaded) =
+    allocation_snapshot(version, pair.0, pair.1, version_vector.new())
+    |> sequence.from_json(decode.string)
+  let merged = sequence.merge(loaded, loaded, rid("A"))
+  assert sequence.values(merged) == sequence.values(loaded)
+  assert merged == loaded
+  let assert Ok(round_trip) =
+    sequence.to_json(loaded, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+  assert round_trip == loaded
+}
+
+pub fn sequence_from_json_sparse_delta_self_merge_test() {
+  let assert Ok(base) =
+    sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c"])
+  let assert Ok(#(_, delta)) = sequence.insert_with_delta(base, 1, "x")
+  use version <- list.each(["1", "2"])
+  let assert Ok(loaded) =
+    sequence.to_json(delta, json.string)
+    |> json.to_string()
+    |> string.replace("\"v\":2", "\"v\":" <> version)
+    |> sequence.from_json(decode.string)
+  assert sequence.values(loaded) == ["x"]
+  assert sequence.merge(loaded, loaded, rid("A")) == loaded
+  assert sequence.values(sequence.merge(base, loaded, rid("A")))
+    == ["a", "x", "b", "c"]
+}
+
+pub fn sequence_from_json_large_forwarding_table_test() {
+  let forwardings =
+    list.repeat(Nil, 20_000)
+    |> list.index_map(fn(_, index) {
+      forwarding_json(index + 1, json.null(), json.null())
+    })
+  let assert Ok(loaded) =
+    allocation_snapshot(2, [], forwardings, version_vector.new())
+    |> sequence.from_json(decode.string)
+  assert sequence.values(loaded) == []
+}
+
 fn allocation_snapshot(
   version: Int,
   segments: List(json.Json),

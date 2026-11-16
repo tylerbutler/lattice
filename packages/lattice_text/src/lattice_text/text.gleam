@@ -548,6 +548,8 @@ pub fn to_json(text: Text) -> json.Json {
 /// Retains historical IDs and raises an understated allocation counter to
 /// cover retained IDs and the compaction frontier, as `sequence.from_json`
 /// does. Use `bind` with the local identity before editing an adopted state.
+/// Rejects duplicate or overlapping retained and forwarded IDs, while
+/// allowing missing origins in sparse deltas.
 pub fn from_json(json_string: String) -> Result(Text, json.DecodeError) {
   case sequence.from_json(json_string, decode.string) {
     Ok(seq) -> Ok(Text(seq))
