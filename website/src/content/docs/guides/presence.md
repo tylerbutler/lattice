@@ -73,6 +73,11 @@ states are an idempotent no-op. Discard stale restart echoes or assign each live
 replica a unique identity before retrying; the check does not replace the
 requirement for unique incarnation identities.
 
+Same-replica metadata is compared by JSON value, not its encoded representation.
+Object key order does not matter, including inside arrays and nested objects.
+Array order and metadata values must still match. An unchanged JSON snapshot
+therefore merges as a no-op on both Erlang and JavaScript.
+
 ## Replica visibility
 
 Replica liveness is local view state, not replicated CRDT state. If a node sees a
