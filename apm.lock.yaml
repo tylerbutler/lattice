@@ -1,11 +1,11 @@
 lockfile_version: '1'
-generated_at: '2026-08-19T01:16:41.669941+00:00'
-apm_version: 0.28.0
+generated_at: '2026-11-16T20:34:25.551171+00:00'
+apm_version: 0.35.1
 dependencies:
 - repo_url: tylerbutler/agent-marketplace
   name: gleam
   host: github.com
-  resolved_commit: 97c5a4c9ad88a76c2d50e591b0003e2d1b9930ca
+  resolved_commit: a88af94c38d2247b18e59d9f237676e62edfed2a
   version: 0.1.0
   virtual_path: plugins/gleam
   is_virtual: true
@@ -18,6 +18,8 @@ dependencies:
   - .agents/skills/gleam-review
   - .agents/skills/gleam-review/SKILL.md
   - .agents/skills/gleam-review/references/conventions.md
+  - .claude/agents/beam-vm-reviewer.md
+  - .claude/agents/erlang-specialist.md
   - .claude/skills/gleam-reference-docs
   - .claude/skills/gleam-reference-docs/SKILL.md
   - .claude/skills/gleam-reference-docs/assets/generate-reference.mjs
@@ -25,45 +27,95 @@ dependencies:
   - .claude/skills/gleam-review
   - .claude/skills/gleam-review/SKILL.md
   - .claude/skills/gleam-review/references/conventions.md
+  - .github/agents/beam-vm-reviewer.agent.md
+  - .github/agents/erlang-specialist.agent.md
   deployed_file_hashes:
     .agents/skills/gleam-reference-docs/SKILL.md: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
     .agents/skills/gleam-reference-docs/assets/generate-reference.mjs: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
     .agents/skills/gleam-reference-docs/evals/evals.json: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
-    .agents/skills/gleam-review/SKILL.md: sha256:285a54a75346349ff12f6579c184847a6b35bbcecd2842b5065117a5d91ff071
+    .agents/skills/gleam-review/SKILL.md: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
     .agents/skills/gleam-review/references/conventions.md: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
+    .claude/agents/beam-vm-reviewer.md: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
+    .claude/agents/erlang-specialist.md: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
     .claude/skills/gleam-reference-docs/SKILL.md: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
     .claude/skills/gleam-reference-docs/assets/generate-reference.mjs: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
     .claude/skills/gleam-reference-docs/evals/evals.json: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
-    .claude/skills/gleam-review/SKILL.md: sha256:285a54a75346349ff12f6579c184847a6b35bbcecd2842b5065117a5d91ff071
+    .claude/skills/gleam-review/SKILL.md: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
     .claude/skills/gleam-review/references/conventions.md: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
-  content_hash: sha256:a05a8fc860c44cb33ab8f4a4a29556aa79ce92f3ae0dede093e0ab2de4c1e5a5
+    .github/agents/beam-vm-reviewer.agent.md: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
+    .github/agents/erlang-specialist.agent.md: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
+  content_hash: sha256:aa48826aed0d947f3b3fcede8721d57256a3f109af2a0a8445623ee80d3a98e1
   is_dev: true
 - repo_url: tylerbutler/apm-base
   name: apm-base
   host: github.com
-  resolved_commit: b325243b3877b48420197d6b040f9ddc5248cc5b
-  version: 0.1.2
+  resolved_commit: bc2598b13910c37caba38eca68478117be74f177
+  version: 0.2.5
   package_type: apm_package
   deployed_files:
+  - .agents/skills/humanizer
+  - .agents/skills/humanizer/LICENSE
+  - .agents/skills/humanizer/SKILL.md
   - .agents/skills/prose-banlist
   - .agents/skills/prose-banlist/SKILL.md
-  - .claude/rules/no-laziness.md
+  - .agents/skills/storytelling
+  - .agents/skills/storytelling/SKILL.md
+  - .claude/commands/create-pr.md
+  - .claude/commands/merge-upstream.md
+  - .claude/rules/use-ste.md
+  - .claude/skills/humanizer
+  - .claude/skills/humanizer/LICENSE
+  - .claude/skills/humanizer/SKILL.md
   - .claude/skills/prose-banlist
   - .claude/skills/prose-banlist/SKILL.md
-  - .github/instructions/no-laziness.instructions.md
+  - .claude/skills/storytelling
+  - .claude/skills/storytelling/SKILL.md
+  - .github/instructions/use-ste.instructions.md
+  - .github/prompts/create-pr.prompt.md
+  - .github/prompts/merge-upstream.prompt.md
   deployed_file_hashes:
-    .agents/skills/prose-banlist/SKILL.md: sha256:af6bfe1df1e6399041019eb74b24b301137dcaae65a6736e8c0149c9a996a8db
-    .claude/rules/no-laziness.md: sha256:7bfa0b61b27e7f8aa782881e243ff010a542615ce14f0ce917615b23dcea1cd4
-    .claude/skills/prose-banlist/SKILL.md: sha256:af6bfe1df1e6399041019eb74b24b301137dcaae65a6736e8c0149c9a996a8db
-    .github/instructions/no-laziness.instructions.md: sha256:d0f928dfdf98b1ddee5e676e212cff34c866c65cf839952c9d62c730068d7c1e
-  content_hash: sha256:912cdc2226aebd2f9a4b274038641c37e94003cd6d981fb048757b36fe08ff9e
+    .agents/skills/humanizer/LICENSE: sha256:4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96
+    .agents/skills/humanizer/SKILL.md: sha256:14fc8a965b6e0a8dc100ba4dffeab55cb94bbac112abbde7e014d5c15a35c202
+    .agents/skills/prose-banlist/SKILL.md: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
+    .agents/skills/storytelling/SKILL.md: sha256:68a7dfe08ba69c59af66b28d2d9f3344eb97dc7f4eb096cae41f98abcc4ea23e
+    .claude/commands/create-pr.md: sha256:f60319bef36ed8d7159543f774f196f2ab90df55d3538c1723da6b81295d02ff
+    .claude/commands/merge-upstream.md: sha256:f8c97a3085cc2b603cd34428aa28d17c55b5411ba526871ae599cede372d3f89
+    .claude/rules/use-ste.md: sha256:29c78e0076d736e43b8d9b414465de9c236128975b95118dcb2047f4e49018b2
+    .claude/skills/humanizer/LICENSE: sha256:4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96
+    .claude/skills/humanizer/SKILL.md: sha256:14fc8a965b6e0a8dc100ba4dffeab55cb94bbac112abbde7e014d5c15a35c202
+    .claude/skills/prose-banlist/SKILL.md: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
+    .claude/skills/storytelling/SKILL.md: sha256:68a7dfe08ba69c59af66b28d2d9f3344eb97dc7f4eb096cae41f98abcc4ea23e
+    .github/instructions/use-ste.instructions.md: sha256:686d7f6f6172dd5c238371076383b2f67c0f4937465e6e53633936d294c9adbc
+    .github/prompts/create-pr.prompt.md: sha256:5fcb1b64247130aec3a0ebd114ae6d127de44f7e824087033c468d8debb593a2
+    .github/prompts/merge-upstream.prompt.md: sha256:bf990755d11f1e73610d9cde3b656aa175c7f63cdd8d069158302c6496a5b77e
+  content_hash: sha256:d80d2a6162685cfb2a027ccfc9439613edda386eb5fd8b8e00fc3d03f1b77680
+  is_dev: true
+- repo_url: cursor/plugins
+  name: unslop
+  host: github.com
+  resolved_commit: bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
+  version: unknown
+  virtual_path: pstack/skills/unslop
+  is_virtual: true
+  depth: 2
+  resolved_by: tylerbutler/apm-base
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/unslop
+  - .agents/skills/unslop/SKILL.md
+  - .claude/skills/unslop
+  - .claude/skills/unslop/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/unslop/SKILL.md: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+    .claude/skills/unslop/SKILL.md: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+  content_hash: sha256:eca0ad9fa3a3867c83f3aaf3a058e247a569c8976a68ca423a569b93eb86de5d
   is_dev: true
 - repo_url: dietrichgebert/ponytail
   materialization_repo_url: DietrichGebert/ponytail
   name: ponytail
   host: github.com
-  resolved_commit: 2ed6c52c9d7e5e56942508591085fd45dea277d3
-  version: 2ed6c52
+  resolved_commit: 96608e078b2d5ea607c5c3b8b5a54d1c1fba6846
+  version: 96608e0
   depth: 2
   resolved_by: tylerbutler/apm-base
   package_type: marketplace_plugin
@@ -80,15 +132,6 @@ dependencies:
   - .agents/skills/ponytail-review
   - .agents/skills/ponytail-review/SKILL.md
   - .agents/skills/ponytail/SKILL.md
-  - .claude/hooks/ponytail/hooks/package.json
-  - .claude/hooks/ponytail/hooks/ponytail-activate.js
-  - .claude/hooks/ponytail/hooks/ponytail-config.js
-  - .claude/hooks/ponytail/hooks/ponytail-instructions.js
-  - .claude/hooks/ponytail/hooks/ponytail-mode-tracker.js
-  - .claude/hooks/ponytail/hooks/ponytail-runtime.js
-  - .claude/hooks/ponytail/hooks/ponytail-statusline.ps1
-  - .claude/hooks/ponytail/hooks/ponytail-statusline.sh
-  - .claude/hooks/ponytail/hooks/ponytail-subagent.js
   - .claude/skills/ponytail
   - .claude/skills/ponytail-audit
   - .claude/skills/ponytail-audit/SKILL.md
@@ -102,46 +145,21 @@ dependencies:
   - .claude/skills/ponytail-review/SKILL.md
   - .claude/skills/ponytail/SKILL.md
   - .github/hooks/ponytail-copilot-hooks.json
-  - .github/hooks/scripts/ponytail/hooks/ponytail-activate.js
-  - .github/hooks/scripts/ponytail/hooks/ponytail-config.js
-  - .github/hooks/scripts/ponytail/hooks/ponytail-instructions.js
-  - .github/hooks/scripts/ponytail/hooks/ponytail-mode-tracker.js
-  - .github/hooks/scripts/ponytail/hooks/ponytail-runtime.js
-  - .github/hooks/scripts/ponytail/hooks/ponytail-statusline.ps1
-  - .github/hooks/scripts/ponytail/hooks/ponytail-statusline.sh
-  - .github/hooks/scripts/ponytail/hooks/ponytail-subagent.js
   deployed_file_hashes:
-    .agents/skills/ponytail-audit/SKILL.md: sha256:5560b8e383dbe2ddfddc873a1e2bf2e586e23e0cd7d995537482b2315331f6d1
-    .agents/skills/ponytail-debt/SKILL.md: sha256:c84fba75f0ca12bfe83f9a78ea02fd125c5dd3f1fbb18124105a489937f284e6
-    .agents/skills/ponytail-gain/SKILL.md: sha256:24e01d1c9715cb136ba1c4f1e52a95940c0193558b876828e537736480d6408b
-    .agents/skills/ponytail-help/SKILL.md: sha256:2264d1615117b02b0fd5a69ec84cd2757006471a78e4d6c22eed6d581c1d37a4
-    .agents/skills/ponytail-review/SKILL.md: sha256:40df33b58fc6ef889b93585733feb9566b76e9586efa7f376785c1e995197ac0
-    .agents/skills/ponytail/SKILL.md: sha256:1316a2f3f95741d2300b116fe0c2d81ce4a9568656ed0a62643f54aaf09957f2
-    .claude/hooks/ponytail/hooks/package.json: sha256:8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a
-    .claude/hooks/ponytail/hooks/ponytail-activate.js: sha256:1c428c4ee9687c2f4321924109ee92e8f8b06fd6600cb6be9ec5b59633cafab1
-    .claude/hooks/ponytail/hooks/ponytail-config.js: sha256:0a8daf96cf9ac703dc4cb7b5065253567e513c951d60b8eb94a0fe727514aeca
-    .claude/hooks/ponytail/hooks/ponytail-instructions.js: sha256:23c050103f28dbe6bad953ae21d98cd06d720a20f33d4716e9de419f947d495e
-    .claude/hooks/ponytail/hooks/ponytail-mode-tracker.js: sha256:5d1a960ff01b73f651ec0242052a8cf1e064cb88147806bf6e13f92798aca251
-    .claude/hooks/ponytail/hooks/ponytail-runtime.js: sha256:02fa6127cf6c4b65a7b07b66541677ea587a0691802b6d1d2be2419bccea9110
-    .claude/hooks/ponytail/hooks/ponytail-statusline.ps1: sha256:6138f15bc7651ee7e5ced2a2a2280f5c810d58cad3e9f3252c628f4c923e48c9
-    .claude/hooks/ponytail/hooks/ponytail-statusline.sh: sha256:f1dbfa5997a5d4b5339619709053eff557ab16d71af75eb3041c3d3e3dca42ec
-    .claude/hooks/ponytail/hooks/ponytail-subagent.js: sha256:7f6bee86702a488d29ef0dcaabf424bbe2aca345a6a642319d43a1fe0276792e
-    .claude/skills/ponytail-audit/SKILL.md: sha256:5560b8e383dbe2ddfddc873a1e2bf2e586e23e0cd7d995537482b2315331f6d1
-    .claude/skills/ponytail-debt/SKILL.md: sha256:c84fba75f0ca12bfe83f9a78ea02fd125c5dd3f1fbb18124105a489937f284e6
-    .claude/skills/ponytail-gain/SKILL.md: sha256:24e01d1c9715cb136ba1c4f1e52a95940c0193558b876828e537736480d6408b
-    .claude/skills/ponytail-help/SKILL.md: sha256:2264d1615117b02b0fd5a69ec84cd2757006471a78e4d6c22eed6d581c1d37a4
-    .claude/skills/ponytail-review/SKILL.md: sha256:40df33b58fc6ef889b93585733feb9566b76e9586efa7f376785c1e995197ac0
-    .claude/skills/ponytail/SKILL.md: sha256:1316a2f3f95741d2300b116fe0c2d81ce4a9568656ed0a62643f54aaf09957f2
-    .github/hooks/ponytail-copilot-hooks.json: sha256:4ad52e6fd633e8fa1b73172da33e6b23d2b874fea94cd18a7def7a08037188a5
-    .github/hooks/scripts/ponytail/hooks/ponytail-activate.js: sha256:1c428c4ee9687c2f4321924109ee92e8f8b06fd6600cb6be9ec5b59633cafab1
-    .github/hooks/scripts/ponytail/hooks/ponytail-config.js: sha256:0a8daf96cf9ac703dc4cb7b5065253567e513c951d60b8eb94a0fe727514aeca
-    .github/hooks/scripts/ponytail/hooks/ponytail-instructions.js: sha256:23c050103f28dbe6bad953ae21d98cd06d720a20f33d4716e9de419f947d495e
-    .github/hooks/scripts/ponytail/hooks/ponytail-mode-tracker.js: sha256:5d1a960ff01b73f651ec0242052a8cf1e064cb88147806bf6e13f92798aca251
-    .github/hooks/scripts/ponytail/hooks/ponytail-runtime.js: sha256:02fa6127cf6c4b65a7b07b66541677ea587a0691802b6d1d2be2419bccea9110
-    .github/hooks/scripts/ponytail/hooks/ponytail-statusline.ps1: sha256:6138f15bc7651ee7e5ced2a2a2280f5c810d58cad3e9f3252c628f4c923e48c9
-    .github/hooks/scripts/ponytail/hooks/ponytail-statusline.sh: sha256:f1dbfa5997a5d4b5339619709053eff557ab16d71af75eb3041c3d3e3dca42ec
-    .github/hooks/scripts/ponytail/hooks/ponytail-subagent.js: sha256:7f6bee86702a488d29ef0dcaabf424bbe2aca345a6a642319d43a1fe0276792e
-  content_hash: sha256:17a5d405c7a1b9ef17969bc14deacaa78ae420fb453c0f2b1f7170d530e55b26
+    .agents/skills/ponytail-audit/SKILL.md: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
+    .agents/skills/ponytail-debt/SKILL.md: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
+    .agents/skills/ponytail-gain/SKILL.md: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
+    .agents/skills/ponytail-help/SKILL.md: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
+    .agents/skills/ponytail-review/SKILL.md: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
+    .agents/skills/ponytail/SKILL.md: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
+    .claude/skills/ponytail-audit/SKILL.md: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
+    .claude/skills/ponytail-debt/SKILL.md: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
+    .claude/skills/ponytail-gain/SKILL.md: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
+    .claude/skills/ponytail-help/SKILL.md: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
+    .claude/skills/ponytail-review/SKILL.md: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
+    .claude/skills/ponytail/SKILL.md: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
+    .github/hooks/ponytail-copilot-hooks.json: sha256:692b5148c3605d2ece2f081834b650c3c43d75cb272a7884dc40e9ce4425ef79
+  content_hash: sha256:b995a71ddd28e617eb0e7968c7ec7a0cc8229b3af20065432ce5ecb1da2d92bc
   is_dev: true
 - repo_url: hardikpandya/stop-slop
   name: stop-slop
@@ -189,7 +207,7 @@ dependencies:
   materialization_repo_url: JuliusBrussee/caveman
   name: caveman-commit
   host: github.com
-  resolved_commit: 9e4356e717f0ec0030ee51ad169c0a41cd239d59
+  resolved_commit: 9b243662ff98d392bc0a95b865a554583d71be75
   version: unknown
   virtual_path: skills/caveman-commit
   is_virtual: true
@@ -205,390 +223,57 @@ dependencies:
   - .claude/skills/caveman-commit/SKILL.md
   deployed_file_hashes:
     .agents/skills/caveman-commit/README.md: sha256:a2e82924b487fc1845114c247b47c2d3c2d1bd60f90bbfa60e9831319eb964fa
-    .agents/skills/caveman-commit/SKILL.md: sha256:58db7b8efab911a629c26e7132517d9076e4e3645009eb604cb8c25663477841
+    .agents/skills/caveman-commit/SKILL.md: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
     .claude/skills/caveman-commit/README.md: sha256:a2e82924b487fc1845114c247b47c2d3c2d1bd60f90bbfa60e9831319eb964fa
-    .claude/skills/caveman-commit/SKILL.md: sha256:58db7b8efab911a629c26e7132517d9076e4e3645009eb604cb8c25663477841
-  content_hash: sha256:790a4eeace0be35c6691faf923518ba5bd50f1f1305d1101d09dd4971be94e00
+    .claude/skills/caveman-commit/SKILL.md: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
+  content_hash: sha256:b416cf134b0f33ddadeca7977aebdbb2d3db79a166d0fce2e1aabeec98132766
   is_dev: true
 deployments:
 - kind: project-relative
-  target: agents
-  value: .agents/skills/caveman-commit
-  runtime: null
-  scope: project
-  owners:
-  - juliusbrussee/caveman/skills/caveman-commit
-  active_owner: juliusbrussee/caveman/skills/caveman-commit
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/caveman-commit/README.md
-  runtime: null
-  scope: project
-  owners:
-  - juliusbrussee/caveman/skills/caveman-commit
-  active_owner: juliusbrussee/caveman/skills/caveman-commit
-  content_hash: sha256:a2e82924b487fc1845114c247b47c2d3c2d1bd60f90bbfa60e9831319eb964fa
-- kind: project-relative
-  target: agents
-  value: .agents/skills/caveman-commit/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - juliusbrussee/caveman/skills/caveman-commit
-  active_owner: juliusbrussee/caveman/skills/caveman-commit
-  content_hash: sha256:58db7b8efab911a629c26e7132517d9076e4e3645009eb604cb8c25663477841
-- kind: project-relative
-  target: agents
-  value: .agents/skills/gleam-reference-docs
+  target: claude
+  value: .claude/agents/beam-vm-reviewer.md
   runtime: null
   scope: project
   owners:
   - tylerbutler/agent-marketplace/plugins/gleam
   active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: null
+  content_hash: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
 - kind: project-relative
-  target: agents
-  value: .agents/skills/gleam-reference-docs/SKILL.md
+  target: claude
+  value: .claude/agents/erlang-specialist.md
   runtime: null
   scope: project
   owners:
   - tylerbutler/agent-marketplace/plugins/gleam
   active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
+  content_hash: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
 - kind: project-relative
-  target: agents
-  value: .agents/skills/gleam-reference-docs/assets/generate-reference.mjs
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
-- kind: project-relative
-  target: agents
-  value: .agents/skills/gleam-reference-docs/evals/evals.json
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
-- kind: project-relative
-  target: agents
-  value: .agents/skills/gleam-review
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/gleam-review/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:285a54a75346349ff12f6579c184847a6b35bbcecd2842b5065117a5d91ff071
-- kind: project-relative
-  target: agents
-  value: .agents/skills/gleam-review/references/conventions.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-audit
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-audit/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:5560b8e383dbe2ddfddc873a1e2bf2e586e23e0cd7d995537482b2315331f6d1
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-debt
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-debt/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:c84fba75f0ca12bfe83f9a78ea02fd125c5dd3f1fbb18124105a489937f284e6
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-gain
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-gain/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:24e01d1c9715cb136ba1c4f1e52a95940c0193558b876828e537736480d6408b
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-help
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-help/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:2264d1615117b02b0fd5a69ec84cd2757006471a78e4d6c22eed6d581c1d37a4
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-review
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail-review/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:40df33b58fc6ef889b93585733feb9566b76e9586efa7f376785c1e995197ac0
-- kind: project-relative
-  target: agents
-  value: .agents/skills/ponytail/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:1316a2f3f95741d2300b116fe0c2d81ce4a9568656ed0a62643f54aaf09957f2
-- kind: project-relative
-  target: agents
-  value: .agents/skills/prose-banlist
+  target: claude
+  value: .claude/commands/create-pr.md
   runtime: null
   scope: project
   owners:
   - tylerbutler/apm-base
   active_owner: tylerbutler/apm-base
-  content_hash: null
+  content_hash: sha256:f60319bef36ed8d7159543f774f196f2ab90df55d3538c1723da6b81295d02ff
 - kind: project-relative
-  target: agents
-  value: .agents/skills/prose-banlist/SKILL.md
+  target: claude
+  value: .claude/commands/merge-upstream.md
   runtime: null
   scope: project
   owners:
   - tylerbutler/apm-base
   active_owner: tylerbutler/apm-base
-  content_hash: sha256:af6bfe1df1e6399041019eb74b24b301137dcaae65a6736e8c0149c9a996a8db
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: null
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop/CHANGELOG.md
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: sha256:fe2f1484ef02abf22efc09def89bac186a2235831fd0da13d4895edb19cc6dd0
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop/LICENSE
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: sha256:2e2b2beaf41cc0ce28485455a62aed81777cdcdf68702e142427aef1cd720f2c
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop/README.md
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: sha256:d5c699e712e62d286aa4314e6b4ba02cde7a9da36ce56102660f98d1a8ceebba
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: sha256:7432a1d9ebdd42b27666da8458af252edf549f723fb14bcd4791425103930310
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop/references/examples.md
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: sha256:49c592899eb4457f95d0767e15e3143569e2cef50f2927c3174e62432984cd3d
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop/references/phrases.md
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: sha256:4ca1b7e97123b5c67eff3dc97e5e977332e0b24021265c1553888a93ec33fa93
-- kind: project-relative
-  target: agents
-  value: .agents/skills/stop-slop/references/structures.md
-  runtime: null
-  scope: project
-  owners:
-  - hardikpandya/stop-slop
-  active_owner: hardikpandya/stop-slop
-  content_hash: sha256:ffbf1316c7fb5aaf552de005609a64a9639b546ecd76bfb0e482864d5bbe6f58
+  content_hash: sha256:f8c97a3085cc2b603cd34428aa28d17c55b5411ba526871ae599cede372d3f89
 - kind: project-relative
   target: claude
-  value: .claude/hooks/ponytail/hooks/package.json
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-activate.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:1c428c4ee9687c2f4321924109ee92e8f8b06fd6600cb6be9ec5b59633cafab1
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-config.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:0a8daf96cf9ac703dc4cb7b5065253567e513c951d60b8eb94a0fe727514aeca
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-instructions.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:23c050103f28dbe6bad953ae21d98cd06d720a20f33d4716e9de419f947d495e
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-mode-tracker.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:5d1a960ff01b73f651ec0242052a8cf1e064cb88147806bf6e13f92798aca251
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-runtime.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:02fa6127cf6c4b65a7b07b66541677ea587a0691802b6d1d2be2419bccea9110
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-statusline.ps1
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:6138f15bc7651ee7e5ced2a2a2280f5c810d58cad3e9f3252c628f4c923e48c9
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-statusline.sh
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:f1dbfa5997a5d4b5339619709053eff557ab16d71af75eb3041c3d3e3dca42ec
-- kind: project-relative
-  target: claude
-  value: .claude/hooks/ponytail/hooks/ponytail-subagent.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:7f6bee86702a488d29ef0dcaabf424bbe2aca345a6a642319d43a1fe0276792e
-- kind: project-relative
-  target: claude
-  value: .claude/rules/no-laziness.md
+  value: .claude/rules/use-ste.md
   runtime: null
   scope: project
   owners:
   - tylerbutler/apm-base
   active_owner: tylerbutler/apm-base
-  content_hash: sha256:7bfa0b61b27e7f8aa782881e243ff010a542615ce14f0ce917615b23dcea1cd4
+  content_hash: sha256:29c78e0076d736e43b8d9b414465de9c236128975b95118dcb2047f4e49018b2
 - kind: project-relative
   target: claude
   value: .claude/skills/caveman-commit
@@ -615,7 +300,7 @@ deployments:
   owners:
   - juliusbrussee/caveman/skills/caveman-commit
   active_owner: juliusbrussee/caveman/skills/caveman-commit
-  content_hash: sha256:58db7b8efab911a629c26e7132517d9076e4e3645009eb604cb8c25663477841
+  content_hash: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
 - kind: project-relative
   target: claude
   value: .claude/skills/gleam-reference-docs
@@ -669,7 +354,7 @@ deployments:
   owners:
   - tylerbutler/agent-marketplace/plugins/gleam
   active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:285a54a75346349ff12f6579c184847a6b35bbcecd2842b5065117a5d91ff071
+  content_hash: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
 - kind: project-relative
   target: claude
   value: .claude/skills/gleam-review/references/conventions.md
@@ -679,6 +364,33 @@ deployments:
   - tylerbutler/agent-marketplace/plugins/gleam
   active_owner: tylerbutler/agent-marketplace/plugins/gleam
   content_hash: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
+- kind: project-relative
+  target: claude
+  value: .claude/skills/humanizer
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/humanizer/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96
+- kind: project-relative
+  target: claude
+  value: .claude/skills/humanizer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:14fc8a965b6e0a8dc100ba4dffeab55cb94bbac112abbde7e014d5c15a35c202
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail
@@ -705,7 +417,7 @@ deployments:
   owners:
   - dietrichgebert/ponytail
   active_owner: dietrichgebert/ponytail
-  content_hash: sha256:5560b8e383dbe2ddfddc873a1e2bf2e586e23e0cd7d995537482b2315331f6d1
+  content_hash: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-debt
@@ -723,7 +435,7 @@ deployments:
   owners:
   - dietrichgebert/ponytail
   active_owner: dietrichgebert/ponytail
-  content_hash: sha256:c84fba75f0ca12bfe83f9a78ea02fd125c5dd3f1fbb18124105a489937f284e6
+  content_hash: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-gain
@@ -741,7 +453,7 @@ deployments:
   owners:
   - dietrichgebert/ponytail
   active_owner: dietrichgebert/ponytail
-  content_hash: sha256:24e01d1c9715cb136ba1c4f1e52a95940c0193558b876828e537736480d6408b
+  content_hash: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-help
@@ -759,7 +471,7 @@ deployments:
   owners:
   - dietrichgebert/ponytail
   active_owner: dietrichgebert/ponytail
-  content_hash: sha256:2264d1615117b02b0fd5a69ec84cd2757006471a78e4d6c22eed6d581c1d37a4
+  content_hash: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-review
@@ -777,7 +489,7 @@ deployments:
   owners:
   - dietrichgebert/ponytail
   active_owner: dietrichgebert/ponytail
-  content_hash: sha256:40df33b58fc6ef889b93585733feb9566b76e9586efa7f376785c1e995197ac0
+  content_hash: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail/SKILL.md
@@ -786,7 +498,7 @@ deployments:
   owners:
   - dietrichgebert/ponytail
   active_owner: dietrichgebert/ponytail
-  content_hash: sha256:1316a2f3f95741d2300b116fe0c2d81ce4a9568656ed0a62643f54aaf09957f2
+  content_hash: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
 - kind: project-relative
   target: claude
   value: .claude/skills/prose-banlist
@@ -804,7 +516,7 @@ deployments:
   owners:
   - tylerbutler/apm-base
   active_owner: tylerbutler/apm-base
-  content_hash: sha256:af6bfe1df1e6399041019eb74b24b301137dcaae65a6736e8c0149c9a996a8db
+  content_hash: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
 - kind: project-relative
   target: claude
   value: .claude/skills/stop-slop
@@ -878,6 +590,411 @@ deployments:
   active_owner: hardikpandya/stop-slop
   content_hash: sha256:ffbf1316c7fb5aaf552de005609a64a9639b546ecd76bfb0e482864d5bbe6f58
 - kind: project-relative
+  target: claude
+  value: .claude/skills/storytelling
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/storytelling/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:68a7dfe08ba69c59af66b28d2d9f3344eb97dc7f4eb096cae41f98abcc4ea23e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/unslop
+  runtime: null
+  scope: project
+  owners:
+  - cursor/plugins/pstack/skills/unslop
+  active_owner: cursor/plugins/pstack/skills/unslop
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/unslop/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - cursor/plugins/pstack/skills/unslop
+  active_owner: cursor/plugins/pstack/skills/unslop
+  content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/caveman-commit
+  runtime: null
+  scope: project
+  owners:
+  - juliusbrussee/caveman/skills/caveman-commit
+  active_owner: juliusbrussee/caveman/skills/caveman-commit
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/caveman-commit/README.md
+  runtime: null
+  scope: project
+  owners:
+  - juliusbrussee/caveman/skills/caveman-commit
+  active_owner: juliusbrussee/caveman/skills/caveman-commit
+  content_hash: sha256:a2e82924b487fc1845114c247b47c2d3c2d1bd60f90bbfa60e9831319eb964fa
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/caveman-commit/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - juliusbrussee/caveman/skills/caveman-commit
+  active_owner: juliusbrussee/caveman/skills/caveman-commit
+  content_hash: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/gleam-reference-docs
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/gleam-reference-docs/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/gleam-reference-docs/assets/generate-reference.mjs
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/gleam-reference-docs/evals/evals.json
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/gleam-review
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/gleam-review/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/gleam-review/references/conventions.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/humanizer
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/humanizer/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/humanizer/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:14fc8a965b6e0a8dc100ba4dffeab55cb94bbac112abbde7e014d5c15a35c202
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-audit
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-audit/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-debt
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-debt/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-gain
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-gain/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-help
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-help/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-review
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-review/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail
+  active_owner: dietrichgebert/ponytail
+  content_hash: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/prose-banlist
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/prose-banlist/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop/CHANGELOG.md
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: sha256:fe2f1484ef02abf22efc09def89bac186a2235831fd0da13d4895edb19cc6dd0
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: sha256:2e2b2beaf41cc0ce28485455a62aed81777cdcdf68702e142427aef1cd720f2c
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop/README.md
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: sha256:d5c699e712e62d286aa4314e6b4ba02cde7a9da36ce56102660f98d1a8ceebba
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: sha256:7432a1d9ebdd42b27666da8458af252edf549f723fb14bcd4791425103930310
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop/references/examples.md
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: sha256:49c592899eb4457f95d0767e15e3143569e2cef50f2927c3174e62432984cd3d
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop/references/phrases.md
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: sha256:4ca1b7e97123b5c67eff3dc97e5e977332e0b24021265c1553888a93ec33fa93
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/stop-slop/references/structures.md
+  runtime: null
+  scope: project
+  owners:
+  - hardikpandya/stop-slop
+  active_owner: hardikpandya/stop-slop
+  content_hash: sha256:ffbf1316c7fb5aaf552de005609a64a9639b546ecd76bfb0e482864d5bbe6f58
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/storytelling
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/storytelling/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:68a7dfe08ba69c59af66b28d2d9f3344eb97dc7f4eb096cae41f98abcc4ea23e
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/unslop
+  runtime: null
+  scope: project
+  owners:
+  - cursor/plugins/pstack/skills/unslop
+  active_owner: cursor/plugins/pstack/skills/unslop
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/unslop/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - cursor/plugins/pstack/skills/unslop
+  active_owner: cursor/plugins/pstack/skills/unslop
+  content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+- kind: project-relative
+  target: copilot
+  value: .github/agents/beam-vm-reviewer.agent.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
+- kind: project-relative
+  target: copilot
+  value: .github/agents/erlang-specialist.agent.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/agent-marketplace/plugins/gleam
+  active_owner: tylerbutler/agent-marketplace/plugins/gleam
+  content_hash: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
+- kind: project-relative
   target: copilot
   value: .github/hooks/ponytail-copilot-hooks.json
   runtime: null
@@ -885,85 +1002,31 @@ deployments:
   owners:
   - dietrichgebert/ponytail
   active_owner: dietrichgebert/ponytail
-  content_hash: sha256:4ad52e6fd633e8fa1b73172da33e6b23d2b874fea94cd18a7def7a08037188a5
+  content_hash: sha256:692b5148c3605d2ece2f081834b650c3c43d75cb272a7884dc40e9ce4425ef79
 - kind: project-relative
   target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-activate.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:1c428c4ee9687c2f4321924109ee92e8f8b06fd6600cb6be9ec5b59633cafab1
-- kind: project-relative
-  target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-config.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:0a8daf96cf9ac703dc4cb7b5065253567e513c951d60b8eb94a0fe727514aeca
-- kind: project-relative
-  target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-instructions.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:23c050103f28dbe6bad953ae21d98cd06d720a20f33d4716e9de419f947d495e
-- kind: project-relative
-  target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-mode-tracker.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:5d1a960ff01b73f651ec0242052a8cf1e064cb88147806bf6e13f92798aca251
-- kind: project-relative
-  target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-runtime.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:02fa6127cf6c4b65a7b07b66541677ea587a0691802b6d1d2be2419bccea9110
-- kind: project-relative
-  target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-statusline.ps1
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:6138f15bc7651ee7e5ced2a2a2280f5c810d58cad3e9f3252c628f4c923e48c9
-- kind: project-relative
-  target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-statusline.sh
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:f1dbfa5997a5d4b5339619709053eff557ab16d71af75eb3041c3d3e3dca42ec
-- kind: project-relative
-  target: copilot
-  value: .github/hooks/scripts/ponytail/hooks/ponytail-subagent.js
-  runtime: null
-  scope: project
-  owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
-  content_hash: sha256:7f6bee86702a488d29ef0dcaabf424bbe2aca345a6a642319d43a1fe0276792e
-- kind: project-relative
-  target: copilot
-  value: .github/instructions/no-laziness.instructions.md
+  value: .github/instructions/use-ste.instructions.md
   runtime: null
   scope: project
   owners:
   - tylerbutler/apm-base
   active_owner: tylerbutler/apm-base
-  content_hash: sha256:d0f928dfdf98b1ddee5e676e212cff34c866c65cf839952c9d62c730068d7c1e
+  content_hash: sha256:686d7f6f6172dd5c238371076383b2f67c0f4937465e6e53633936d294c9adbc
+- kind: project-relative
+  target: copilot
+  value: .github/prompts/create-pr.prompt.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:5fcb1b64247130aec3a0ebd114ae6d127de44f7e824087033c468d8debb593a2
+- kind: project-relative
+  target: copilot
+  value: .github/prompts/merge-upstream.prompt.md
+  runtime: null
+  scope: project
+  owners:
+  - tylerbutler/apm-base
+  active_owner: tylerbutler/apm-base
+  content_hash: sha256:bf990755d11f1e73610d9cde3b656aa175c7f63cdd8d069158302c6496a5b77e
