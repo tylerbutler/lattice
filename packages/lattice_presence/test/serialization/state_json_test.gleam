@@ -404,6 +404,103 @@ pub fn from_json_rejects_non_positive_tag_clock_test() {
   Nil
 }
 
+pub fn decoders_reject_live_tags_outside_causal_history_test() {
+  list.each(
+    [
+      "{\"replica\":\"B\",\"context\":{},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"A\",\"context\":{\"A\":1},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"B\",\"context\":{\"B\":1},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":2},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"B\",\"context\":{\"B\":1},\"clouds\":{\"B\":[3,5]},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":2},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"B\",\"context\":{},\"clouds\":{\"A\":[1]},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"B\",\"context\":{\"B\":1},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}},{\"tag\":{\"replica\":\"C\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"other\",\"pid\":\"other-pid\",\"meta\":null}}]}",
+    ],
+    fn(payload) {
+      let assert Error(_) = state.from_json(payload)
+      let envelope_decoder = {
+        use snapshot <- decode.field("state", state.decoder())
+        decode.success(snapshot)
+      }
+      let assert Error(_) =
+        json.parse("{\"state\":" <> payload <> "}", envelope_decoder)
+      Nil
+    },
+  )
+}
+
+pub fn decoders_reject_duplicate_live_tags_test() {
+  let first =
+    "{\"tag\":{\"replica\":\"B\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}"
+  let second =
+    "{\"tag\":{\"replica\":\"B\",\"clock\":2},\"entry\":{\"topic\":\"room\",\"key\":\"other\",\"pid\":\"other-pid\",\"meta\":null}}"
+  let conflicting =
+    string.replace(first, "\"pid\":\"pid\"", "\"pid\":\"other\"")
+  list.each([first, conflicting], fn(duplicate) {
+    let payload =
+      "{\"replica\":\"B\",\"context\":{\"B\":2},\"clouds\":{},\"values\":["
+      <> string.join([first, second, duplicate], ",")
+      <> "]}"
+    let assert Error(_) = state.from_json(payload)
+    let assert Error(_) = json.parse(payload, state.decoder())
+    Nil
+  })
+}
+
+pub fn decoded_covered_tags_support_merge_leave_and_rejoin_test() {
+  list.each(
+    [
+      "{\"replica\":\"B\",\"context\":{\"B\":5},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":1},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"B\",\"context\":{\"B\":5},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":5},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"B\",\"context\":{\"B\":1},\"clouds\":{\"B\":[3,5]},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":5},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+      "{\"replica\":\"B\",\"context\":{},\"clouds\":{\"B\":[3,5]},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":3},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+    ],
+    fn(payload) {
+      let assert Ok(owner) = state.from_json(payload)
+      let assert Ok(roundtripped) =
+        owner |> state.to_json_string |> state.from_json
+      let assert True =
+        state.compacted_clocks(roundtripped) == state.compacted_clocks(owner)
+      let assert True =
+        state.internal_clouds(roundtripped) == state.internal_clouds(owner)
+
+      let assert Ok(peer) = state.merge(state.new("A"), owner)
+      let assert [#("pid", "room", "user", _)] = state.online_list(peer)
+      let removed = state.leave(owner, "pid", "room", "user")
+      let assert Ok(peer) = state.merge(peer, removed)
+      let assert [] = state.online_list(peer)
+      let assert Ok(peer) = state.merge(peer, owner)
+      let assert [] = state.online_list(peer)
+
+      let rejoined = state.join(removed, "pid", "room", "user", json.null())
+      let assert Ok(6) = dict.get(state.compacted_clocks(rejoined), "B")
+      let assert Ok(peer) = state.merge(peer, rejoined)
+      let assert [#("pid", "room", "user", _)] = state.online_list(peer)
+      let assert Ok(peer) = state.merge(peer, removed)
+      let assert [#("pid", "room", "user", _)] = state.online_list(peer)
+      Nil
+    },
+  )
+}
+
+pub fn decoded_sparse_clouds_do_not_remove_unseen_gap_tags_test() {
+  let assert Ok(sparse) =
+    state.from_json(
+      "{\"replica\":\"relay\",\"context\":{\"B\":1},\"clouds\":{\"B\":[3,5]},\"values\":[]}",
+    )
+  let assert True =
+    state.compacted_clocks(sparse) == dict.from_list([#("B", 1)])
+  let assert True =
+    state.internal_clouds(sparse)
+    == dict.from_list([#("B", set.from_list([3, 5]))])
+
+  let assert Ok(gap) =
+    state.from_json(
+      "{\"replica\":\"B\",\"context\":{\"B\":2},\"clouds\":{},\"values\":[{\"tag\":{\"replica\":\"B\",\"clock\":2},\"entry\":{\"topic\":\"room\",\"key\":\"user\",\"pid\":\"pid\",\"meta\":null}}]}",
+    )
+  let assert Ok(peer) = state.merge(state.new("A"), gap)
+  let assert Ok(peer) = state.merge(peer, sparse)
+  let assert [#("pid", "room", "user", _)] = state.online_list(peer)
+}
+
 pub fn from_json_rejects_deep_metadata_test() {
   let deep_meta = string.repeat("[", 65) <> "null" <> string.repeat("]", 65)
   let payload =

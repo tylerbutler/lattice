@@ -1125,11 +1125,11 @@ pub fn supersede_combines_visible_leaves_with_multiplicity_and_metadata_test() {
   }(Ok(#(cleaned, state.Diff(joins: dict.new(), leaves: dict.new()))))
 }
 
-pub fn supersede_discovers_sparse_history_and_uncovered_value_owners_test() {
+pub fn supersede_discovers_sparse_history_and_value_owners_test() {
   let context_only = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAQ==:node"
   let cloud_only = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAg==:node"
   let mixed = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAw==:node"
-  let value_only = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAABA==:node"
+  let value_owner = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAABA==:node"
   let current = "lattice-presence:v1:AAAAAAAAQACAAAAAAAAABQ==:node"
   let assert Ok(local) =
     state.from_json(
@@ -1141,16 +1141,17 @@ pub fn supersede_discovers_sparse_history_and_uncovered_value_owners_test() {
       },\"clouds\":{
         \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAg==:node\":[3,7],
         \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAw==:node\":[4,8],
+        \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABA==:node\":[12],
         \"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABQ==:node\":[2,5],
         \"unrelated\":[2,4]
       },\"values\":[
         {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAAAw==:node\",\"clock\":8},\"entry\":{\"topic\":\"lobby\",\"key\":\"covered-key\",\"pid\":\"covered-pid\",\"meta\":\"covered\"}},
-        {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABA==:node\",\"clock\":12},\"entry\":{\"topic\":\"lobby\",\"key\":\"uncovered-key\",\"pid\":\"uncovered-pid\",\"meta\":\"uncovered\"}},
+        {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABA==:node\",\"clock\":12},\"entry\":{\"topic\":\"lobby\",\"key\":\"sparse-key\",\"pid\":\"sparse-pid\",\"meta\":\"sparse\"}},
         {\"tag\":{\"replica\":\"lattice-presence:v1:AAAAAAAAQACAAAAAAAAABQ==:node\",\"clock\":5},\"entry\":{\"topic\":\"lobby\",\"key\":\"current-key\",\"pid\":\"current-pid\",\"meta\":true}},
         {\"tag\":{\"replica\":\"unrelated\",\"clock\":4},\"entry\":{\"topic\":\"lobby\",\"key\":\"other-key\",\"pid\":\"other-pid\",\"meta\":false}}
       ]}",
     )
-  list.each([context_only, cloud_only, mixed, value_only, current], fn(id) {
+  list.each([context_only, cloud_only, mixed, value_owner, current], fn(id) {
     state.base_replica(id)
     |> fn(actual, expected) {
       let assert True = actual == expected
@@ -1169,6 +1170,7 @@ pub fn supersede_discovers_sparse_history_and_uncovered_value_owners_test() {
       #(context_only, 9),
       #(cloud_only, 7),
       #(mixed, 8),
+      #(value_owner, 12),
       #(current, 1),
       #("unrelated", 1),
     ]),
@@ -1214,7 +1216,7 @@ pub fn supersede_discovers_sparse_history_and_uncovered_value_owners_test() {
   }(
     set.from_list([
       #("covered-key", "covered-pid", json.string("covered")),
-      #("uncovered-key", "uncovered-pid", json.string("uncovered")),
+      #("sparse-key", "sparse-pid", json.string("sparse")),
     ]),
   )
   state.supersede(cleaned, current)
@@ -1920,15 +1922,15 @@ pub fn merge_rejects_local_prefix_with_unseen_gap_test() {
   expect_local_history_conflict(local, peer)
 }
 
-pub fn merge_rejects_unseen_local_active_tag_without_context_test() {
+pub fn merge_rejects_unseen_local_active_tag_in_cloud_test() {
   let assert Ok(peer) =
     state.from_json(
-      "{\"replica\":\"node_b\",\"context\":{},\"clouds\":{},\"values\":[
+      "{\"replica\":\"node_b\",\"context\":{},\"clouds\":{\"node_a\":[1]},\"values\":[
         {\"tag\":{\"replica\":\"node_a\",\"clock\":1},\"entry\":{\"topic\":\"lobby\",\"key\":\"alice\",\"pid\":\"old-pid\",\"meta\":{}}}
       ]}",
     )
 
-  // The wire format can carry values independently of context/clouds.
+  // An active tag can be covered by a cloud without a compacted context.
   expect_local_history_conflict(state.new("node_a"), peer)
 }
 

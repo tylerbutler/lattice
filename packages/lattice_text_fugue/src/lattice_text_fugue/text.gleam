@@ -351,6 +351,9 @@ pub fn to_json(text: Text) -> json.Json {
 ///
 /// Decoded snapshots retain their serialized identity. Merge a remote
 /// snapshot with the local identity before making local edits.
+/// The allocation counter covers all retained IDs and referenced parents.
+/// Duplicate IDs and parent cycles are rejected; missing parents are allowed
+/// for sparse deltas.
 pub fn from_json(json_string: String) -> Result(Text, json.DecodeError) {
   case sequence.from_json(json_string, decode.string) {
     Ok(seq) -> Ok(Text(seq))

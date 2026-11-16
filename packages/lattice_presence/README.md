@@ -90,8 +90,11 @@ pub fn decode_sync(payload: String) {
 
 The JSON shape remains `replica`, `context`, `clouds`, and `values`, with no
 type or version envelope. Context clocks must be non-negative; tag and cloud
-clocks must be positive. Metadata is embedded JSON, supports null and nested
-values, and is limited to depth 64 when decoded.
+clocks must be positive. Live tags must be unique, and each tag must be covered
+by its replica's context clock or occur in that replica's cloud. Decoding
+preserves sparse cloud gaps without adding missing causal history. Metadata is
+embedded JSON, supports null and nested values, and is limited to depth 64 when
+decoded.
 
 Local replica liveness is not encoded. Decoding marks only the state's own
 replica as `Up` and retains its serialized identity. Merge a decoded remote

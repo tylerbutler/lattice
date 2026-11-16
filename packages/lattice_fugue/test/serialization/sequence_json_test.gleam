@@ -145,6 +145,43 @@ pub fn live_null_round_trips_test() {
     })
 }
 
+pub fn v2_validates_structure_and_repairs_counter_with_live_null_test() {
+  let live_null = node("A", 7, json.null(), json.null())
+  let encode = fn(nodes) {
+    snapshot(0, nodes)
+    |> string.replace("\"v\":1", "\"v\":2")
+    |> string.replace("\"value\":", "\"deleted\":false,\"value\":")
+  }
+
+  [
+    [live_null, live_null],
+    [node("A", 7, json.null(), node_id("A", 7))],
+    [
+      node("A", 7, json.null(), node_id("B", 8)),
+      node("B", 8, json.null(), node_id("A", 7)),
+    ],
+  ]
+  |> list.each(fn(nodes) {
+    let assert Error(json.UnableToDecode(_)) =
+      encode(nodes)
+      |> sequence.from_json(decode.success(Nil))
+  })
+
+  let assert Ok(decoded) =
+    encode([live_null])
+    |> sequence.from_json(decode.success(Nil))
+  assert sequence.values(decoded) == [Nil]
+  let assert Ok(updated) = sequence.insert(decoded, 0, Nil)
+  assert sequence.values(updated) == [Nil, Nil]
+  assert sequence.length(updated) == 2
+  let encoded =
+    sequence.to_json(updated, fn(_) { json.null() })
+    |> json.to_string()
+  let assert Ok(8) =
+    json.parse(encoded, decode.at(["state", "counter"], decode.int))
+  assert sequence.from_json(encoded, decode.success(Nil)) == Ok(updated)
+}
+
 pub fn optional_payload_snapshots_and_deltas_round_trip_test() {
   let empty = sequence.new(rid("A"))
   let assert Ok(#(null_state, null_delta)) =
@@ -213,4 +250,153 @@ pub fn v2_requires_explicit_deletion_and_valid_payload_test() {
   |> list.each(fn(invalid) {
     let assert Error(_) = sequence.from_json(invalid, decode.string)
   })
+}
+
+fn node(
+  replica: String,
+  counter: Int,
+  value: json.Json,
+  parent: json.Json,
+) -> json.Json {
+  json.object([
+    #("id", node_id(replica, counter)),
+    #("value", value),
+    #("parent", parent),
+    #("side", json.string("right")),
+  ])
+}
+
+fn node_id(replica: String, counter: Int) -> json.Json {
+  json.object([
+    #("replica_id", json.string(replica)),
+    #("counter", json.int(counter)),
+  ])
+}
+
+fn snapshot(counter: Int, nodes: List(json.Json)) -> String {
+  json.object([
+    #("type", json.string("fugue")),
+    #("v", json.int(1)),
+    #(
+      "state",
+      json.object([
+        #("self_id", json.string("A")),
+        #("counter", json.int(counter)),
+        #("nodes", json.array(nodes, fn(node) { node })),
+      ]),
+    ),
+  ])
+  |> json.to_string()
+}
+
+fn counter(seq: sequence.Sequence(String)) -> Int {
+  let assert Ok(counter) =
+    seq
+    |> sequence.to_json(json.string)
+    |> json.to_string()
+    |> json.parse({
+      use counter <- decode.subfield(["state", "counter"], decode.int)
+      decode.success(counter)
+    })
+  counter
+}
+
+pub fn decoded_counter_covers_retained_ids_and_preserves_higher_counter_test() {
+  [0, 20]
+  |> list.each(fn(encoded_counter) {
+    let assert Ok(decoded) =
+      snapshot(encoded_counter, [
+        node("A", 1, json.string("old"), json.null()),
+      ])
+      |> sequence.from_json(decode.string)
+    let assert Ok(updated) = sequence.insert(decoded, 0, "new")
+    assert sequence.values(updated) == ["new", "old"]
+    assert sequence.length(updated) == 2
+    assert counter(updated) > encoded_counter
+    assert counter(updated) > 1
+  })
+}
+
+pub fn decoded_counter_covers_other_identities_and_tombstones_test() {
+  let assert Ok(decoded) =
+    snapshot(0, [
+      node("B", 8, json.null(), json.null()),
+      node("A", 1, json.string("old"), node_id("B", 8)),
+    ])
+    |> sequence.from_json(decode.string)
+
+  [
+    sequence.merge(decoded, sequence.new(rid("B")), rid("B")),
+    sequence.merge(sequence.new(rid("B")), decoded, rid("B")),
+    sequence.merge_as(sequence.new(rid("B")), decoded, rid("B")),
+  ]
+  |> list.each(fn(rebound) {
+    let assert Ok(updated) = sequence.insert(rebound, 0, "new")
+    assert sequence.values(updated) == ["new", "old"]
+    assert counter(updated) == 9
+    assert round_trip(updated) == Ok(updated)
+  })
+}
+
+pub fn decoded_sparse_parent_reserves_id_until_parent_arrives_test() {
+  let assert Ok(sparse) =
+    snapshot(0, [
+      node("A", 2, json.string("child"), node_id("B", 40)),
+    ])
+    |> sequence.from_json(decode.string)
+  assert sequence.values(sparse) == []
+  assert round_trip(sparse) == Ok(sparse)
+  let rebound = sequence.merge_as(sequence.new(rid("B")), sparse, rid("B"))
+  let assert Ok(updated) = sequence.insert(rebound, 0, "new")
+  assert counter(updated) == 41
+
+  let assert Ok(parent) =
+    snapshot(0, [node("B", 40, json.string("parent"), json.null())])
+    |> sequence.from_json(decode.string)
+  let merged = sequence.merge(updated, parent, rid("B"))
+  assert sequence.values(merged) == ["parent", "child", "new"]
+  assert sequence.length(merged) == 3
+}
+
+pub fn duplicate_node_ids_are_rejected_test() {
+  let first = node("A", 1, json.string("first"), json.null())
+  [first, node("A", 1, json.string("conflict"), json.null())]
+  |> list.each(fn(duplicate) {
+    let assert Error(json.UnableToDecode(_)) =
+      snapshot(1, [first, duplicate])
+      |> sequence.from_json(decode.string)
+  })
+}
+
+pub fn retained_parent_cycles_are_rejected_test() {
+  [
+    [node("A", 1, json.string("self"), node_id("A", 1))],
+    [
+      node("A", 1, json.string("a"), node_id("B", 2)),
+      node("B", 2, json.string("b"), node_id("A", 1)),
+    ],
+    [
+      node("A", 1, json.string("root"), json.null()),
+      node("A", 2, json.string("tail"), node_id("B", 3)),
+      node("B", 3, json.null(), node_id("C", 4)),
+      node("C", 4, json.string("c"), node_id("B", 3)),
+    ],
+  ]
+  |> list.each(fn(nodes) {
+    let assert Error(json.UnableToDecode(_)) =
+      snapshot(4, nodes)
+      |> sequence.from_json(decode.string)
+  })
+}
+
+pub fn decoded_siblings_can_share_validated_parent_paths_test() {
+  let assert Ok(decoded) =
+    snapshot(0, [
+      node("A", 1, json.string("root"), json.null()),
+      node("A", 2, json.string("a"), node_id("A", 1)),
+      node("A", 3, json.string("b"), node_id("A", 1)),
+      node("A", 4, json.string("c"), node_id("A", 2)),
+    ])
+    |> sequence.from_json(decode.string)
+  assert sequence.values(decoded) == ["root", "a", "c", "b"]
 }

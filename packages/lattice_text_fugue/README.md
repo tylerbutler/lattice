@@ -82,6 +82,11 @@ v1 snapshot upgrades it to v2. Upgrade readers before sending v2: old v1-only
 readers need not accept it. Text payloads remain strings, public function
 signatures are unchanged, and anchors still use their separate v1 format.
 
+`from_json` repairs low allocation counters from retained IDs and referenced
+parents so edits after decoding or changing identity preserve existing text.
+It rejects duplicate IDs and parent cycles. Sparse deltas may omit parents
+until you merge their ancestors.
+
 ## Choosing a backend
 
 | Feature          | `lattice_text` | `lattice_text_fugue` |

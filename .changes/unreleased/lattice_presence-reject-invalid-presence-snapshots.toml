@@ -1,0 +1,3 @@
+package = "lattice_presence"
+kind = "Fixed"
+body = "Reject invalid presence snapshots with uncovered or duplicate live tags"

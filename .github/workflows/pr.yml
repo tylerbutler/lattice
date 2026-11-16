@@ -2,7 +2,7 @@ name: PR Validation
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
 
 permissions:
   pull-requests: write
@@ -12,7 +12,9 @@ jobs:
   title:
     name: PR Title
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft != true
+    if: >-
+      github.event.pull_request.draft != true &&
+      (github.event.action != 'edited' || github.event.changes.title != null)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
 
@@ -36,7 +38,7 @@ jobs:
   changelog:
     name: Changelog
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft != true
+    if: github.event.pull_request.draft != true && github.event.action != 'edited'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # ratchet:actions/checkout@v7
         with:

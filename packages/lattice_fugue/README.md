@@ -82,6 +82,11 @@ again to migrate to v2.
 Upgrade readers before sending v2 snapshots or deltas. Old v1-only readers need
 not accept v2. Public function signatures and the v1 anchor format are unchanged.
 
+`from_json` raises the allocation counter to cover retained node IDs and
+referenced parent IDs, including tombstones and other replicas, so later
+edits do not reuse those IDs. It rejects duplicate IDs and parent cycles.
+Sparse deltas may omit parents; merge the missing ancestors to attach them.
+
 ## Links
 
 - Project site: <https://lattice.tylerbutler.com>

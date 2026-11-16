@@ -819,6 +819,8 @@ pub fn from_json(json_string: String) -> Result(State, json.DecodeError) {
 /// Decode replicated state, including when embedded in a sync envelope.
 ///
 /// Local replica liveness is reset, as with `from_json`.
+/// Live tags must be unique and covered by the causal context or clouds.
+/// Sparse clouds retain their gaps; decoding does not infer missing history.
 ///
 /// ## Examples
 ///
@@ -836,13 +838,23 @@ pub fn decoder() -> decode.Decoder(State) {
   use context <- decode.field("context", context_decoder())
   use clouds <- decode.field("clouds", clouds_decoder())
   use values <- decode.field("values", values_decoder())
-  decode.success(State(
-    replica: replica,
-    context: context,
-    clouds: clouds,
-    values: values,
-    replicas: dict.from_list([#(replica, Up)]),
-  ))
+  let state =
+    State(
+      replica: replica,
+      context: context,
+      clouds: clouds,
+      values: values,
+      replicas: dict.from_list([#(replica, Up)]),
+    )
+  case
+    dict.fold(values, True, fn(valid, tag, _) {
+      valid && tag_is_in(context, clouds, tag)
+    })
+  {
+    True -> decode.success(state)
+    False ->
+      decode.failure(state, "live tags covered by causal context or clouds")
+  }
 }
 
 fn encode_context(context: Dict(String, Int)) -> json.Json {
@@ -937,7 +949,13 @@ fn values_decoder() -> decode.Decoder(Dict(Tag, Entry)) {
     use entry <- decode.field("entry", entry_decoder())
     decode.success(#(tag, entry))
   })
-  |> decode.map(dict.from_list)
+  |> decode.then(fn(values) {
+    let tags = list.map(values, fn(value) { value.0 }) |> set.from_list
+    case set.size(tags) == list.length(values) {
+      True -> decode.success(dict.from_list(values))
+      False -> decode.failure(dict.new(), "unique live tags")
+    }
+  })
 }
 
 fn all_dict_values(
