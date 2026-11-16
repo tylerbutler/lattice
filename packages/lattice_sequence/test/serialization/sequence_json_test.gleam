@@ -10,7 +10,8 @@ fn rid(id: String) {
   replica_id.new(id)
 }
 
-const empty_frontier = "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{}}}"
+const empty_frontier =
+  "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{}}}"
 
 pub fn sequence_string_round_trip_simple_test() {
   let seq = {

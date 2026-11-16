@@ -1,4 +1,4 @@
-# erlang/gleam/just exact pins live in .tool-versions (asdf-compatible; also
+# erlang/gleam/just/rebar exact pins live in .tool-versions (asdf-compatible; also
 # read by trellis doctor). This file adds the tools .tool-versions can't
 # express: backend-prefixed installs and env.
 [tools]

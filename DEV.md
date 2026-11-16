@@ -9,8 +9,9 @@ Ensure you have the following installed:
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Erlang/OTP | 28.5.0.5 | BEAM runtime |
-| Gleam | 1.16.0+ | Compiler and tooling |
+| Gleam | 1.19.2 | Compiler and tooling |
 | just | 1.38.0+ | Task runner (thin delegation layer) |
+| Rebar3 | 3.28.0 | Build Erlang dependencies of the audit tooling |
 | [trellis](https://github.com/tylerbutler/trellis) | 1.6.1 | Workspace CLI: task fan-out, changelog, versioning, publishing |
 | [licence_audit](https://licence-audit.tylerbutler.com) | Git `main` (locked commit) | Development dependency for licence and vulnerability checks |
 
@@ -30,6 +31,8 @@ and review the lockfile changes. The tool runs through
 `gleam run --target erlang -m licence_audit -- <args>`. The separate tooling
 project keeps its Erlang-only dependencies out of published packages and
 JavaScript builds.
+Its `cowlib`, `gun`, and `cvss` dependencies require `rebar3`; mise installs
+the pinned `rebar` tool from `.tool-versions` locally and in CI.
 
 ### Dependency policy and CI evidence
 
@@ -85,10 +88,11 @@ the attestations before verification is possible.
 dependency support from
 [tylerbutler/licence_audit#258](https://github.com/tylerbutler/licence_audit/issues/258)
 and verifies Hex publication identities without claiming that local files
-match release archives. At locked commit `69182d2eab91e911dd71e7d36b646f637830acb9`,
-the local reproducible SBOM check still fails publication identity verification
-for `lattice_core@2.0.0`. This source-install change does not add CI SBOM
-generation or SBOM attestations.
+match release archives. The pinned Gleam 1.19.2 compiler avoids the Erlang
+string-guard miscompilation in 1.18.0, and the local reproducible SBOM check
+for `lattice_counters` succeeds. The compatibility report is
+[tylerbutler/licence_audit#293](https://github.com/tylerbutler/licence_audit/issues/293).
+This change does not add CI SBOM generation or SBOM attestations.
 
 ## Getting Started
 
