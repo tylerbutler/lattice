@@ -310,7 +310,7 @@ pub fn merge_as(
   crdt.lww_merge_as(a, b, replica)
 }
 
-/// Encode a modern String-payload snapshot (version 3).
+/// Encode a structured String-payload snapshot (version 4).
 ///
 /// ## Examples
 ///

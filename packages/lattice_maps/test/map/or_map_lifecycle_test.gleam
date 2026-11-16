@@ -297,25 +297,20 @@ pub fn pruned_generation_floor_retains_history_and_readd_uses_fresh_membership_s
   let #(old, _) = increment(or_map.new(rid("A"), crdt.GCounterSpec), 50)
   let #(generation, _) = increment(or_map.remove(old, "count"), 1)
   let encoded = or_map.to_json_with(generation, json.int) |> json.to_string
-  let assert Ok([membership]) =
+  let assert Ok([writer]) =
     json.parse(encoded, {
       use state <- decode.field("state", {
         use entries <- decode.field(
           "entries",
           decode.list({
-            use membership <- decode.field("membership", decode.string)
-            decode.success(membership)
+            use writer <- decode.subfield(
+              ["membership", "state", "replica_id"],
+              decode.string,
+            )
+            decode.success(writer)
           }),
         )
         decode.success(entries)
-      })
-      decode.success(state)
-    })
-  let assert Ok(writer) =
-    json.parse(membership, {
-      use state <- decode.field("state", {
-        use writer <- decode.field("replica_id", decode.string)
-        decode.success(writer)
       })
       decode.success(state)
     })

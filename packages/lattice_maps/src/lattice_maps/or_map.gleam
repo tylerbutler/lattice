@@ -377,7 +377,7 @@ pub fn internal_value_count(map: ORMap(a)) -> Int {
   crdt.or_value_count(map)
 }
 
-/// Encode a String-payload modern snapshot (version 3).
+/// Encode a String-payload structured snapshot (version 4).
 ///
 /// ## Examples
 ///
@@ -442,7 +442,7 @@ pub fn from_json_with(
   crdt.or_from_json_with(input, decoder)
 }
 
-/// Encode a String-payload sparse delta (version 2).
+/// Encode a String-payload structured sparse delta (version 3).
 ///
 /// ## Examples
 ///
