@@ -450,63 +450,15 @@ fn encode_envelope(
 
 /// Decode an `ORSet(String)` from a JSON string produced by `to_json`.
 ///
-/// Supports both v1 (no pruned field) and v2 formats. Returns `Error` if the
-/// string is not valid JSON or does not match the expected format.
+/// Supports both v1 (no pruned field, optional tombstones) and v2 formats.
+/// Rejects empty live tag sets, non-positive tags, repeated live tags,
+/// live/tombstone overlap, and negative allocation or pruning clocks.
+/// Raises the allocation counter to cover retained tags and pruning history,
+/// so subsequent adds cannot reuse an observed tag.
+/// Returns `Error` for invalid JSON, envelopes, or causal metadata.
 pub fn from_json(
   json_string: String,
 ) -> Result(ORSet(String), json.DecodeError) {
-  let tag_decoder = {
-    use r <- decode.field("r", replica_id.decoder())
-    use c <- decode.field("c", decode.int)
-    decode.success(Tag(replica_id: r, counter: c))
-  }
-  let tag_set_decoder = decode.map(decode.list(tag_decoder), set.from_list)
-
-  let v1_state_decoder = {
-    use state <- decode.field("state", {
-      use replica_id <- decode.field("replica_id", replica_id.decoder())
-      use counter <- decode.field("counter", decode.int)
-      use entries <- decode.field(
-        "entries",
-        decode.dict(decode.string, tag_set_decoder),
-      )
-      use tombstones <- decode.optional_field(
-        "tombstones",
-        [],
-        decode.list(tag_decoder),
-      )
-      decode.success(ORSet(
-        replica_id: replica_id,
-        counter: counter,
-        entries: entries,
-        tombstones: set.from_list(tombstones),
-        pruned: version_vector.new(),
-      ))
-    })
-    decode.success(state)
-  }
-
-  let v2_state_decoder = {
-    use state <- decode.field("state", {
-      use replica_id <- decode.field("replica_id", replica_id.decoder())
-      use counter <- decode.field("counter", decode.int)
-      use entries <- decode.field(
-        "entries",
-        decode.dict(decode.string, tag_set_decoder),
-      )
-      use tombstones <- decode.field("tombstones", tag_set_decoder)
-      use pruned <- decode.field("pruned", version_vector.decoder())
-      decode.success(ORSet(
-        replica_id: replica_id,
-        counter: counter,
-        entries: entries,
-        tombstones: tombstones,
-        pruned: pruned,
-      ))
-    })
-    decode.success(state)
-  }
-
   let envelope_decoder = {
     use type_tag <- decode.field("type", decode.string)
     use version <- decode.field("v", decode.int)
@@ -528,8 +480,12 @@ pub fn from_json(
           )
         True ->
           case version {
-            1 -> json.parse(from: json_string, using: v1_state_decoder)
-            2 -> json.parse(from: json_string, using: v2_state_decoder)
+            1 | 2 -> {
+              let entries_decoder =
+                decode.dict(decode.string, decode.list(tag_decoder()))
+                |> decode.map(dict.to_list)
+              json.parse(json_string, state_decoder(entries_decoder, version))
+            }
             _ ->
               Error(
                 json.UnableToDecode([
@@ -547,8 +503,9 @@ pub fn from_json(
 
 /// Decode generic elements and all causal metadata from a v3 envelope.
 ///
-/// Rejects non-positive tags, repeated elements or live tags, and tags that
-/// are both live and tombstoned. The allocation counter is raised when
+/// Rejects empty live tag sets, non-positive tags, repeated elements or live
+/// tags, negative clocks, and tags that are both live and tombstoned.
+/// The allocation counter is raised when
 /// retained tags or pruned clocks prove that higher counters were used.
 /// This prevents ID reuse after loading or rebinding a snapshot.
 /// Use String `from_json` to read legacy v1/v2 object-key envelopes.
@@ -564,18 +521,9 @@ pub fn from_json_with(
   json_string: String,
   decoder: decode.Decoder(a),
 ) -> Result(ORSet(a), json.DecodeError) {
-  let tag_decoder = {
-    use r <- decode.field("r", replica_id.decoder())
-    use c <- decode.field("c", decode.int)
-    let tag = Tag(replica_id: r, counter: c)
-    case c > 0 {
-      True -> decode.success(tag)
-      False -> decode.failure(tag, "a positive tag counter")
-    }
-  }
   let entry_decoder = {
     use value <- decode.field("value", decoder)
-    use tags <- decode.field("tags", decode.list(tag_decoder))
+    use tags <- decode.field("tags", decode.list(tag_decoder()))
     decode.success(#(value, tags))
   }
   let envelope_decoder = {
@@ -587,58 +535,92 @@ pub fn from_json_with(
     }
   }
   use _ <- result.try(json.parse(json_string, envelope_decoder))
-  json.parse(json_string, {
-    use state <- decode.field("state", {
-      use rid <- decode.field("replica_id", replica_id.decoder())
-      use counter <- decode.field("counter", decode.int)
-      use entries_list <- decode.field("entries", decode.list(entry_decoder))
-      use tombstone_list <- decode.field("tombstones", decode.list(tag_decoder))
-      use pruned <- decode.field("pruned", {
-        use type_tag <- decode.field("type", decode.string)
-        use version <- decode.field("v", decode.int)
-        case type_tag == "version_vector" && version == 1 {
-          True -> version_vector.decoder()
-          False ->
-            decode.failure(version_vector.new(), "type=version_vector and v=1")
-        }
-      })
-      let live_tags = list.flat_map(entries_list, fn(entry) { entry.1 })
-      let tombstones = set.from_list(tombstone_list)
-      let entries =
-        entries_list
-        |> list.map(fn(entry) { #(entry.0, set.from_list(entry.1)) })
-        |> dict.from_list()
-      let clocks = version_vector.to_dict(pruned) |> dict.values()
-      let allocated =
-        list.fold(list.append(live_tags, tombstone_list), counter, fn(max, tag) {
-          int.max(max, tag.counter)
-        })
-      let state =
-        ORSet(
-          replica_id: rid,
-          counter: counter_with_pruned_floor(allocated, pruned),
-          entries: entries,
-          tombstones: tombstones,
-          pruned: pruned,
+  json.parse(json_string, state_decoder(decode.list(entry_decoder), 3))
+}
+
+fn tag_decoder() -> decode.Decoder(Tag) {
+  use r <- decode.field("r", replica_id.decoder())
+  use c <- decode.field("c", decode.int)
+  let tag = Tag(replica_id: r, counter: c)
+  case c > 0 {
+    True -> decode.success(tag)
+    False -> decode.failure(tag, "a positive tag counter")
+  }
+}
+
+fn state_decoder(
+  entries_decoder: decode.Decoder(List(#(a, List(Tag)))),
+  version: Int,
+) -> decode.Decoder(ORSet(a)) {
+  use state <- decode.field("state", {
+    use rid <- decode.field("replica_id", replica_id.decoder())
+    use counter <- decode.field("counter", decode.int)
+    use entries_list <- decode.field("entries", entries_decoder)
+    let tombstones_decoder = case version {
+      1 -> {
+        use tags <- decode.optional_field(
+          "tombstones",
+          [],
+          decode.list(tag_decoder()),
         )
-      let valid =
-        counter >= 0
-        && list.all(clocks, fn(clock) { clock >= 0 })
-        && dict.size(entries) == list.length(entries_list)
-        && list.all(entries_list, fn(entry) { !list.is_empty(entry.1) })
-        && set.size(set.from_list(live_tags)) == list.length(live_tags)
-        && list.all(live_tags, fn(tag) { !set.contains(tombstones, tag) })
-      case valid {
-        True -> decode.success(state)
-        False ->
-          decode.failure(
-            state,
-            "non-negative clocks, unique non-empty entries, and disjoint live and removed tags",
-          )
+        decode.success(tags)
       }
-    })
-    decode.success(state)
+      _ -> decode.at(["tombstones"], decode.list(tag_decoder()))
+    }
+    use tombstone_list <- decode.then(tombstones_decoder)
+    let pruned_decoder = case version {
+      1 -> decode.success(version_vector.new())
+      _ ->
+        decode.at(["pruned"], {
+          use type_tag <- decode.field("type", decode.string)
+          use version <- decode.field("v", decode.int)
+          case type_tag == "version_vector" && version == 1 {
+            True -> version_vector.decoder()
+            False ->
+              decode.failure(
+                version_vector.new(),
+                "type=version_vector and v=1",
+              )
+          }
+        })
+    }
+    use pruned <- decode.then(pruned_decoder)
+    let live_tags = list.flat_map(entries_list, fn(entry) { entry.1 })
+    let tombstones = set.from_list(tombstone_list)
+    let entries =
+      entries_list
+      |> list.map(fn(entry) { #(entry.0, set.from_list(entry.1)) })
+      |> dict.from_list()
+    let clocks = version_vector.to_dict(pruned) |> dict.values()
+    let allocated =
+      list.fold(list.append(live_tags, tombstone_list), counter, fn(max, tag) {
+        int.max(max, tag.counter)
+      })
+    let state =
+      ORSet(
+        replica_id: rid,
+        counter: counter_with_pruned_floor(allocated, pruned),
+        entries: entries,
+        tombstones: tombstones,
+        pruned: pruned,
+      )
+    let valid =
+      counter >= 0
+      && list.all(clocks, fn(clock) { clock >= 0 })
+      && dict.size(entries) == list.length(entries_list)
+      && list.all(entries_list, fn(entry) { !list.is_empty(entry.1) })
+      && set.size(set.from_list(live_tags)) == list.length(live_tags)
+      && list.all(live_tags, fn(tag) { !set.contains(tombstones, tag) })
+    case valid {
+      True -> decode.success(state)
+      False ->
+        decode.failure(
+          state,
+          "non-negative clocks, unique non-empty entries, and disjoint live and removed tags",
+        )
+    }
   })
+  decode.success(state)
 }
 
 fn encode_tag(tag: Tag) -> json.Json {
