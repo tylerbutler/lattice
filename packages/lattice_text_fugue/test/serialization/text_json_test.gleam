@@ -1,3 +1,4 @@
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/string
@@ -54,6 +55,18 @@ pub fn wrong_envelope_fails_test() {
   |> fn(actual) {
     assert actual
   }
+}
+
+pub fn legacy_v1_upgrades_to_v2_test() {
+  let legacy =
+    "{\"type\":\"fugue\",\"v\":1,\"state\":{\"self_id\":\"A\",\"counter\":2,\"nodes\":[{\"id\":{\"replica_id\":\"A\",\"counter\":1},\"value\":null,\"parent\":null,\"side\":\"right\"},{\"id\":{\"replica_id\":\"A\",\"counter\":2},\"value\":\"x\",\"parent\":{\"replica_id\":\"A\",\"counter\":1},\"side\":\"right\"}]}}"
+  let assert Ok(doc) = text.from_json(legacy)
+  assert text.value(doc) == "x"
+  let encoded = text.to_json(doc) |> json.to_string()
+  let assert Ok(2) = json.parse(encoded, decode.at(["v"], decode.int))
+  let assert Ok(decoded) = text.from_json(encoded)
+  assert decoded == doc
+  assert text.merge(doc, decoded, rid("A")) == doc
 }
 
 pub fn decoded_text_can_edit_after_counter_repair_and_identity_change_test() {

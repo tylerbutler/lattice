@@ -66,8 +66,21 @@ The result has that identity in either operand order, for full states and
 deltas. Give each independent writer a distinct identity.
 
 Decoded snapshots retain their serialized identity. Merge a remote snapshot
-with your local identity before editing it. The Fugue v1 wire format is
-unchanged.
+with your local identity before editing it.
+
+## JSON migration
+
+`to_json` emits Fugue **v2** for snapshots and deltas. Each node has a required
+`deleted` boolean: `false` passes `value` to the application's decoder, including
+JSON null; `true` marks a tombstone and requires `value` to be null.
+
+`from_json` accepts both v1 and v2. In v1, a null `value` still means a tombstone,
+even if the application's decoder accepts null. Live null values already lost
+through v1 serialization cannot be recovered. Decode a v1 snapshot and encode it
+again to migrate to v2.
+
+Upgrade readers before sending v2 snapshots or deltas. Old v1-only readers need
+not accept v2. Public function signatures and the v1 anchor format are unchanged.
 
 `from_json` raises the allocation counter to cover retained node IDs and
 referenced parent IDs, including tombstones and other replicas, so later
