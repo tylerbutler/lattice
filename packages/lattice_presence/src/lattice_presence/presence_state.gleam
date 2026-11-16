@@ -293,6 +293,8 @@ pub fn get_by_key(
 /// tags or causal history that local has not observed, even via another peer.
 /// History for removed entries is checked too. Echoes of already-known local
 /// tags remain valid, and identical same-replica states are an idempotent no-op.
+/// Metadata comparison ignores JSON object key order, including nested objects;
+/// array order and metadata values must still match.
 /// This check does not replace the requirement for unique incarnation identities.
 ///
 /// ## Examples
@@ -442,7 +444,35 @@ fn merge_distinct_replicas(local: State, remote: State) -> #(State, Diff) {
 }
 
 fn replicated_data_equal(a: State, b: State) -> Bool {
-  a.context == b.context && a.clouds == b.clouds && a.values == b.values
+  a.context == b.context
+  && a.clouds == b.clouds
+  && dict.size(a.values) == dict.size(b.values)
+  && list.all(dict.to_list(a.values), fn(pair) {
+    let #(tag, entry) = pair
+    case dict.get(b.values, tag) {
+      Ok(other) ->
+        entry.topic == other.topic
+        && entry.key == other.key
+        && entry.pid == other.pid
+        && metadata_equal(entry.meta, other.meta)
+      Error(Nil) -> False
+    }
+  })
+}
+
+fn metadata_equal(a: json.Json, b: json.Json) -> Bool {
+  let encoded_a = json.to_string(a)
+  let encoded_b = json.to_string(b)
+  use <- bool.guard(encoded_a == encoded_b, True)
+  // Reconstruct both values with recursively sorted object keys. Decode
+  // failures cannot establish equality and must retain the conflict guard.
+  case
+    json.parse(encoded_a, json_value_decoder()),
+    json.parse(encoded_b, json_value_decoder())
+  {
+    Ok(a), Ok(b) -> json.to_string(a) == json.to_string(b)
+    _, _ -> False
+  }
 }
 
 /// Check if a tag is "in" a causal context (either compacted or in clouds)
@@ -1048,7 +1078,10 @@ fn json_value_dict(
   depth: Int,
 ) -> decode.Decoder(json.Json) {
   case pairs {
-    [] -> decode.success(json.object(list.reverse(acc)))
+    [] ->
+      decode.success(
+        json.object(list.sort(acc, by: fn(a, b) { string.compare(a.0, b.0) })),
+      )
     [#(key, value), ..rest] ->
       case decode.run(value, json_value_decoder_at(depth)) {
         Ok(val) -> json_value_dict(rest, [#(key, val), ..acc], depth)

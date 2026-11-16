@@ -1,0 +1,6 @@
+package = "lattice_presence"
+kind = "Fixed"
+body = """
+Fix false same-replica conflicts after JSON round-trips
+
+Compare metadata independently of object key order, including nested objects and arrays, while rejecting different metadata for the same tag on both Erlang and JavaScript."""
