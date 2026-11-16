@@ -1,4 +1,5 @@
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/set
@@ -458,6 +459,138 @@ pub fn generic_set_payload_decoders_are_applied_test() {
 
 const empty_pruned =
   "{\"type\":\"version_vector\",\"v\":1,\"state\":{\"clocks\":{}}}"
+
+fn legacy_or_set_json(
+  version: Int,
+  entries: String,
+  tombstones: String,
+) -> String {
+  let pruned = case version {
+    1 -> ""
+    _ -> ",\"pruned\":" <> empty_pruned
+  }
+  "{\"type\":\"or_set\",\"v\":"
+  <> int.to_string(version)
+  <> ",\"state\":{\"replica_id\":\"A\",\"counter\":1,\"entries\":"
+  <> entries
+  <> ",\"tombstones\":"
+  <> tombstones
+  <> pruned
+  <> "}}"
+}
+
+pub fn or_set_legacy_invalid_causal_state_rejected_test() {
+  use version <- list.each([1, 2])
+  use #(entries, tombstones) <- list.each([
+    #("{\"ghost\":[]}", "[]"),
+    #("{\"old\":[{\"r\":\"A\",\"c\":0}]}", "[]"),
+    #("{\"old\":[{\"r\":\"A\",\"c\":-1}]}", "[]"),
+    #("{\"old\":[{\"r\":\"A\",\"c\":1},{\"r\":\"A\",\"c\":1}]}", "[]"),
+    #(
+      "{\"old\":[{\"r\":\"A\",\"c\":1}],\"other\":[{\"r\":\"A\",\"c\":1}]}",
+      "[]",
+    ),
+    #("{\"old\":[{\"r\":\"A\",\"c\":1}]}", "[{\"r\":\"A\",\"c\":1}]"),
+    #("{}", "[{\"r\":\"A\",\"c\":0}]"),
+    #("{}", "[{\"r\":\"A\",\"c\":-1}]"),
+  ])
+  let assert Error(_) =
+    legacy_or_set_json(version, entries, tombstones)
+    |> or_set.from_json()
+}
+
+pub fn or_set_legacy_invalid_clocks_and_pruning_envelope_rejected_test() {
+  use version <- list.each([1, 2])
+  let encoded = legacy_or_set_json(version, "{}", "[]")
+  let assert Error(_) =
+    encoded
+    |> string.replace("\"counter\":1", "\"counter\":-1")
+    |> or_set.from_json()
+
+  case version {
+    1 -> Nil
+    _ -> {
+      use invalid <- list.each([
+        string.replace(encoded, "\"clocks\":{}", "\"clocks\":{\"A\":-1}"),
+        string.replace(
+          encoded,
+          "\"type\":\"version_vector\"",
+          "\"type\":\"g_counter\"",
+        ),
+        string.replace(encoded, "\"v\":1", "\"v\":999"),
+      ])
+      let assert Error(_) = or_set.from_json(invalid)
+    }
+  }
+}
+
+pub fn or_set_legacy_reconstructs_allocation_before_mutation_test() {
+  use version <- list.each([1, 2])
+  use encoded <- list.each([
+    legacy_or_set_json(version, "{\"old\":[{\"r\":\"A\",\"c\":5}]}", "[]"),
+    legacy_or_set_json(version, "{\"old\":[{\"r\":\"B\",\"c\":5}]}", "[]"),
+    legacy_or_set_json(version, "{}", "[{\"r\":\"A\",\"c\":5}]"),
+    legacy_or_set_json(version, "{}", "[{\"r\":\"B\",\"c\":5}]"),
+    legacy_or_set_json(version, "{}", "[]")
+      |> string.replace("\"counter\":1", "\"counter\":5"),
+  ])
+  let assert Ok(loaded) = or_set.from_json(encoded)
+  let assert Ok(5) =
+    or_set.to_json(loaded)
+    |> json.to_string()
+    |> json.parse(decode.at(["state", "counter"], decode.int))
+  use state <- list.each([
+    loaded,
+    or_set.merge(or_set.new(rid("B")), loaded),
+  ])
+  let #(added, delta) = or_set.add_with_delta(state, "new")
+  let assert Ok(6) =
+    or_set.to_json(delta)
+    |> json.to_string()
+    |> json.parse(decode.at(["state", "counter"], decode.int))
+  let changed = or_set.remove(added, "old")
+  let assert True = or_set.contains(changed, "new")
+  let assert True = or_set.contains(or_set.merge(changed, changed), "new")
+  let assert True = or_set.value(changed) == set.from_list(["new"])
+  let assert Ok(decoded) =
+    or_set.to_json(changed) |> json.to_string() |> or_set.from_json()
+  let assert True = decoded == changed
+}
+
+pub fn or_set_legacy_pruning_history_sets_allocation_floor_test() {
+  use replica <- list.each(["A", "B"])
+  let encoded =
+    legacy_or_set_json(2, "{}", "[]")
+    |> string.replace("\"clocks\":{}", "\"clocks\":{\"" <> replica <> "\":5}")
+  let assert Ok(loaded) = or_set.from_json(encoded)
+  let #(added, delta) = or_set.add_with_delta(loaded, "new")
+  let assert Ok(6) =
+    or_set.to_json(delta)
+    |> json.to_string()
+    |> json.parse(decode.at(["state", "counter"], decode.int))
+  let assert True = or_set.contains(or_set.merge(added, loaded), "new")
+}
+
+pub fn or_set_legacy_accepts_valid_causal_history_test() {
+  use version <- list.each([1, 2])
+  use encoded <- list.each([
+    legacy_or_set_json(version, "{}", "[]"),
+    legacy_or_set_json(
+      version,
+      "{\"old\":[{\"r\":\"A\",\"c\":1},{\"r\":\"B\",\"c\":1}]}",
+      "[{\"r\":\"A\",\"c\":2},{\"r\":\"A\",\"c\":2}]",
+    ),
+    legacy_or_set_json(version, "{\"old\":[{\"r\":\"A\",\"c\":1}]}", "[]")
+      |> string.replace("\"clocks\":{}", "\"clocks\":{\"A\":2,\"B\":0}"),
+  ])
+  let assert Ok(loaded) = or_set.from_json(encoded)
+  let assert True =
+    set.contains(or_set.value(loaded), "old") == or_set.contains(loaded, "old")
+  let assert True = or_set.merge(loaded, loaded) == loaded
+  let assert Ok(decoded) =
+    or_set.to_json(loaded) |> json.to_string() |> or_set.from_json()
+  let assert True = decoded == loaded
+}
 
 fn generic_or_set_json(entries: String, tombstones: String) -> String {
   "{\"type\":\"or_set\",\"v\":3,\"state\":{\"replica_id\":\"A\",\"counter\":1,\"entries\":"

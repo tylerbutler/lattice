@@ -1,0 +1,6 @@
+package = "lattice_sets"
+kind = "Fixed"
+body = """
+Validate causal metadata when loading legacy ORSets
+
+Reject empty live tag sets, invalid counters, duplicate live identities, live/tombstone overlap, and invalid pruning clocks in the String v1/v2 decoder. Reconstruct the allocation counter from retained history to prevent tag reuse and loss of unrelated elements after loading."""
