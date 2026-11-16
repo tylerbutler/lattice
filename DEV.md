@@ -117,7 +117,8 @@ Assets. Use `website/wrangler.jsonc` to configure the Worker, the `dist/`
 output directory, and the custom domain `lattice.tylerbutler.com`.
 The site needs no server-side adapter or Worker script.
 
-For local development and deployment, use Node.js 24 and pnpm:
+For local development and deployment, use Node.js 24 and pnpm 12.18.0,
+pinned in `website/package.json`:
 
 ```sh
 cd website
@@ -144,7 +145,11 @@ Cloudflare Pages, with these settings:
 | Deploy command | `pnpm exec wrangler deploy` |
 | Preview command | `pnpm exec wrangler preview` |
 | Build variable | `NODE_VERSION=24` |
-| Build variable | `PNPM_VERSION=12.14.0` |
+
+Workers Builds reads the pnpm version from `website/package.json`.
+No `PNPM_VERSION` override is needed. The default pnpm 9.10.0 rejects the
+website's `pnpm-workspace.yaml` because it has no `packages` field; use the
+pinned version instead.
 
 Keep the build and deploy commands separate in Workers Builds to avoid
 building twice. Use `pnpm run deploy` for local deployments. Do not add a
