@@ -173,7 +173,9 @@ let decoded = presence_state.from_json(payload)
 The JSON format contains replicated CRDT data: replica name, causal context,
 clouds, and presence entries. Local replica visibility (`replica_up` /
 `replica_down`) is intentionally not serialized. Decoding validates causal clock
-values and limits nested metadata depth so malformed payloads fail as
-`Error(_)` instead of producing invalid state. Use `presence_state.decoder()`
+values, requires unique live tags covered by their replica's context or cloud,
+and limits nested metadata depth. Invalid payloads return `Error(_)`. Sparse
+cloud gaps remain unchanged; decoding does not infer missing causal history.
+Use `presence_state.decoder()`
 to include state inside an envelope decoder. The former `state_json` import
 is removed; existing wire payloads keep the same format.
