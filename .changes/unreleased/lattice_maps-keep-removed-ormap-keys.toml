@@ -1,0 +1,3 @@
+package = "lattice_maps"
+kind = "Fixed"
+body = "Keep removed ORMap keys absent after pruning live membership tags"

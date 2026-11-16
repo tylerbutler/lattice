@@ -5,6 +5,25 @@ import lattice_maps/crdt
 import lattice_maps/or_map
 import lattice_sequence/sequence
 
+pub fn json_decoder() -> decode.Decoder(json.Json) {
+  use <- decode.recursive
+  decode.one_of(decode.map(decode.string, json.string), [
+    decode.map(decode.int, json.int),
+    decode.map(decode.float, json.float),
+    decode.map(decode.bool, json.bool),
+    decode.map(decode.optional(decode.string), fn(_) { json.null() }),
+    decode.map(decode.list(json_decoder()), json.preprocessed_array),
+    decode.map(
+      decode.dict(decode.string, json_decoder()),
+      json.dict(_, fn(key) { key }, fn(value) { value }),
+    ),
+  ])
+}
+
+pub fn encoded_json_decoder() -> decode.Decoder(String) {
+  decode.map(json_decoder(), json.to_string)
+}
+
 pub fn nested(writer: String, values: List(Int)) -> or_map.ORMap(Int) {
   let map =
     or_map.new(replica_id.new(writer), crdt.OrMapSpec(crdt.SequenceSpec))

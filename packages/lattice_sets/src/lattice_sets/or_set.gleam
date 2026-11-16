@@ -229,9 +229,13 @@ pub fn diff(before: ORSet(a), after: ORSet(a)) -> Diff(a) {
 /// Merge two OR-Sets.
 ///
 /// For each element, the merged tag set is the union of both sides' tags,
-/// minus merged tombstones, and minus any tags dominated by the merged
+/// minus all observed tombstones, and minus any tags dominated by the merged
 /// pruned vector that are not live on the side that pruned them (zombie
 /// detection). An element is present if it has at least one surviving tag.
+///
+/// Tombstones covered by the pruning frontier are discarded only after
+/// filtering live tags, so a later removal of a previously stable add still
+/// takes effect. The frontier and absence of the tag then prevent resurrection.
 ///
 /// The merged counter covers both sides and the merged pruning frontier,
 /// ensuring future adds remain above retained allocation history.
@@ -239,9 +243,7 @@ pub fn diff(before: ORSet(a), after: ORSet(a)) -> Diff(a) {
 /// Merge is commutative, associative, and idempotent (a valid CRDT join).
 pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
   let merged_pruned = version_vector.merge(a.pruned, b.pruned)
-  let merged_tombstones =
-    set.union(a.tombstones, b.tombstones)
-    |> set.filter(fn(tag) { not_dominated(tag, merged_pruned) })
+  let observed_tombstones = set.union(a.tombstones, b.tombstones)
   let merged_counter =
     counter_with_pruned_floor(int.max(a.counter, b.counter), merged_pruned)
 
@@ -257,7 +259,7 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
       let combined =
         set.union(a_tags, b_tags)
         |> set.filter(fn(tag) {
-          !set.contains(merged_tombstones, tag)
+          !set.contains(observed_tombstones, tag)
           && !is_pruned_zombie(tag, a_tags, a.pruned, b_tags, b.pruned)
         })
 
@@ -271,7 +273,9 @@ pub fn merge(a: ORSet(el), b: ORSet(el)) -> ORSet(el) {
     replica_id: a.replica_id,
     counter: merged_counter,
     entries: merged_entries,
-    tombstones: merged_tombstones,
+    tombstones: set.filter(observed_tombstones, fn(tag) {
+      not_dominated(tag, merged_pruned)
+    }),
     pruned: merged_pruned,
   )
 }

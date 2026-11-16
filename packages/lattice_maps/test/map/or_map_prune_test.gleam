@@ -1,3 +1,5 @@
+import gleam/dynamic/decode
+import gleam/json
 import gleam/list
 import gleam/set
 import lattice_core/replica_id
@@ -5,6 +7,8 @@ import lattice_core/version_vector
 import lattice_counters/g_counter
 import lattice_maps/crdt.{type Crdt, CrdtGCounter, GCounterSpec}
 import lattice_maps/or_map
+import lattice_sets/or_set
+import support/composition_fixture as fixture
 
 fn rid(id: String) {
   replica_id.new(id)
@@ -18,6 +22,73 @@ fn inc(c: Crdt(String), amount: Int) -> Crdt(String) {
     }
     _ -> c
   }
+}
+
+pub fn removal_after_live_membership_prune_stays_removed_test() {
+  let assert Ok(original) =
+    or_map.new(rid("A"), GCounterSpec)
+    |> or_map.update("item", fn(c) { inc(c, 5) })
+  let assert Ok(observed) =
+    or_map.merge(or_map.new(rid("B"), GCounterSpec), original)
+
+  // Membership clocks are scoped per key/generation, not the logical writer.
+  let membership_decoder =
+    decode.one_of(decode.string, [fixture.encoded_json_decoder()])
+  let assert Ok([membership]) =
+    original
+    |> or_map.to_json
+    |> json.to_string
+    |> json.parse({
+      use entries <- decode.subfield(
+        ["state", "entries"],
+        decode.list({
+          use membership <- decode.field("membership", membership_decoder)
+          decode.success(membership)
+        }),
+      )
+      decode.success(entries)
+    })
+  let assert Ok(structured) = json.parse(membership, fixture.json_decoder())
+  let assert Ok(membership) = or_set.from_json_with(membership, decode.string)
+  list.each([json.string(json.to_string(structured)), structured], fn(encoded) {
+    let assert Ok(encoded) =
+      json.parse(json.to_string(encoded), membership_decoder)
+    let assert Ok(decoded) = or_set.from_json_with(encoded, decode.string)
+    let assert True = decoded == membership
+  })
+  let #(_, stable) = or_set.remove_with_bound(membership, "item")
+  let pruned = or_map.prune(original, stable)
+  let #(removed, delta) = or_map.remove_with_delta(observed, "item")
+  let assert Ok(forward) = or_map.merge(pruned, removed)
+  let assert Ok(reverse) = or_map.merge(removed, pruned)
+  let assert Ok(applied) = or_map.apply_delta(pruned, delta)
+  let assert Ok(decoded_delta) =
+    crdt.OrMapChange(delta)
+    |> crdt.delta_to_json
+    |> json.to_string
+    |> crdt.delta_from_json
+  let assert crdt.OrMapChange(decoded_delta) = decoded_delta
+  let assert Ok(decoded_applied) = or_map.apply_delta(pruned, decoded_delta)
+  let assert True = decoded_applied == applied
+
+  list.each([forward, reverse, applied], fn(merged) {
+    let encoded = or_map.to_json(merged) |> json.to_string
+    let assert Ok(decoded) = or_map.from_json(encoded)
+    let assert Ok(crdt.CrdtOrMap(wrapped)) = crdt.from_json(encoded)
+    let assert True = decoded == merged
+    let assert True = wrapped == merged
+    list.each([merged, decoded, wrapped], fn(loaded) {
+      let assert True = or_map.keys(loaded) == []
+      let assert True = or_map.values(loaded) == []
+      let assert True = or_map.get(loaded, "item") == Error(Nil)
+      let assert Ok(replayed) = or_map.apply_delta(loaded, decoded_delta)
+      let assert True = replayed == loaded
+      let assert Ok(delayed) = or_map.merge(loaded, original)
+      let assert True = or_map.keys(delayed) == []
+      let assert Ok(delayed) = or_map.merge(original, loaded)
+      let assert True = or_map.keys(delayed) == []
+    })
+  })
 }
 
 // --- Removed values stay available for future merges ---
