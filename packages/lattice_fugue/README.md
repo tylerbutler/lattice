@@ -69,6 +69,11 @@ Decoded snapshots retain their serialized identity. Merge a remote snapshot
 with your local identity before editing it. The Fugue v1 wire format is
 unchanged.
 
+`from_json` raises the allocation counter to cover retained node IDs and
+referenced parent IDs, including tombstones and other replicas, so later
+edits do not reuse those IDs. It rejects duplicate IDs and parent cycles.
+Sparse deltas may omit parents; merge the missing ancestors to attach them.
+
 ## Links
 
 - Project site: <https://lattice.tylerbutler.com>
