@@ -151,7 +151,7 @@ pub fn text_from_json_sparse_delta_self_merge_test() {
   let assert Ok(loaded) =
     text.to_json(delta)
     |> json.to_string()
-    |> string.replace("\"v\":2", "\"v\":" <> version)
+    |> string.replace("\"v\":3", "\"v\":" <> version)
     |> text.from_json()
   assert text.value(loaded) == "x"
   assert text.merge(loaded, loaded, rid("A")) == loaded
@@ -175,7 +175,7 @@ pub fn text_load_reconstructs_counter_and_keeps_sequence_envelope_test() {
   }
   json.parse(encoded, envelope_decoder)
   |> fn(actual) {
-    assert actual == Ok(#("sequence", 2))
+    assert actual == Ok(#("sequence", 3))
   }
   let assert Ok(loaded) =
     encoded

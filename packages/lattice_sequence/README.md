@@ -50,6 +50,42 @@ pub fn main() {
 - `compact` reclaims space from tombstones and origins once a host-supplied stability frontier confirms no in-flight op can reference them, emitting a `ForwardingMap` so anchors and rebased ops keep resolving after the region shrinks. It retains move records, including deleted movers and initial placements for inserts after moves, as replay-gap anchors.
 - `merge`, `to_json`, and `from_json` round-trip the full CRDT state; convergence holds on both Erlang and JavaScript targets.
 
+## Compacted edits and wire migration
+
+Deleting or moving a block member does not recreate its discarded insertion
+origins from its current neighbors. The item keeps unknown origins and its
+position comes from the covered base order. Its delta is the **complete updated
+snapshot**, including the frontier, covered membership, and forwardings.
+This path can send O(document size) data. Edits whose insertion origins are
+known still produce sparse deltas.
+
+Do not strip this context or attach a frontier to a sparse delta. Merge treats
+an absent ID covered by either input's frontier as reclaimed. A sparse edit
+with a snapshot frontier could therefore remove unrelated items.
+
+Merge preserves genuine origins supplied by older item copies, even when
+another copy is a block. This can expand blocks back into full items; it does
+not change the covered base order. A later compaction at an advancing frontier
+can discard those origins again.
+
+Sequence JSON now uses **v3**. Each full item requires `origin_provenance`:
+`"known"` for genuine insertion origins or `"unknown"` for discarded origins.
+Unknown origins must both be null, and the item's ID must be covered by the
+snapshot frontier. Block and move encodings are unchanged. Older readers reject
+v3. Text and map-wrapped sequence values also require v3-capable readers.
+
+Use a coordinated, readers-first migration: pause old writers and queued delta
+delivery, deploy v3-capable readers to every consumer, then resync every replica
+from the same trusted history or snapshot before enabling v3 writers. Replace
+old queued deltas with that baseline; do not mix old and new writers.
+
+The decoder still accepts v1/v2 input under its existing base-order rules, but
+must assume that a legacy full item's origins are genuine. Old extracted items
+have no provenance marker and **cannot be repaired automatically**. If the
+baseline might contain such edits, rebuild it from an uncompacted operation
+history, or start a new document generation from agreed content. Loading and
+re-encoding an ambiguous legacy snapshot is not a repair.
+
 ## Map composition
 
 `lattice_maps/crdt.SequenceSpec` creates a `Sequence(a)` child in a typed
@@ -57,13 +93,14 @@ map. ORMap supports sparse sequence edits through nested ORMaps. Return
 the leaf delta from `insert_with_delta`, `delete_with_delta`, or
 `move_with_delta`, rather than its full updated state.
 
-Sparse receivers need a baseline or eventual delivery of the required
+Receivers need a baseline or eventual delivery of the required
 history. A later edit alone cannot reconstruct earlier items. Map removal
 and re-addition starts a fresh generation; superseded generations do not
 merge into the new sequence.
 
 Outer map pruning does not establish the stability frontier required by
-`sequence.compact`. Keep inner compaction separate. LWWMap can also hold
+`sequence.compact`. Keep inner compaction separate, and retain full snapshot
+deltas when editing unknown-origin compacted members. LWWMap can also hold
 a Sequence child, but its assignments select one complete snapshot.
 
 ## Links

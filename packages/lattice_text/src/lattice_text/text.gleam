@@ -83,6 +83,8 @@ pub fn delete(text: Text, index: Int) -> Result(Text, sequence.DeleteError) {
 /// Delete a value and return both the updated text and deletion delta.
 ///
 /// Returns `DeleteIndexOutOfBounds` when `index` is outside `[0, length)`.
+/// Editing a compacted grapheme with unknown insertion origins returns a
+/// full snapshot delta (O(document size)), as `sequence.delete_with_delta` does.
 pub fn delete_with_delta(
   text: Text,
   index: Int,
@@ -278,6 +280,8 @@ pub fn move(
 /// Move a grapheme and return both the updated text and move delta.
 ///
 /// Returns a `MoveError` when either index is out of bounds.
+/// Editing a compacted grapheme with unknown insertion origins returns a
+/// full snapshot delta (O(document size)), as `sequence.move_with_delta` does.
 ///
 /// The `to_index` is interpreted after removing the grapheme from
 /// `from_index`.
@@ -537,7 +541,8 @@ pub fn merge_as(a: Text, b: Text, replica: ReplicaId) -> Text {
   merge(a, b, replica)
 }
 
-/// Encode text using the canonical sequence JSON envelope.
+/// Encode text using the sequence v3 JSON envelope with origin provenance.
+/// Upgrade readers before sending v3; see the sequence migration notes.
 pub fn to_json(text: Text) -> json.Json {
   let Text(seq) = text
   sequence.to_json(seq, json.string)
@@ -550,6 +555,8 @@ pub fn to_json(text: Text) -> json.Json {
 /// does. Use `bind` with the local identity before editing an adopted state.
 /// Rejects duplicate or overlapping retained and forwarded IDs, while
 /// allowing missing origins in sparse deltas.
+/// Legacy extracted origins cannot be repaired automatically; use the
+/// coordinated resync described in the sequence migration notes.
 pub fn from_json(json_string: String) -> Result(Text, json.DecodeError) {
   case sequence.from_json(json_string, decode.string) {
     Ok(seq) -> Ok(Text(seq))

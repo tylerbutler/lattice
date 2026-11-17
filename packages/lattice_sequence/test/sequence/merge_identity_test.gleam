@@ -89,10 +89,9 @@ pub fn canonical_and_alias_merge_preserve_explicit_identity_and_counters_test() 
   use merge <- list.each([sequence.merge, sequence.merge_as])
   use pair <- list.each([#(local, incoming), #(incoming, local)])
   let merged = merge(pair.0, pair.1, replica)
-  merged
-  |> fn(actual) {
-    assert actual == { expected }
-  }
+  assert sequence.values(merged) == sequence.values(expected)
+  // Full snapshots can restore origins that a sparse insertion does not carry.
+  assert merge(merged, peer, replica) == expected
   sequence.replica_id(merged)
   |> fn(actual) {
     assert actual == { replica }

@@ -32,6 +32,12 @@
 //// the frontier keep their full YATA representation. Move records, including
 //// those on deleted items, remain live as replay-gap anchors.
 ////
+//// Editing a block member does not recreate its discarded insertion origins.
+//// Such deletes and moves return the complete updated state as their delta,
+//// including the frontier and covered skeleton. This can cost O(document
+//// size). Merging an older item can restore genuine origins; a merge never
+//// discards those facts merely because another copy is compacted.
+////
 //// Every dropped ID gets a forwarding entry pointing at its retained
 //// neighbors, so anchors and rebased operations that still hold the ID can
 //// resolve to the gap it left behind. The forwarding map and the applied
@@ -78,9 +84,15 @@ type Move {
   Move(op_id: OpId, origin_left: Option(ItemId), origin_right: Option(ItemId))
 }
 
+type OriginProvenance {
+  Known
+  Unknown
+}
+
 type Item(a) {
   Item(
     id: ItemId,
+    origin_provenance: OriginProvenance,
     origin_left: Option(ItemId),
     origin_right: Option(ItemId),
     value: a,
@@ -344,6 +356,7 @@ fn build_insert_run(
       }
       Item(
         id: ItemId(replica_id: replica_id, counter: counter),
+        origin_provenance: Known,
         origin_left: left,
         origin_right: origin_right,
         value: value,
@@ -414,6 +427,8 @@ pub fn delete(
 ///
 /// Deletes mint an op ID (bumping this replica's counter) so a compaction
 /// frontier can distinguish acknowledged deletes from in-flight ones.
+/// If the item's insertion origins were compacted away, the delta is the
+/// complete updated snapshot, not a sparse item (O(document size)).
 ///
 /// Apply the delta with `merge(peer_state, delta, peer_replica)`.
 pub fn delete_with_delta(
@@ -437,8 +452,7 @@ pub fn delete_with_delta(
               counter: next_counter,
               segments: elements_to_segments(updated_elements),
             )
-          let delta =
-            delta_sequence(sequence.replica_id, next_counter, deleted_item)
+          let delta = edit_delta(updated, deleted_item)
 
           Ok(#(updated, delta))
         }
@@ -468,6 +482,8 @@ pub fn move(
 ///
 /// Returns a `MoveError` when either index is out of bounds.
 /// Apply the delta with `merge(peer_state, delta, peer_replica)`.
+/// If the item's insertion origins were compacted away, the delta is the
+/// complete updated snapshot, not a sparse item (O(document size)).
 pub fn move_with_delta(
   sequence: Sequence(a),
   from_index: Int,
@@ -539,7 +555,7 @@ fn move_visible_element(
           counter: next_counter,
           segments: elements_to_segments(updated_elements),
         )
-      let delta = delta_sequence(sequence.replica_id, next_counter, moved_item)
+      let delta = edit_delta(updated, moved_item)
 
       Ok(#(updated, delta))
     }
@@ -987,20 +1003,12 @@ fn reconcile_element(
   }
 }
 
-/// One side has the element compacted into a block, the other still holds a
-/// live item for it. A tombstone or a move keeps the item live and supersedes
-/// the block slot; only a plain copy collapses to the stable representation.
-/// The rule looks only at the live item, so both merge directions agree.
-///
-/// A moved item is never collapsed into the block skeleton, even if the merged
-/// frontier covers its move op: `compact` refuses to stabilize any state that
-/// holds a move (see `compact`), so a covered-move block slot cannot legitimately
-/// arise, and baking one here would strip the origins a peer's concurrent
-/// above-frontier inserts integrate against and break merge commutativity.
+/// Learning genuine origins must survive a later join with an extracted
+/// block member, regardless of which pair of states was joined first.
 fn stable_or_live(item: Item(a), _frontier: VersionVector) -> Element(a) {
-  case item.deleted, item.move {
-    None, None -> Stable(id: item.id, value: item.value)
-    _, _ -> LiveEl(item)
+  case item.origin_provenance, item.deleted, item.move {
+    Unknown, None, None -> Stable(id: item.id, value: item.value)
+    Known, _, _ | Unknown, Some(_), _ | Unknown, None, Some(_) -> LiveEl(item)
   }
 }
 
@@ -1040,12 +1048,8 @@ fn visible_elements(sequence: Sequence(a)) -> List(Element(a)) {
 /// The canonical pre-move order: pinned covered elements in list order with
 /// everything else integrated in Lamport order.
 ///
-/// A covered element that carries a still-volatile move record is NOT
-/// pinned: its stored position reflects whichever moves this replica has
-/// already applied, which differs between replicas. It always carries its
-/// origins, so it re-integrates at its settled base position instead (its
-/// Lamport position sorts it before every volatile item automatically); the
-/// move overlay then re-places it.
+/// Extracted block members remain covered and pinned even when their delete
+/// or move is above the frontier. Unknown origins never enter integration.
 fn rebuild_base(
   elements: List(Element(a)),
   forwardings: Dict(ItemId, Forwarding),
@@ -1691,14 +1695,16 @@ fn right_of(forwarding: Forwarding) -> Option(ItemId) {
 /// Produces an envelope with `type`, `v` (schema version), and `state`. The
 /// state includes this replica ID, local counter, applied compaction
 /// frontier, forwarding entries, and every segment: compact blocks of stable
-/// values and full items including tombstones.
+/// values and full items including tombstones. Version 3 marks each item's
+/// insertion origins as known or unknown. Older readers must be upgraded
+/// before these snapshots or deltas are sent.
 pub fn to_json(
   sequence: Sequence(a),
   encode_value: fn(a) -> json.Json,
 ) -> json.Json {
   json.object([
     #("type", json.string("sequence")),
-    #("v", json.int(2)),
+    #("v", json.int(3)),
     #(
       "state",
       json.object([
@@ -1730,6 +1736,13 @@ pub fn to_json(
 /// Rejects repeated item IDs, overlapping compact block ranges, repeated
 /// forwarding keys, and IDs that are both retained and forwarded. Origins
 /// may name absent items, as required for sparse deltas.
+///
+/// Version 3 requires explicit origin provenance. Unknown origins must be
+/// null and the item must be covered by the frontier. Versions 1 and 2 remain
+/// readable, but their item origins are assumed genuine: old extracted items
+/// are ambiguous and cannot be repaired automatically. Before enabling v3
+/// writers, resync replicas from a shared trusted history or snapshot, replace
+/// old queued deltas, and upgrade every reader. See the package migration notes.
 pub fn from_json(
   json_string: String,
   value_decoder: decode.Decoder(a),
@@ -1745,15 +1758,18 @@ pub fn from_json(
       )
       use segments <- decode.field(
         "segments",
-        decode.list(segment_decoder(value_decoder)),
+        decode.list(segment_decoder(value_decoder, version)),
       )
       use segments <- decode.then(
-        case decoded_identities_are_unique(segments, forwardings) {
+        case
+          decoded_identities_are_unique(segments, forwardings)
+          && unknown_origins_are_covered(segments, frontier)
+        {
           True -> decode.success(segments)
           False ->
             decode.failure(
               [],
-              "unique, disjoint retained and forwarded item IDs",
+              "unique disjoint item IDs and frontier-covered unknown origins",
             )
         },
       )
@@ -1792,13 +1808,13 @@ pub fn from_json(
   case json.parse(from: json_string, using: envelope_decoder) {
     Error(e) -> Error(e)
     Ok(#(type_tag, version)) ->
-      case type_tag == "sequence" && { version == 1 || version == 2 } {
+      case type_tag == "sequence" && { version >= 1 && version <= 3 } {
         True -> json.parse(from: json_string, using: state_decoder(version))
         False ->
           Error(
             json.UnableToDecode([
               decode.DecodeError(
-                expected: "type=sequence and v=1 or v=2",
+                expected: "type=sequence and v=1, v=2 or v=3",
                 found: type_tag <> " v=" <> int.to_string(version),
                 path: [],
               ),
@@ -1806,6 +1822,25 @@ pub fn from_json(
           )
       }
   }
+}
+
+fn unknown_origins_are_covered(
+  segments: List(Segment(a)),
+  frontier: VersionVector,
+) -> Bool {
+  list.all(segments, fn(segment) {
+    case segment {
+      Block(_, _) -> True
+      Live(item) ->
+        case item.origin_provenance {
+          Known -> True
+          Unknown ->
+            frontier_covers(frontier, item.id)
+            && item.origin_left == None
+            && item.origin_right == None
+        }
+    }
+  })
 }
 
 fn decoded_identities_are_unique(
@@ -1939,6 +1974,13 @@ fn encode_segment(
       json.object([
         #("kind", json.string("item")),
         #("id", encode_item_id(item.id)),
+        #(
+          "origin_provenance",
+          json.string(case item.origin_provenance {
+            Known -> "known"
+            Unknown -> "unknown"
+          }),
+        ),
         #("origin_left", encode_optional_item_id(item.origin_left)),
         #("origin_right", encode_optional_item_id(item.origin_right)),
         #("value", encode_value(item.value)),
@@ -1950,6 +1992,7 @@ fn encode_segment(
 
 fn segment_decoder(
   value_decoder: decode.Decoder(a),
+  version: Int,
 ) -> decode.Decoder(Segment(a)) {
   use kind <- decode.field("kind", decode.string)
   case kind {
@@ -1960,6 +2003,7 @@ fn segment_decoder(
     }
     "item" -> {
       use id <- decode.field("id", item_id_decoder())
+      use origin_provenance <- decode.then(origin_provenance_decoder(version))
       use origin_left <- decode.field(
         "origin_left",
         decode.optional(item_id_decoder()),
@@ -1978,6 +2022,7 @@ fn segment_decoder(
       decode.success(
         Live(Item(
           id: id,
+          origin_provenance: origin_provenance,
           origin_left: origin_left,
           origin_right: origin_right,
           value: value,
@@ -1991,6 +2036,20 @@ fn segment_decoder(
         Block(first_id: ItemId(replica_id.new(""), 0), values: []),
         "segment kind of block or item",
       )
+  }
+}
+
+fn origin_provenance_decoder(version: Int) -> decode.Decoder(OriginProvenance) {
+  case version >= 3 {
+    False -> decode.success(Known)
+    True -> {
+      use provenance <- decode.field("origin_provenance", decode.string)
+      case provenance {
+        "known" -> decode.success(Known)
+        "unknown" -> decode.success(Unknown)
+        _ -> decode.failure(Unknown, "known or unknown")
+      }
+    }
   }
 }
 
@@ -2121,6 +2180,15 @@ fn delta_sequence(
     forwardings: dict.new(),
     frontier: version_vector.new(),
   )
+}
+
+/// Unknown insertion facts require the complete covered skeleton: giving a
+/// sparse delta a frontier would falsely reclaim every omitted covered ID.
+fn edit_delta(updated: Sequence(a), item: Item(a)) -> Sequence(a) {
+  case item.origin_provenance {
+    Known -> delta_sequence(updated.replica_id, updated.counter, item)
+    Unknown -> updated
+  }
 }
 
 fn segments_to_elements(segments: List(Segment(a))) -> List(Element(a)) {
@@ -2330,12 +2398,8 @@ fn remove_element_by_id(
   }
 }
 
-/// Walk to the visible element at `target`, replacing it with a tombstone.
-/// A stable block member is extracted to a live item with origins
-/// synthesized from its current neighbors so ordering keeps it in place.
 /// Tombstone the element sitting at visible index `target`, updating the
-/// CANONICAL base. A stable block member is extracted with its base
-/// neighbours as origins, not the neighbours the move overlay gave it.
+/// canonical base without inventing insertion origins for block members.
 fn tombstone_in_base(
   elements: List(Element(a)),
   visible: List(Element(a)),
@@ -2369,8 +2433,7 @@ fn tombstone_element_by_id(
   }
 }
 
-/// The item at visible index `target`, read out of the CANONICAL base so a
-/// stable block member gets its base neighbours as origins.
+/// Read from the canonical base; a block member's insertion facts are unknown.
 fn base_item_at_visible_index(
   elements: List(Element(a)),
   visible: List(Element(a)),
@@ -2385,7 +2448,7 @@ fn base_item_at_visible_index(
 fn element_as_item_by_id(
   elements: List(Element(a)),
   id: ItemId,
-  prev: Option(ItemId),
+  _prev: Option(ItemId),
 ) -> Option(Item(a)) {
   case elements {
     [] -> None
@@ -2397,8 +2460,9 @@ fn element_as_item_by_id(
             Stable(stable_id, value) ->
               Some(Item(
                 id: stable_id,
-                origin_left: prev,
-                origin_right: next_element_id(rest),
+                origin_provenance: Unknown,
+                origin_left: None,
+                origin_right: None,
                 value: value,
                 deleted: None,
                 move: None,
@@ -2411,8 +2475,8 @@ fn element_as_item_by_id(
 
 fn tombstone_of(
   el: Element(a),
-  prev: Option(ItemId),
-  next: Option(ItemId),
+  _prev: Option(ItemId),
+  _next: Option(ItemId),
   op: OpId,
 ) -> Item(a) {
   case el {
@@ -2420,8 +2484,9 @@ fn tombstone_of(
     Stable(id, value) ->
       Item(
         id: id,
-        origin_left: prev,
-        origin_right: next,
+        origin_provenance: Unknown,
+        origin_left: None,
+        origin_right: None,
         value: value,
         deleted: Some(op),
         move: None,
@@ -2566,7 +2631,7 @@ fn scan_entry(
         id: other.id,
         left: chase_left(other.origin_left, forwardings, fuel),
         right: other.origin_right,
-        stable: False,
+        stable: other.origin_provenance == Unknown,
       )
   }
 }
@@ -2772,6 +2837,10 @@ fn merge_item(a: Item(a), b: Item(a)) -> Item(a) {
 
   Item(
     id: a.id,
+    origin_provenance: case a.origin_provenance, b.origin_provenance {
+      Unknown, Unknown -> Unknown
+      Known, _ | Unknown, Known -> Known
+    },
     origin_left: origin_left,
     origin_right: origin_right,
     value: a.value,
@@ -2780,10 +2849,17 @@ fn merge_item(a: Item(a), b: Item(a)) -> Item(a) {
   )
 }
 
-/// Origins are immutable in normal operation, but extracting a block member
-/// (for a volatile delete or move) synthesizes origins from local neighbors,
-/// so two replicas can disagree. Pick deterministically so merge commutes.
+/// Unknown origins never replace genuine insertion facts. Conflicting known
+/// pairs (for example after explicit origin translation) use a total order.
 fn pick_origins(a: Item(a), b: Item(a)) -> #(Option(ItemId), Option(ItemId)) {
+  use <- bool.guard(a.origin_provenance == Unknown, #(
+    b.origin_left,
+    b.origin_right,
+  ))
+  use <- bool.guard(b.origin_provenance == Unknown, #(
+    a.origin_left,
+    a.origin_right,
+  ))
   use <- bool.guard(
     a.origin_left == b.origin_left && a.origin_right == b.origin_right,
     #(a.origin_left, a.origin_right),
