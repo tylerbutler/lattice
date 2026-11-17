@@ -155,6 +155,27 @@ Keep the build and deploy commands separate in Workers Builds to avoid
 building twice. Use `pnpm run deploy` for local deployments. Do not add a
 GitHub Actions deployment workflow.
 
+`wrangler preview` requires the `previews` block in `website/wrangler.jsonc`.
+Keep it empty for this static site: assets and compatibility settings stay
+at the top level, and production routes must not go in `previews`.
+The separate `preview_urls` setting does not replace this block.
+Use `pnpm exec wrangler preview` to use the locked Wrangler version;
+`pnpx wrangler preview` downloads a separate version.
+
+To check the build and deployment configuration without uploading:
+
+```sh
+cd website
+pnpm build:site
+pnpm exec wrangler deploy --dry-run
+```
+
+The preview command has no dry-run option. To check a live preview, run
+`pnpm exec wrangler preview` from the feature branch with Cloudflare
+authorization, then check the returned Preview URL. The preview name
+defaults to the current Git branch; keep production custom domains in
+the top-level `routes` list.
+
 Before the first production deployment, ensure the Cloudflare account has
 an active `tylerbutler.com` zone. Remove the existing Netlify CNAME for
 `lattice.tylerbutler.com` at cutover; Cloudflare cannot attach a Workers
