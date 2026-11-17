@@ -1062,9 +1062,42 @@ fn rebuild_base(
   |> live_items_of()
   |> list.filter(fn(item) { !frontier_covers(frontier, item.id) })
   |> list.sort(compare_lamport)
-  |> list.fold(pinned, fn(current, item) {
-    integrate_element(current, item, forwardings)
-  })
+  |> integrate_tail_run(list.reverse(pinned), forwardings)
+}
+
+/// Batch the canonical tail-linked prefix without repeatedly walking and
+/// copying the growing list. At each step the chased left origin must be
+/// exactly the current tail (or None for an empty base), and the right origin
+/// must be None. The integration window is therefore empty, so consing onto
+/// the reversed base is exactly equivalent to `integrate_element`.
+///
+/// Stop at the first non-tail insertion and use the unchanged general path
+/// for the remainder. Missing origins, right constraints and concurrent gaps
+/// must still undergo canonical integration, not be spliced as unseen items.
+fn integrate_tail_run(
+  items: List(Item(a)),
+  reversed: List(Element(a)),
+  forwardings: Dict(ItemId, Forwarding),
+) -> List(Element(a)) {
+  case items {
+    [] -> list.reverse(reversed)
+    [item, ..rest] -> {
+      let tail = case reversed {
+        [] -> None
+        [last, ..] -> Some(element_id(last))
+      }
+      let left =
+        chase_left(item.origin_left, forwardings, dict.size(forwardings) + 1)
+      case left == tail && item.origin_right == None {
+        True ->
+          integrate_tail_run(rest, [LiveEl(item), ..reversed], forwardings)
+        False ->
+          list.fold(items, list.reverse(reversed), fn(current, item) {
+            integrate_element(current, item, forwardings)
+          })
+      }
+    }
+  }
 }
 
 /// A deterministic, direction-independent order on version vectors, used
@@ -2455,10 +2488,10 @@ fn stable_id_dict(elements: List(Element(a))) -> Dict(ItemId, Nil) {
 // Ordering (YATA integration)
 // ---------------------------------------------------------------------------
 //
-// The stored element order is authoritative. It is never rebuilt from
-// origins: local edits splice in place, and merge integrates only elements
-// this side has not seen, one at a time, using the YATA conflict-resolution
-// scan. Origins of already-placed elements are inert position metadata.
+// Local edits splice into the stored canonical base. Merge rebuilds all
+// volatile items in Lamport order around the pinned skeleton, batching a
+// tail-linked prefix and otherwise using the YATA conflict-resolution scan.
+// Even previously seen items must be reordered when missing origins arrive.
 
 /// Place a new item into the element order using its origins.
 ///

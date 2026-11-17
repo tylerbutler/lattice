@@ -1,0 +1,3 @@
+package = "lattice_sequence"
+kind = "Performance"
+body = "Speed up merges of large uncompacted sequences by batching tail-linked items without changing conflict resolution"
