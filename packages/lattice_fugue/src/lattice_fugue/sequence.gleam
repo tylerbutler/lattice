@@ -241,13 +241,12 @@ pub fn values(sequence: Sequence(a)) -> List(a) {
 }
 
 /// Return the count of visible values.
+///
+/// Nodes with missing parents are not counted until their path to the root
+/// is present. Tombstoned ancestors do not hide their live descendants.
 pub fn length(sequence: Sequence(a)) -> Int {
-  dict.fold(sequence.nodes, 0, fn(count, _id, node) {
-    case node.value {
-      Some(_) -> count + 1
-      None -> count
-    }
-  })
+  visible_ids(sequence.nodes)
+  |> list.length()
 }
 
 /// The list of node IDs whose value is visible, in traversal order.

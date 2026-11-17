@@ -98,6 +98,37 @@ pub fn length_counts_visible_values_test() {
   }
 }
 
+pub fn reordered_deltas_keep_length_and_end_insertion_consistent_test() -> Nil {
+  let local = rid("B")
+  let assert Ok(#(first_state, first)) =
+    sequence.insert_with_delta(sequence.new(rid("A")), 0, "x")
+  let assert Ok(#(second_state, second)) =
+    sequence.insert_with_delta(first_state, 1, "y")
+  let assert Ok(#(_, deleted_parent)) =
+    sequence.delete_with_delta(second_state, 0)
+
+  list.each(
+    [#(first, ["x", "y", "z"]), #(deleted_parent, ["y", "z"])],
+    fn(parent) {
+      let #(parent_delta, expected) = parent
+      let peer = sequence.merge(sequence.new(local), second, local)
+      assert sequence.values(peer) == []
+      assert sequence.length(peer) == list.length(sequence.values(peer))
+      let assert Ok(edited) = sequence.insert(peer, sequence.length(peer), "z")
+      assert sequence.values(edited) == ["z"]
+      assert sequence.length(edited) == list.length(sequence.values(edited))
+
+      let complete = sequence.merge(edited, parent_delta, local)
+      assert sequence.values(complete) == expected
+      assert sequence.length(complete) == list.length(sequence.values(complete))
+      let assert Ok(appended) =
+        sequence.insert(complete, sequence.length(complete), "w")
+      assert sequence.values(appended) == list.append(expected, ["w"])
+      assert sequence.length(appended) == list.length(sequence.values(appended))
+    },
+  )
+}
+
 pub fn delete_removes_visible_item_test() {
   let assert Ok(seq) =
     sequence.new(rid("A"))

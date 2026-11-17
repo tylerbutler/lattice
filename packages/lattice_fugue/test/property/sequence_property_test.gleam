@@ -153,6 +153,37 @@ pub fn merge_bottom_identity__test() {
   })
 }
 
+pub fn reversed_delta_delivery_preserves_visible_length_test() -> Nil {
+  qcheck.run(small_test_config(), qcheck.bounded_int(2, 8), fn(size) {
+    let values = list.repeat(0, size) |> list.index_map(fn(_, index) { index })
+    let assert Ok(#(_, deltas)) =
+      values
+      |> list.try_fold(#(sequence.new(rid("A")), []), fn(acc, value) {
+        let #(state, deltas) = acc
+        use #(updated, delta) <- result.try(sequence.insert_with_delta(
+          state,
+          value,
+          value,
+        ))
+        Ok(#(updated, [delta, ..deltas]))
+      })
+    let local = rid("B")
+    let complete =
+      list.fold(deltas, sequence.new(local), fn(state, delta) {
+        let merged = sequence.merge(state, delta, local)
+        let visible = sequence.values(merged)
+        assert sequence.length(merged) == list.length(visible)
+        let assert Ok(edited) =
+          sequence.insert(merged, sequence.length(merged), -1)
+        assert sequence.values(edited) == list.append(visible, [-1])
+        assert sequence.length(edited) == list.length(visible) + 1
+        merged
+      })
+    assert sequence.values(complete) == values
+    Nil
+  })
+}
+
 // Convergence: two replicas that received the same op set converge to the same
 // visible sequence regardless of merge order.
 pub fn merge_convergence__test() {
