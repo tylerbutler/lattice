@@ -80,6 +80,19 @@ pub fn lww_register_from_json_v1_compat_test() {
   assert lww_register.replica_id(reg) == rid("")
 }
 
+pub fn lww_register_legacy_equal_timestamp_converges_test() -> Nil {
+  let assert Ok(left) =
+    lww_register.from_json(
+      "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"x\",\"timestamp\":5}}",
+    )
+  let assert Ok(right) =
+    lww_register.from_json(
+      "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"y\",\"timestamp\":5}}",
+    )
+  assert lww_register.merge(left, right) == right
+  assert lww_register.merge(right, left) == right
+}
+
 pub fn lww_register_v2_missing_replica_id_returns_precise_error_test() {
   let payload =
     "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"hello\",\"timestamp\":42}}"
@@ -109,11 +122,23 @@ pub fn lww_register_v2_preserves_present_replica_ids_test() {
   use writer <- list.each(["writer", "", "\u{1f680} replica"])
   let original = lww_register.new("hello", 42, rid(writer))
 
-  assert original
-    |> lww_register.to_json()
-    |> json.to_string()
-    |> lww_register.from_json()
-    == Ok(original)
+  let encoded =
+    json.to_string(
+      json.object([
+        #("type", json.string("lww_register")),
+        #("v", json.int(2)),
+        #(
+          "state",
+          json.object([
+            #("value", json.string("hello")),
+            #("timestamp", json.int(42)),
+            #("replica_id", json.string(writer)),
+          ]),
+        ),
+      ]),
+    )
+  assert lww_register.from_json(encoded) == Ok(original)
+  assert lww_register.from_json_with(encoded, decode.string) == Ok(original)
 }
 
 // MV-Register round-trip tests
@@ -201,15 +226,14 @@ pub fn lww_register_generic_record_round_trip_test() {
 
   let v1 =
     "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":42,\"timestamp\":12}}"
-  assert lww_register.from_json_with(v1, decode.int)
-    == Ok(lww_register.new(42, 12, rid("")))
+  let assert Error(_) = lww_register.from_json_with(v1, decode.int)
 }
 
-pub fn register_string_wire_formats_are_unchanged_test() {
+pub fn register_string_wire_formats_test() {
   let lww = lww_register.new("value", 12, rid("A"))
   let lww_json = json.to_string(lww_register.to_json(lww))
   assert lww_json
-    == "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"value\",\"timestamp\":12,\"replica_id\":\"A\"}}"
+    == "{\"type\":\"lww_register\",\"v\":3,\"state\":{\"value\":\"value\",\"timestamp\":12,\"replica_id\":\"A\",\"provenance\":{\"kind\":\"modern\"}}}"
   assert lww_register.to_json_with(lww, json.string)
     |> json.to_string()
     == lww_json
@@ -223,6 +247,212 @@ pub fn register_string_wire_formats_are_unchanged_test() {
     |> json.to_string()
     == mv_json
   assert mv_register.from_json_with(mv_json, decode.string) == Ok(mv)
+}
+
+fn legacy_string(
+  value: String,
+  timestamp: Int,
+) -> lww_register.LWWRegister(String) {
+  let encoded =
+    json.to_string(
+      json.object([
+        #("type", json.string("lww_register")),
+        #("v", json.int(1)),
+        #(
+          "state",
+          json.object([
+            #("value", json.string(value)),
+            #("timestamp", json.int(timestamp)),
+          ]),
+        ),
+      ]),
+    )
+  let assert Ok(register) = lww_register.from_json(encoded)
+  register
+}
+
+pub fn lww_register_legacy_merge_laws_and_utf8_order_test() -> Nil {
+  let low = legacy_string("x", 5)
+  let middle = legacy_string("\u{e000}", 5)
+  let high = legacy_string("\u{10000}", 5)
+  assert lww_register.merge(middle, high) == high
+  assert lww_register.merge(high, middle) == high
+  let states = [
+    low,
+    middle,
+    high,
+    lww_register.new("modern empty writer", 5, rid("")),
+    lww_register.new("modern A", 5, rid("A")),
+    legacy_string("newer", 6),
+  ]
+  use left <- list.each(states)
+  assert lww_register.merge(left, left) == left
+  use right <- list.each(states)
+  assert lww_register.merge(left, right) == lww_register.merge(right, left)
+  use third <- list.each(states)
+  assert lww_register.merge(lww_register.merge(left, right), third)
+    == lww_register.merge(left, lww_register.merge(right, third))
+}
+
+pub fn lww_register_legacy_timestamp_and_modern_precedence_test() -> Nil {
+  let legacy = legacy_string("z", 5)
+  let modern = lww_register.new("a", 5, rid(""))
+  assert lww_register.merge(legacy, modern) == modern
+  assert lww_register.merge(modern, legacy) == modern
+  let newer_legacy = legacy_string("z", 6)
+  assert lww_register.merge(newer_legacy, modern) == newer_legacy
+  assert lww_register.merge(modern, newer_legacy) == newer_legacy
+  let newer_modern = lww_register.new("a", 6, rid(""))
+  assert lww_register.merge(legacy, newer_modern) == newer_modern
+  assert lww_register.merge(newer_modern, legacy) == newer_modern
+  assert lww_register.merge(lww_register.merge(legacy, modern), newer_legacy)
+    == lww_register.merge(legacy, lww_register.merge(modern, newer_legacy))
+  assert lww_register.set(legacy, "ignored", 5, rid("Z")) == legacy
+  assert lww_register.set_with_delta(legacy, "ignored", 4, rid("Z"))
+    == #(legacy, legacy)
+  let #(updated, delta) =
+    lww_register.set_with_delta(legacy, "next", 6, rid("local"))
+  assert updated == lww_register.new("next", 6, rid("local"))
+  assert delta == updated
+  assert lww_register.merge(legacy, delta) == updated
+}
+
+pub fn lww_register_generic_legacy_import_preserves_original_key_test() -> Nil {
+  let low_input =
+    "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":1,\"timestamp\":5,\"replica_id\":\"Z\"}}"
+  let high_input =
+    "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":2,\"timestamp\":5}}"
+  let key = fn(value) {
+    case value {
+      1 -> "\u{e000}"
+      _ -> "\u{10000}"
+    }
+  }
+  let assert Ok(low) =
+    lww_register.import_legacy_with(low_input, decode.int, key)
+  let assert Ok(high) =
+    lww_register.import_legacy_with(high_input, decode.int, key)
+  assert lww_register.replica_id(low) == rid("Z")
+  assert lww_register.merge(low, high) == high
+  assert lww_register.merge(high, low) == high
+  let encoded = lww_register.to_json_with(high, json.int) |> json.to_string
+  let assert Ok(loaded) = lww_register.from_json_with(encoded, decode.int)
+  assert loaded == high
+  assert lww_register.merge(low, loaded) == high
+  let assert Error(_) =
+    lww_register.import_legacy_with(encoded, decode.int, key)
+  let assert Error(_) =
+    lww_register.import_legacy_with(low_input, decode.string, fn(value) {
+      value
+    })
+  let assert Error(_) =
+    lww_register.import_legacy_with(
+      "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":1,\"timestamp\":5,\"replica_id\":null}}",
+      decode.int,
+      key,
+    )
+  Nil
+}
+
+pub fn lww_register_legacy_key_survives_payload_codec_changes_test() -> Nil {
+  let high = legacy_string("\u{10000}", 5)
+  let encoded =
+    lww_register.to_json_with(high, fn(_) { json.string("rewritten") })
+    |> json.to_string
+  let assert Ok(loaded) = lww_register.from_json(encoded)
+  assert lww_register.value(loaded) == "rewritten"
+  let low = legacy_string("\u{e000}", 5)
+  assert lww_register.merge(loaded, low) == loaded
+  assert lww_register.merge(low, loaded) == loaded
+  let assert Ok(round_trip) =
+    loaded |> lww_register.to_json |> json.to_string |> lww_register.from_json
+  assert round_trip == loaded
+}
+
+pub fn lww_register_legacy_equal_keys_preserve_writer_metadata_test() -> Nil {
+  let low_input =
+    "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"same\",\"timestamp\":5,\"replica_id\":\"\u{e000}\"}}"
+  let high_input =
+    "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"same\",\"timestamp\":5,\"replica_id\":\"\u{10000}\"}}"
+  let assert Ok(low) = lww_register.from_json(low_input)
+  let assert Ok(high) = lww_register.from_json(high_input)
+  let assert Ok(loaded) =
+    high |> lww_register.to_json |> json.to_string |> lww_register.from_json
+  assert loaded == high
+  assert lww_register.replica_id(loaded) == rid("\u{10000}")
+  let states = [legacy_string("same", 5), low, high, loaded]
+  use left <- list.each(states)
+  assert lww_register.merge(left, left) == left
+  use right <- list.each(states)
+  assert lww_register.merge(left, right) == lww_register.merge(right, left)
+  assert lww_register.merge(left, loaded) == loaded
+  assert lww_register.merge(loaded, left) == loaded
+  use third <- list.each(states)
+  assert lww_register.merge(lww_register.merge(left, right), third)
+    == lww_register.merge(left, lww_register.merge(right, third))
+}
+
+pub fn lww_register_v3_rejects_malformed_provenance_test() -> Nil {
+  use provenance <- list.each([
+    "null", "42", "\"legacy\"", "{}", "{\"kind\":null}",
+    "{\"kind\":\"unknown\"}", "{\"kind\":\"legacy\"}",
+    "{\"kind\":\"legacy\",\"tie_key\":null}",
+    "{\"kind\":\"legacy\",\"tie_key\":42}",
+  ])
+  let input =
+    "{\"type\":\"lww_register\",\"v\":3,\"state\":{\"value\":\"x\",\"timestamp\":5,\"replica_id\":\"\",\"provenance\":"
+    <> provenance
+    <> "}}"
+  let assert Error(_) = lww_register.from_json(input)
+  let assert Error(_) = lww_register.from_json_with(input, decode.string)
+}
+
+pub fn lww_register_v3_requires_provenance_test() -> Nil {
+  let assert Error(_) =
+    lww_register.from_json(
+      "{\"type\":\"lww_register\",\"v\":3,\"state\":{\"value\":\"x\",\"timestamp\":5,\"replica_id\":\"\"}}",
+    )
+  Nil
+}
+
+pub fn lww_register_v3_requires_string_writer_for_both_provenances_test() -> Nil {
+  use provenance <- list.each([
+    "{\"kind\":\"modern\"}",
+    "{\"kind\":\"legacy\",\"tie_key\":\"\"}",
+  ])
+  use writer_field <- list.each([
+    "", ",\"replica_id\":null", ",\"replica_id\":42",
+  ])
+  let input =
+    "{\"type\":\"lww_register\",\"v\":3,\"state\":{\"value\":\"x\",\"timestamp\":5,\"provenance\":"
+    <> provenance
+    <> writer_field
+    <> "}}"
+  let assert Error(_) = lww_register.from_json(input)
+  let assert Error(_) = lww_register.from_json_with(input, decode.string)
+  Nil
+}
+
+pub fn lww_register_legacy_key_runs_only_after_successful_decode_test() -> Nil {
+  let positive_int =
+    decode.then(decode.int, fn(value) {
+      case value > 0 {
+        True -> decode.success(value)
+        False -> decode.failure(0, "positive integer")
+      }
+    })
+  use state <- list.each([
+    "{\"value\":null,\"timestamp\":5}",
+    "{\"value\":0,\"timestamp\":5}",
+    "{\"value\":1,\"timestamp\":null}",
+    "{\"value\":1,\"timestamp\":5,\"replica_id\":null}",
+  ])
+  let input = "{\"type\":\"lww_register\",\"v\":1,\"state\":" <> state <> "}"
+  let assert Error(_) =
+    lww_register.import_legacy_with(input, positive_int, fn(_) {
+      panic as "Must not derive a key from invalid input"
+    })
+  Nil
 }
 
 pub fn mv_register_generic_record_preserves_causal_history_test() {

@@ -1232,6 +1232,8 @@ pub fn to_json_with(value: Crdt(a), encode: fn(a) -> Json) -> Json {
 pub fn from_json(input: String) -> Result(Crdt(String), json.DecodeError) {
   use kind <- result.try(dispatch_tag(input))
   case kind {
+    "lww_register" ->
+      lww_register.from_json(input) |> result.map(CrdtLwwRegister)
     "or_set" -> {
       use version <- result.try(
         json.parse(input, {

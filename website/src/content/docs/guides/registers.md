@@ -53,8 +53,8 @@ and old `set_as_with_delta` calls with `set_with_delta`.
 ### Equal-timestamp ties
 
 When two replicas merge registers with the same timestamp, lattice resolves the
-tie deterministically using the replica ID. The register with the
-lexicographically greater replica ID wins.
+tie between modern writes deterministically using the replica ID. The register
+with the lexicographically greater replica ID wins.
 
 ```gleam
 import lattice_core/replica_id
@@ -159,7 +159,33 @@ remove values causally superseded by the write. See
 
 Both register modules provide `to_json_with(value, encode)` and
 `from_json_with(input, decoder)` for generic payloads. Existing String
-codec entry points keep their formats.
+codec entry points use String payloads. LWWRegister encoders now emit v3,
+including modern/legacy provenance. Upgrade readers before sending v3 output;
+older readers reject it, including when a register is nested in a map or delta.
+
+String `lww_register.from_json` imports v1 snapshots with the original String
+as a tie key. At equal timestamps, modern writes beat legacy imports. Two
+legacy imports compare their keys in UTF-8 byte order on Erlang and JavaScript.
+Equal keys use replica ID ordering as a final metadata tie-break. Optional v1
+writer IDs are retained; missing IDs use `""`. Higher timestamps still win
+before provenance, key, or writer comparisons.
+
+Generic `lww_register.from_json_with` rejects v1. Use
+`lww_register.import_legacy_with(input, decoder, tie_key)` instead. The key
+function must be deterministic and shared by all replicas; different payloads
+at the same timestamp must have different keys. V3 preserves this key across
+serialization rather than deriving it again from the payload. An accepted
+`set` replaces legacy provenance with the supplied modern writer.
+
+Valid v2 snapshots remain modern and require a string `replica_id`, even when
+empty. An empty writer does not identify a legacy snapshot. If v1 data was
+already re-encoded as v2, provenance was lost: recover a verified v1 baseline
+from external history and use an explicit, coordinated import. Do not infer
+legacy origin from empty v2 IDs.
+
+String `crdt.from_json` uses the String legacy import path. Generic dispatch
+and recursive child/delta decoding reject v1 registers; explicitly import
+legacy children and encode them as v3 before constructing modern containers.
 
 An adopted LWWRegister retains the author of its winning write. Pass the local
 writer to `set(register, value, timestamp, local_id)` or
