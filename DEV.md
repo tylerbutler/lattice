@@ -110,6 +110,19 @@ just deps
 just ci
 ```
 
+## Agent definitions
+
+Edit the shared CRDT agent definitions in `.apm/agents/*.agent.md`.
+Run `apm install` to deploy them to both targets in `apm.yml`:
+Claude Code (`.claude/agents/`) and Copilot (`.github/agents/`).
+Commit the source files, generated files, and `apm.lock.yaml` together.
+Do not edit the generated copies.
+
+The BEAM and Erlang agents come from the shared Gleam dependency in
+`apm.yml`. Change those agents in the dependency, not in this repository.
+
+See the [APM agent guide](https://microsoft.github.io/apm/producer/author-primitives/instructions-and-agents/).
+
 ## Website deployment
 
 Deploy the static Astro site in `website/` with Cloudflare Workers Static
