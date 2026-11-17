@@ -1,0 +1,3 @@
+package = "lattice_sequence"
+kind = "Fixed"
+body = "Prevent JavaScript stack overflows in large sequence edits and reads (#251)"
