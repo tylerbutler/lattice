@@ -71,6 +71,25 @@ pub fn append_test() {
   }
 }
 
+pub fn append_after_reordered_delta_delivery_test() -> Nil {
+  let local = rid("B")
+  let assert Ok(#(first_state, first)) = text.insert_with_delta(doc(), 0, "x")
+  let assert Ok(#(_, second)) = text.insert_with_delta(first_state, 1, "y")
+  let peer = text.merge(text.new(local), second, local)
+  assert text.value(peer) == ""
+  assert text.length(peer) == list.length(text.values(peer))
+  let assert Ok(edited) = text.append(peer, "z")
+  assert text.value(edited) == "z"
+  assert text.length(edited) == list.length(text.values(edited))
+
+  let complete = text.merge(edited, first, local)
+  assert text.value(complete) == "xyz"
+  assert text.length(complete) == list.length(text.values(complete))
+  let assert Ok(appended) = text.append(complete, "w")
+  assert text.value(appended) == "xyzw"
+  assert text.length(appended) == list.length(text.values(appended))
+}
+
 pub fn delete_test() {
   let assert Ok(base) = doc() |> text.insert(0, "abc")
   base
