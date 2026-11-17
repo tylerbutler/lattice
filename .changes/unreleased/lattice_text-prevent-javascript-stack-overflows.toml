@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Fixed"
+body = """
+Prevent JavaScript stack overflows in large text edits and reads
+
+Text inherits the sequence fixes for deletion, moves, reads and edits after moves, and compaction in large documents. Public APIs and snapshot formats are unchanged."""

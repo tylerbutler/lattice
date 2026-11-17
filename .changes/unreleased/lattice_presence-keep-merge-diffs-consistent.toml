@@ -3,4 +3,4 @@ kind = "Fixed"
 body = """
 Keep merge diffs consistent with local replica visibility
 
-Merges no longer emit joins or leaves for entries hidden by replica_down. Replicated data and causal history are retained, so replica_up reports only entries that are still present."""
+`merge_with_diff` no longer emits joins or leaves for entries hidden by `replica_down`. Merges retain replicated data and causal history, so `replica_up` reports only entries that are still present."""
