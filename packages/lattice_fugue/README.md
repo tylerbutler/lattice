@@ -53,6 +53,9 @@ pub fn main() {
 - `merge` is a plain union keyed by node identity — a node's parent/side are creation-time invariants, so no re-integration pass is needed and convergence is immediate.
 - Deletes tombstone a node's value; the node is retained because it may be an ancestor of live nodes. There is no tombstone compaction in this version.
 - `merge`, `to_json`, and `from_json` round-trip the full CRDT state; convergence and non-interleaving hold on both Erlang and JavaScript targets.
+- Traversal uses an explicit work stack and builds a temporary child index once
+  per walk. Deep sequential documents do not consume the JavaScript call stack.
+  The index is not cached; repeated single-item edits still rebuild it.
 
 ## API migration
 
