@@ -133,6 +133,53 @@ pub fn sequence_insert_delta_correctness__test() {
   })
 }
 
+pub fn chained_runs_at_concurrent_gaps_converge__test() {
+  qcheck.run(
+    small_test_config(),
+    qcheck.map2(
+      qcheck.bounded_int(1, 30),
+      qcheck.bounded_int(0, 30),
+      fn(size, gap) { #(size, gap % { size + 1 }) },
+    ),
+    fn(pair) {
+      let #(size, gap) = pair
+      let values =
+        list.repeat(0, size) |> list.index_map(fn(_, index) { index })
+      let assert Ok(base) =
+        sequence.insert_many(sequence.new(rid("A")), 0, values)
+      let floor = version_vector.new() |> version_vector.set_max(rid("A"), size)
+      let #(compacted, _) = sequence.compact(base, floor)
+      list.each([base, compacted], fn(state) {
+        let assert Ok(#(left, left_delta)) =
+          sequence.insert_many_with_delta(state, gap, [-1, -2])
+        let assert Ok(#(right, right_delta)) =
+          sequence.bind(state, rid("B"))
+          |> sequence.insert_many_with_delta(gap, [-3, -4])
+        let joined = sequence.merge(left, right, rid("A"))
+        // Includes the head, constrained interior gaps, and unconstrained
+        // tail: only the tail-linked prefix may bypass conflict integration.
+        assert sequence.values(joined)
+          == list.append(list.take(values, gap), [
+            -1,
+            -2,
+            -3,
+            -4,
+            ..list.drop(values, gap)
+          ])
+        assert sequence.merge(state, left_delta, rid("A")) == left
+        assert sequence.merge(right, left, rid("A")) == joined
+        assert sequence.merge(left, right_delta, rid("A")) == joined
+        assert sequence.merge(right, left_delta, rid("A")) == joined
+        assert sequence.merge(joined, joined, rid("A")) == joined
+        assert sequence.merge(left_delta, right_delta, rid("A"))
+          |> sequence.merge(state, rid("A"))
+          == joined
+      })
+      Nil
+    },
+  )
+}
+
 pub fn sequence_delete_delta_correctness__test() {
   qcheck.run(small_test_config(), qcheck.bounded_int(0, 1), fn(index) {
     let base = {

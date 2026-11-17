@@ -9,6 +9,60 @@ fn rid(id: String) {
   replica_id.new(id)
 }
 
+pub fn tail_run_merge_preserves_tombstones_and_moves_test() {
+  let assert Ok(base) =
+    sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c", "d"])
+  let assert Ok(#(deleted, delete_delta)) = sequence.delete_with_delta(base, 1)
+  let assert Ok(#(moved, move_delta)) = sequence.move_with_delta(deleted, 0, 2)
+  let assert Ok(#(appended, append_delta)) =
+    sequence.insert_many_with_delta(moved, 3, ["x", "y"])
+
+  assert sequence.values(appended) == ["c", "d", "a", "x", "y"]
+  assert sequence.merge(base, delete_delta, rid("A")) == deleted
+  assert sequence.merge(deleted, move_delta, rid("A")) == moved
+  assert sequence.merge(moved, append_delta, rid("A")) == appended
+  assert sequence.merge(append_delta, moved, rid("A")) == appended
+  let replayed =
+    sequence.merge(base, append_delta, rid("A"))
+    |> sequence.merge(move_delta, rid("A"))
+    |> sequence.merge(delete_delta, rid("A"))
+  assert replayed == appended
+  assert sequence.merge(appended, appended, rid("A")) == appended
+}
+
+pub fn tail_run_merge_over_compacted_skeleton_preserves_metadata_test() {
+  let assert Ok(base) =
+    sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c"])
+  let assert Ok(deleted) = sequence.delete(base, 1)
+  let floor = version_vector.new() |> version_vector.set_max(rid("A"), 4)
+  let #(compacted, forwardings) = sequence.compact(deleted, floor)
+  assert sequence.forwarding_size(forwardings) == 1
+  let assert Ok(#(updated, delta)) =
+    sequence.insert_many_with_delta(compacted, 2, ["x", "y"])
+  assert sequence.values(updated) == ["a", "c", "x", "y"]
+  assert sequence.merge(compacted, delta, rid("A")) == updated
+  assert sequence.merge(delta, compacted, rid("A")) == updated
+  assert sequence.merge(updated, updated, rid("A")) == updated
+  assert sequence.frontier(updated) == floor
+}
+
+pub fn tail_run_missing_origin_reintegrates_when_gap_arrives_test() {
+  let assert Ok(base) =
+    sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c"])
+  let assert Ok(#(with_x, delta_x)) = sequence.insert_with_delta(base, 3, "x")
+  let assert Ok(#(with_y, delta_y)) = sequence.insert_with_delta(with_x, 4, "y")
+  // Y's left origin is absent, not the current tail. It must take the
+  // general integration path now, then be canonically reordered when X arrives.
+  let gap = sequence.merge(base, delta_y, rid("A"))
+  assert sequence.values(gap) == ["y", "a", "b", "c"]
+  assert sequence.merge(delta_y, base, rid("A")) == gap
+  assert sequence.merge(gap, delta_x, rid("A")) == with_y
+  assert sequence.merge(delta_x, gap, rid("A")) == with_y
+  assert sequence.merge(base, delta_x, rid("A"))
+    |> sequence.merge(delta_y, rid("A"))
+    == with_y
+}
+
 pub fn moved_insertion_uses_every_visible_gap_test() {
   let assert Ok(base) =
     sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c"])
