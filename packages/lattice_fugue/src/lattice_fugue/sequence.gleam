@@ -169,25 +169,63 @@ fn children(
 
 /// Depth-first in-order walk of the whole tree, tombstones included.
 ///
-/// For each node: its left children (recursively), the node itself, then its
-/// right children (recursively). Starting parent is `None` (the virtual root).
+/// Index children once, then walk left-node-right with an explicit work stack
+/// so document depth does not consume the JavaScript call stack.
 fn full_order(nodes: Dict(NodeId, Node(a))) -> List(NodeId) {
-  traverse(nodes, None)
+  let index =
+    dict.fold(nodes, dict.new(), fn(index, id, node) {
+      let key = #(node.parent, node.side)
+      let siblings = dict.get(index, key) |> result.unwrap([])
+      dict.insert(index, key, [id, ..siblings])
+    })
+    |> dict.map_values(fn(_key, ids) { list.sort(ids, compare_node_ids) })
+  traverse(
+    [
+      VisitChildren(indexed_children(index, None, Left)),
+      VisitChildren(indexed_children(index, None, Right)),
+    ],
+    index,
+    [],
+  )
+}
+
+type ChildIndex =
+  Dict(#(Option(NodeId), Side), List(NodeId))
+
+type TraversalWork {
+  VisitChildren(List(NodeId))
+  Emit(NodeId)
+}
+
+fn indexed_children(
+  index: ChildIndex,
+  parent: Option(NodeId),
+  side: Side,
+) -> List(NodeId) {
+  dict.get(index, #(parent, side)) |> result.unwrap([])
 }
 
 fn traverse(
-  nodes: Dict(NodeId, Node(a)),
-  parent: Option(NodeId),
+  work: List(TraversalWork),
+  index: ChildIndex,
+  reversed: List(NodeId),
 ) -> List(NodeId) {
-  let lefts =
-    children(nodes, parent, Left)
-    |> list.flat_map(fn(id) { traverse(nodes, Some(id)) })
-  let rights =
-    children(nodes, parent, Right)
-    |> list.flat_map(fn(id) { traverse(nodes, Some(id)) })
-  case parent {
-    None -> list.append(lefts, rights)
-    Some(id) -> list.append(lefts, [id, ..rights])
+  case work {
+    [] -> list.reverse(reversed)
+    [VisitChildren([]), ..rest] -> traverse(rest, index, reversed)
+    [VisitChildren([id, ..siblings]), ..rest] ->
+      traverse(
+        [
+          VisitChildren(indexed_children(index, Some(id), Left)),
+          Emit(id),
+          VisitChildren(indexed_children(index, Some(id), Right)),
+          VisitChildren(siblings),
+          ..rest
+        ],
+        index,
+        reversed,
+      )
+    [Emit(id), ..rest] -> traverse(rest, index, [id, ..reversed])
   }
 }
 
@@ -803,20 +841,22 @@ fn validate_parent_path(
 ) -> Result(Set(NodeId), Nil) {
   case parent {
     None -> Ok(set.union(checked, path))
-    Some(id) -> {
-      use <- bool.guard(set.contains(path, id), Error(Nil))
-      use <- bool.guard(set.contains(checked, id), Ok(set.union(checked, path)))
-      case dict.get(nodes, id) {
-        Error(Nil) -> Ok(set.union(checked, path))
-        Ok(node) ->
-          validate_parent_path(
-            nodes,
-            node.parent,
-            set.insert(path, id),
-            checked,
-          )
+    Some(id) ->
+      case set.contains(path, id), set.contains(checked, id) {
+        True, _ -> Error(Nil)
+        False, True -> Ok(set.union(checked, path))
+        False, False ->
+          case dict.get(nodes, id) {
+            Error(Nil) -> Ok(set.union(checked, path))
+            Ok(node) ->
+              validate_parent_path(
+                nodes,
+                node.parent,
+                set.insert(path, id),
+                checked,
+              )
+          }
       }
-    }
   }
 }
 

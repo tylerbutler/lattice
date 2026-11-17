@@ -48,6 +48,10 @@ When two replicas concurrently insert runs at the same position, Fugue keeps
 each run contiguous rather than interleaving their characters. This is the main
 reason to choose this package over `lattice_text`.
 
+The backend uses a stack-safe tree walk, so deep sequential text can be read,
+edited, and anchored on JavaScript without increasing the runtime stack size.
+Each single-grapheme edit still rebuilds a temporary child index.
+
 ## Anchors and frontier
 
 - `start_anchor` / `end_anchor` create boundary anchors. `anchor_at` returns a
