@@ -35,6 +35,9 @@ pub fn moves_and_edits_of_large_sequences_preserve_order_test() {
   let replica = replica_id.new("A")
   let values = large_values()
   let assert Ok(base) = sequence.insert_many(sequence.new(replica), 0, values)
+  // Keep the 20,000-element scans without rebuilding 20,000 volatile items.
+  let floor = version_vector.new() |> version_vector.set_max(replica, 20_000)
+  let #(base, _) = sequence.compact(base, floor)
   let assert Ok(first_anchor) = sequence.anchor_at(base, 0, sequence.Before)
   let assert Ok(last_to_first) = sequence.move(base, 19_999, 0)
   assert sequence.values(last_to_first) == [19_999, ..list.take(values, 19_999)]
@@ -63,7 +66,8 @@ pub fn large_move_records_survive_translation_compaction_and_merge_test() {
   let assert Ok(base) = sequence.insert_many(sequence.new(replica), 0, values)
   let floor = version_vector.new() |> version_vector.set_max(replica, 20_000)
   let #(compacted, _) = sequence.compact(base, floor)
-  let assert Ok(#(moved, delta)) = sequence.move_with_delta(base, 0, 19_999)
+  let assert Ok(#(moved, delta)) =
+    sequence.move_with_delta(compacted, 0, 19_999)
   let assert Ok(translated) = sequence.translate_origins(moved, compacted)
   assert translated == moved
   let expected = list.append(list.drop(values, 1), [0])
