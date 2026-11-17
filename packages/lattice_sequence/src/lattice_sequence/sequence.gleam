@@ -1540,7 +1540,7 @@ fn forwarding_entries_for_pass(
   let settled = fn(el: Element(a)) { frontier_covers(stable, element_id(el)) }
   let lefts = left_targets(classified, None, dict.new(), settled)
   let #(rights, _) =
-    list.fold_right(classified, #(dict.new(), None), fn(acc, entry) {
+    list.fold(list.reverse(classified), #(dict.new(), None), fn(acc, entry) {
       let #(targets, next_retained) = acc
       case entry {
         Retained(el) ->
@@ -2276,14 +2276,9 @@ fn insert_element_before_id(
   right: ItemId,
   el: Element(a),
 ) -> List(Element(a)) {
-  case elements {
-    [] -> [el]
-    [first, ..rest] ->
-      case element_id(first) == right {
-        True -> [el, first, ..rest]
-        False -> [first, ..insert_element_before_id(rest, right, el)]
-      }
-  }
+  let #(prefix, suffix) =
+    list.split_while(elements, fn(first) { element_id(first) != right })
+  list.append(prefix, [el, ..suffix])
 }
 
 fn insert_element_after_id(
@@ -2291,14 +2286,13 @@ fn insert_element_after_id(
   left: ItemId,
   el: Element(a),
 ) -> List(Element(a)) {
-  case elements {
+  let #(prefix, suffix) =
+    list.split_while(elements, fn(first) { element_id(first) != left })
+  let inserted = case suffix {
     [] -> [el]
-    [first, ..rest] ->
-      case element_id(first) == left {
-        True -> [first, el, ..rest]
-        False -> [first, ..insert_element_after_id(rest, left, el)]
-      }
+    [first, ..rest] -> [first, el, ..rest]
   }
+  list.append(prefix, inserted)
 }
 
 fn contains_element_id(elements: List(Element(a)), id: ItemId) -> Bool {
@@ -2306,27 +2300,24 @@ fn contains_element_id(elements: List(Element(a)), id: ItemId) -> Bool {
 }
 
 fn swap_in_item(elements: List(Element(a)), item: Item(a)) -> List(Element(a)) {
-  case elements {
-    [] -> [LiveEl(item)]
-    [el, ..rest] ->
-      case element_id(el) == item.id {
-        True -> [LiveEl(item), ..rest]
-        False -> [el, ..swap_in_item(rest, item)]
-      }
+  let #(prefix, suffix) =
+    list.split_while(elements, fn(el) { element_id(el) != item.id })
+  let rest = case suffix {
+    [] -> []
+    [_, ..rest] -> rest
   }
+  list.append(prefix, [LiveEl(item), ..rest])
 }
 
 fn remove_element_by_id(
   elements: List(Element(a)),
   id: ItemId,
 ) -> List(Element(a)) {
-  case elements {
-    [] -> []
-    [el, ..rest] ->
-      case element_id(el) == id {
-        True -> rest
-        False -> [el, ..remove_element_by_id(rest, id)]
-      }
+  let #(prefix, suffix) =
+    list.split_while(elements, fn(el) { element_id(el) != id })
+  case suffix {
+    [] -> prefix
+    [_, ..rest] -> list.append(prefix, rest)
   }
 }
 
@@ -2354,18 +2345,18 @@ fn tombstone_element_by_id(
   prev: Option(ItemId),
   op: OpId,
 ) -> Option(#(List(Element(a)), Item(a))) {
-  case elements {
+  let #(prefix, suffix) =
+    list.split_while(elements, fn(el) { element_id(el) != id })
+  case suffix {
     [] -> None
-    [el, ..rest] ->
-      case element_id(el) == id {
-        True -> {
-          let item = tombstone_of(el, prev, next_element_id(rest), op)
-          Some(#([LiveEl(item), ..rest], item))
-        }
-        False ->
-          tombstone_element_by_id(rest, id, Some(element_id(el)), op)
-          |> prepend_element_result(el)
+    [el, ..rest] -> {
+      let prev = case list.last(prefix) {
+        Ok(previous) -> Some(element_id(previous))
+        Error(Nil) -> prev
       }
+      let item = tombstone_of(el, prev, next_element_id(rest), op)
+      Some(#(list.append(prefix, [LiveEl(item), ..rest]), item))
+    }
   }
 }
 
@@ -2426,16 +2417,6 @@ fn tombstone_of(
         deleted: Some(op),
         move: None,
       )
-  }
-}
-
-fn prepend_element_result(
-  result: Option(#(List(Element(a)), Item(a))),
-  el: Element(a),
-) -> Option(#(List(Element(a)), Item(a))) {
-  case result {
-    Some(#(updated_rest, item)) -> Some(#([el, ..updated_rest], item))
-    None -> None
   }
 }
 
