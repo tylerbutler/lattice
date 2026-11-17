@@ -3,4 +3,4 @@ kind = "Fixed"
 body = """
 Fix false same-replica conflicts after JSON round-trips
 
-Compare metadata independently of object key order, including nested objects and arrays, while rejecting different metadata for the same tag on both Erlang and JavaScript."""
+Same-replica merges now ignore JSON object key order in metadata, including objects nested in arrays. Changed values or array order still cause a `SameReplica` error on both Erlang and JavaScript."""

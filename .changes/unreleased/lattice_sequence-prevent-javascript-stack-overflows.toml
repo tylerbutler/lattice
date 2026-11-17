@@ -1,3 +1,6 @@
 package = "lattice_sequence"
 kind = "Fixed"
-body = "Prevent JavaScript stack overflows in large sequence edits and reads (#251)"
+body = """
+Prevent JavaScript stack overflows in large sequence edits and reads
+
+Large sequences now support deletion, moves, reads and edits after moves, and compaction without overflowing the JavaScript call stack. Public APIs and snapshot formats are unchanged."""

@@ -1,3 +1,6 @@
 package = "lattice_presence"
 kind = "Fixed"
-body = "Reject invalid presence snapshots with uncovered or duplicate live tags"
+body = """
+Reject invalid presence snapshots with uncovered or duplicate live tags
+
+`from_json` and `decoder` now return an error if live tags repeat or lack coverage in the causal context or sparse clouds. This prevents entries that cannot be removed and local clock reuse after loading; sparse cloud gaps remain valid."""
