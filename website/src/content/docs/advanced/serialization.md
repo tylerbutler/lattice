@@ -86,6 +86,30 @@ Dispatch distinguishes Text from `Sequence(String)` with a Text wrapper.
 The standalone Text codec still uses its canonical Sequence envelope;
 a bare Sequence envelope decodes as Sequence.
 
+### Structured recursive JSON
+
+The recursive codecs now embed schemas, child states, membership sets,
+and delta payloads as JSON objects. Earlier codecs put JSON text inside
+JSON strings, which doubled escaping at each level of nesting.
+Application String values, including strings that contain JSON text,
+keep their values.
+
+| Format | Emitted version | Earlier input accepted |
+| --- | --- | --- |
+| ORMap snapshot | 4 | 3 |
+| LWWMap snapshot | 4 | 3 |
+| ORMap delta | 3 | 2 |
+| CRDT dispatch delta | 2 | 1 |
+| Text dispatch wrapper | 2 | 1 |
+| Recursive child schema | 2 | Unversioned |
+
+Upgrade readers before sending the new versions. New readers accept the
+earlier string-embedded formats and write the structured formats on the
+next serialization. Old readers cannot read the new versions; the
+encoders do not provide a legacy-output mode. Standalone leaf and Text
+formats have not changed. Continue to use the explicit import adapters
+below for map v1/v2 baselines.
+
 ## ORMap delta serialization
 
 `ORMapDelta(a)` has dedicated JSON helpers because it is not a full map:
@@ -112,8 +136,8 @@ move/delete records, frontiers, and forwarding metadata.
 Modern map formats require a coordinated migration. Import an agreed
 legacy baseline, distribute the modern snapshot, then switch writers.
 Do not mix legacy map deltas with generation-aware replication.
-ORMap snapshots use version 3 and deltas use version 2; LWWMap snapshots
-use version 3.
+After import, ORMap snapshots use version 4 and deltas use version 3;
+LWWMap snapshots use version 4.
 
 Legacy ORMap entries enter the initial generation. Supply an explicit
 payload schema/default when the old String spec cannot determine it.
