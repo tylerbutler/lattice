@@ -1,3 +1,0 @@
-package = "lattice_sets"
-kind = "Fixed"
-body = "Preserve observed removals when merging sets with pruned live tags"

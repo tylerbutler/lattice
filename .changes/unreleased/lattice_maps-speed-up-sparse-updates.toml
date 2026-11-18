@@ -1,3 +1,0 @@
-package = "lattice_maps"
-kind = "Performance"
-body = "Speed up sparse updates to large sequence and text children in nested ORMaps"

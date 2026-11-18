@@ -1,6 +1,0 @@
-package = "lattice_sequence"
-kind = "Fixed"
-body = """
-Honor visible insertion indices after moving sequence items
-
-Single and batch inserts now use the requested visible gap after moves, including during delta replay and snapshot merges. Compaction retains deleted move records and their target-gap boundaries to preserve item order, so those records continue to use storage. Public APIs and the snapshot schema are unchanged."""

@@ -1,3 +1,0 @@
-package = "lattice_core"
-kind = "Fixed"
-body = "Treat explicit zero clocks as missing entries when comparing version vectors"
