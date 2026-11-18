@@ -1,0 +1,57 @@
+{
+  "hooks": {
+    "sessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \".github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable\" ] || sh \".github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable\" hook",
+            "windows": "cmd /c if exist .github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable.cmd .github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable.cmd hook",
+            "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+            "env": {
+              "IMPECCABLE_HOOK_HARNESS": "vscode"
+            },
+            "timeout": 5,
+            "statusMessage": "Preparing build session"
+          }
+        ]
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \".github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable\" ] || sh \".github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable\" hook",
+            "windows": "cmd /c if exist .github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable.cmd .github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable.cmd hook",
+            "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+            "env": {
+              "IMPECCABLE_HOOK_HARNESS": "vscode"
+            },
+            "timeout": 5,
+            "statusMessage": "Checking UI changes"
+          }
+        ]
+      }
+    ],
+    "agentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \".github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable\" ] || sh \".github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable\" hook",
+            "windows": "cmd /c if exist .github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable.cmd .github/hooks/scripts/plugin/skills/impeccable/scripts/impeccable.cmd hook",
+            "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+            "env": {
+              "IMPECCABLE_HOOK_HARNESS": "vscode"
+            },
+            "timeout": 30,
+            "statusMessage": "Design deep pass"
+          }
+        ]
+      }
+    ]
+  },
+  "version": 1
+}
