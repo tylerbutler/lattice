@@ -1,0 +1,6 @@
+package = "lattice_sequence"
+kind = "Breaking"
+body = """
+Preserve compacted edit convergence with sequence JSON v3
+
+Delete and move deltas for compacted items with unknown insertion origins now carry the complete updated snapshot and can cost O(document size). Merge retains genuine origins across delayed delivery. Upgrade readers before enabling v3 writers, resync replicas from one trusted baseline, and replace legacy queued deltas; ambiguous legacy extracted origins cannot be repaired automatically."""

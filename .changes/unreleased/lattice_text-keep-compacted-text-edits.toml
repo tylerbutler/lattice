@@ -1,0 +1,6 @@
+package = "lattice_text"
+kind = "Breaking"
+body = """
+Keep compacted text edits convergent with sequence JSON v3
+
+Text inherits explicit insertion-origin provenance and full-snapshot deltas for edits of compacted graphemes with unknown origins, including range deletes and replacements. Upgrade all readers and use the coordinated sequence resync before enabling v3 writers."""
