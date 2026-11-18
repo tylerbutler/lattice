@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-11-16T20:34:25.551171+00:00'
+generated_at: '2026-11-17T18:38:14.849831+00:00'
 apm_version: 0.35.1
 dependencies:
 - repo_url: tylerbutler/agent-marketplace
@@ -93,7 +93,7 @@ dependencies:
 - repo_url: cursor/plugins
   name: unslop
   host: github.com
-  resolved_commit: bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7
+  resolved_commit: e1cc03121a0e71129a4fb730d7c5528a0a3e43c8
   version: unknown
   virtual_path: pstack/skills/unslop
   is_virtual: true
@@ -106,9 +106,9 @@ dependencies:
   - .claude/skills/unslop
   - .claude/skills/unslop/SKILL.md
   deployed_file_hashes:
-    .agents/skills/unslop/SKILL.md: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
-    .claude/skills/unslop/SKILL.md: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
-  content_hash: sha256:eca0ad9fa3a3867c83f3aaf3a058e247a569c8976a68ca423a569b93eb86de5d
+    .agents/skills/unslop/SKILL.md: sha256:2b823fd069e031c1420180be8e0d4f5e2fd25bf2c428049e5c835c59a489b5e0
+    .claude/skills/unslop/SKILL.md: sha256:2b823fd069e031c1420180be8e0d4f5e2fd25bf2c428049e5c835c59a489b5e0
+  content_hash: sha256:9bace43ba8cc2c76bfd18ce3f508381f490013cac2116d747553cfcd5cb44c88
   is_dev: true
 - repo_url: dietrichgebert/ponytail
   materialization_repo_url: DietrichGebert/ponytail
@@ -238,6 +238,24 @@ deployments:
   - tylerbutler/agent-marketplace/plugins/gleam
   active_owner: tylerbutler/agent-marketplace/plugins/gleam
   content_hash: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
+- kind: project-relative
+  target: claude
+  value: .claude/agents/crdt-concurrency-expert.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:80e6f2203e31501d0f70c1ecef0f758fa7b4c8f7604b0e9aee884744d0cef47d
+- kind: project-relative
+  target: claude
+  value: .claude/agents/crdt-concurrency-implementer.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:f9fccce2dc1c114b85c745ecad7dc9902eaac5163d783bbd398eac10d5f85bae
 - kind: project-relative
   target: claude
   value: .claude/agents/erlang-specialist.md
@@ -624,7 +642,7 @@ deployments:
   owners:
   - cursor/plugins/pstack/skills/unslop
   active_owner: cursor/plugins/pstack/skills/unslop
-  content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+  content_hash: sha256:2b823fd069e031c1420180be8e0d4f5e2fd25bf2c428049e5c835c59a489b5e0
 - kind: project-relative
   target: copilot
   value: .agents/skills/caveman-commit
@@ -975,7 +993,7 @@ deployments:
   owners:
   - cursor/plugins/pstack/skills/unslop
   active_owner: cursor/plugins/pstack/skills/unslop
-  content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+  content_hash: sha256:2b823fd069e031c1420180be8e0d4f5e2fd25bf2c428049e5c835c59a489b5e0
 - kind: project-relative
   target: copilot
   value: .github/agents/beam-vm-reviewer.agent.md
@@ -985,6 +1003,24 @@ deployments:
   - tylerbutler/agent-marketplace/plugins/gleam
   active_owner: tylerbutler/agent-marketplace/plugins/gleam
   content_hash: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
+- kind: project-relative
+  target: copilot
+  value: .github/agents/crdt-concurrency-expert.agent.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:80e6f2203e31501d0f70c1ecef0f758fa7b4c8f7604b0e9aee884744d0cef47d
+- kind: project-relative
+  target: copilot
+  value: .github/agents/crdt-concurrency-implementer.agent.md
+  runtime: null
+  scope: project
+  owners:
+  - .
+  active_owner: .
+  content_hash: sha256:f9fccce2dc1c114b85c745ecad7dc9902eaac5163d783bbd398eac10d5f85bae
 - kind: project-relative
   target: copilot
   value: .github/agents/erlang-specialist.agent.md
@@ -1030,3 +1066,13 @@ deployments:
   - tylerbutler/apm-base
   active_owner: tylerbutler/apm-base
   content_hash: sha256:bf990755d11f1e73610d9cde3b656aa175c7f63cdd8d069158302c6496a5b77e
+local_deployed_files:
+- .claude/agents/crdt-concurrency-expert.md
+- .claude/agents/crdt-concurrency-implementer.md
+- .github/agents/crdt-concurrency-expert.agent.md
+- .github/agents/crdt-concurrency-implementer.agent.md
+local_deployed_file_hashes:
+  .claude/agents/crdt-concurrency-expert.md: sha256:80e6f2203e31501d0f70c1ecef0f758fa7b4c8f7604b0e9aee884744d0cef47d
+  .claude/agents/crdt-concurrency-implementer.md: sha256:f9fccce2dc1c114b85c745ecad7dc9902eaac5163d783bbd398eac10d5f85bae
+  .github/agents/crdt-concurrency-expert.agent.md: sha256:80e6f2203e31501d0f70c1ecef0f758fa7b4c8f7604b0e9aee884744d0cef47d
+  .github/agents/crdt-concurrency-implementer.agent.md: sha256:f9fccce2dc1c114b85c745ecad7dc9902eaac5163d783bbd398eac10d5f85bae
