@@ -11,6 +11,22 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "windows": "cmd /c if exist \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" hook",
+            "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+            "env": {
+              "IMPECCABLE_HOOK_HARNESS": "vscode"
+            },
+            "statusMessage": "Preparing build session",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" ] || sh \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" hook",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SubagentStart": [
@@ -35,6 +51,42 @@
             "statusMessage": "Tracking ponytail mode...",
             "command": "node -e \"require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT.split(String.fromCharCode(92)).join('/'), 'hooks/ponytail-mode-tracker.js'))\"",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "windows": "cmd /c if exist \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" hook",
+            "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+            "env": {
+              "IMPECCABLE_HOOK_HARNESS": "vscode"
+            },
+            "statusMessage": "Checking UI changes",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" ] || sh \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" hook",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "windows": "cmd /c if exist \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" hook",
+            "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+            "env": {
+              "IMPECCABLE_HOOK_HARNESS": "vscode"
+            },
+            "statusMessage": "Design deep pass",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" ] || sh \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" hook",
+            "timeout": 30
           }
         ]
       }

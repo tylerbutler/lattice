@@ -11,6 +11,23 @@
         }
       ],
       "_apm_source": "dietrichgebert/ponytail"
+    },
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "windows": "cmd /c if exist \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" hook",
+          "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+          "env": {
+            "IMPECCABLE_HOOK_HARNESS": "vscode"
+          },
+          "statusMessage": "Preparing build session",
+          "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" ] || sh \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" hook",
+          "timeout": 5
+        }
+      ],
+      "_apm_source": "pbakaus/impeccable/plugin"
     }
   ],
   "SubagentStart": [
@@ -39,6 +56,44 @@
         }
       ],
       "_apm_source": "dietrichgebert/ponytail"
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {
+          "type": "command",
+          "windows": "cmd /c if exist \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" hook",
+          "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+          "env": {
+            "IMPECCABLE_HOOK_HARNESS": "vscode"
+          },
+          "statusMessage": "Checking UI changes",
+          "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" ] || sh \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" hook",
+          "timeout": 5
+        }
+      ],
+      "_apm_source": "pbakaus/impeccable/plugin"
+    }
+  ],
+  "Stop": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "windows": "cmd /c if exist \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable.cmd\" hook",
+          "commandWindows": "cmd /c if exist \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" \"${CLAUDE_PLUGIN_ROOT}\\skills\\impeccable\\scripts\\impeccable.cmd\" hook",
+          "env": {
+            "IMPECCABLE_HOOK_HARNESS": "vscode"
+          },
+          "statusMessage": "Design deep pass",
+          "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" ] || sh \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plugin/skills/impeccable/scripts/impeccable\" hook",
+          "timeout": 30
+        }
+      ],
+      "_apm_source": "pbakaus/impeccable/plugin"
     }
   ]
 }
