@@ -3,7 +3,7 @@ title: lattice
 description: Conflict-free replicated data types (CRDTs) for Gleam.
 template: splash
 hero:
-  tagline: Conflict-free replicated data types (CRDTs) for Gleam, with property-tested merge semantics.
+  tagline: Use conflict-free replicated data types (CRDTs) in Gleam. Property tests check that replicas agree after a merge.
   image:
     html: |
       <div class="merge-proof">
@@ -14,12 +14,12 @@ hero:
             <tr><th scope="row">At node A</th><td>2</td><td>0</td></tr>
             <tr><th scope="row">At node B</th><td>0</td><td>3</td></tr>
           </tbody>
-          <tfoot><tr><th scope="row">Merged (max)</th><td>2</td><td>3</td></tr></tfoot>
+          <tfoot><tr><th scope="row">Larger count</th><td>2</td><td>3</td></tr></tfoot>
         </table>
-        <p>Read the counter <strong>2 + 3 = 5</strong></p>
+        <p>Counter value <strong>2 + 3 = 5</strong></p>
       </div>
   actions:
-    - text: "Try it in Quick Start"
+    - text: "Run the counter example"
       link: /quick-start/
       icon: right-arrow
       variant: primary
@@ -29,25 +29,25 @@ import { Aside } from '@astrojs/starlight/components';
 
 <section className="convergence-artifact" aria-labelledby="convergence-heading">
 	<div className="convergence-artifact__intro">
-		<p className="convergence-artifact__label">Convergence notebook</p>
+		<p className="convergence-artifact__label">Grow-only counter</p>
 		<h2 id="convergence-heading">Why both nodes read 5</h2>
-		<p>Node A counts 2 events while node B counts 3. When they exchange states, each keeps the larger count for A and the larger count for B. Both read 5. Even if a node receives the same update twice, its total stays at 5.</p>
+		<p>Node A counts 2 events while node B counts 3. When the nodes exchange states, each takes the larger number in each column. Both nodes add 2 and 3 to get 5. Receiving the same state again does not change either count.</p>
 		<nav className="proof-panel__links" aria-label="Understand this proof">
-			<a href="/guides/counters/">Trace the GCounter rule</a>
+			<a href="/guides/counters/">How GCounter merges work</a>
 			<a href="/introduction/#what-is-a-crdt">Why merge order does not change the result</a>
 		</nav>
 	</div>
 
 	<div className="evaluator-panel">
-		<h3 id="evaluator-heading">Evaluating lattice?</h3>
+		<h3 id="evaluator-heading">Where to start</h3>
 		<nav className="evaluator-paths" aria-labelledby="evaluator-heading">
 			<a href="/introduction/">
-				<span>Understand the model</span>
-				<strong>See what CRDT convergence means and where each data type fits.</strong>
+				<span>How replicas converge</span>
+				<strong>Learn how each data type handles independent updates.</strong>
 			</a>
 			<a href="/packages/">
 				<span>Choose a package</span>
-				<strong>Compare the umbrella package with focused dependencies.</strong>
+				<strong>See which types the umbrella includes and which need a separate install.</strong>
 			</a>
 		</nav>
 	</div>
@@ -56,42 +56,42 @@ import { Aside } from '@astrojs/starlight/components';
 <section className="state-shapes" id="state-shapes" aria-labelledby="state-shapes-heading">
 	<div className="state-shapes__header">
 		<h2 id="state-shapes-heading">Choose a CRDT for your data</h2>
-		<p>Start with the data you need to replicate, then choose its package.</p>
+		<p>The umbrella package includes counters, registers, sets, and maps. To track who is online, install the presence package.</p>
 	</div>
 
 	<div className="state-shapes__list">
 		<a href="/guides/counters/">
 			<span>Total</span>
 			<strong>Counters</strong>
-			<em>`lattice_counters` for values that only grow, or grow and shrink.</em>
+			<em>Use `lattice_counters` to count up or to count both up and down.</em>
 		</a>
 		<a href="/guides/registers/">
 			<span>Single value</span>
 			<strong>Registers</strong>
-			<em>`lattice_registers` for last-writer-wins or multi-value conflicts.</em>
+			<em>Use `lattice_registers` to choose a value by timestamp or keep concurrent writes.</em>
 		</a>
 		<div className="membership-routes" role="group" aria-labelledby="membership-label">
 			<span id="membership-label">Membership</span>
 			<a href="/guides/sets/">
 				<strong>Set membership</strong>
-				<em>`lattice_sets` for items in a shared collection.</em>
+				<em>Use `lattice_sets` to track which items belong to a collection.</em>
 			</a>
 			<a href="/guides/presence/">
 				<strong>Who is online?</strong>
-				<em>`lattice_presence` for users and sessions. Install it separately.</em>
+				<em>Install `lattice_presence` to track active users and sessions.</em>
 			</a>
 		</div>
 		<a href="/guides/maps/">
 			<span>Nested state</span>
-			<strong>Maps + text</strong>
-			<em>`lattice_maps`, `lattice_sequence`, and `lattice_text` for keyed or ordered data.</em>
+			<strong>Maps and text</strong>
+			<em>Use `lattice_maps` for keyed data, `lattice_sequence` for lists, and `lattice_text` for text.</em>
 		</a>
 	</div>
 </section>
 
 <Aside type="caution" title="Release status and versioning">
-Check [the umbrella release on Hex](https://hex.pm/packages/lattice_crdt)
-before you upgrade. Published packages use Semantic Versioning.
+Published lattice packages use semantic versioning. Check the
+[umbrella release on Hex](https://hex.pm/packages/lattice_crdt) before you upgrade.
 [Pin the version you tested](/installation/#pin-a-version).
 To try the two unpublished [Fugue packages](/packages/#evaluating-the-fugue-packages),
 use a local checkout.
@@ -99,23 +99,24 @@ use a local checkout.
 
 <section className="prototype-safely" aria-labelledby="prototype-safely-heading">
 	<div>
-		<h2 id="prototype-safely-heading">Prototype safely.</h2>
+		<h2 id="prototype-safely-heading">Test a merge before you upgrade</h2>
 		<p>
-			{`Verify the merge behavior your application depends on, then pin the package versions you validated. Recheck behavior and release notes before upgrading.`}
+			Test the merge rules your application needs and pin the versions that pass.
+			Before an upgrade, read the release notes and run those tests with the new versions.
 		</p>
 	</div>
-	<nav aria-label="Prototype safely">
+	<nav aria-labelledby="prototype-safely-heading">
 		<a href="/quick-start/">
 			<span>Quick Start</span>
-			<strong>Build and merge your first counter.</strong>
+			<strong>Run the two-node counter and check that it prints 5.</strong>
 		</a>
 		<a href="/installation/">
 			<span>Installation</span>
-			<strong>Choose a package, then pin the version you validate.</strong>
+			<strong>Pin the version you tested in `gleam.toml`.</strong>
 		</a>
 		<a href="/introduction/#what-is-a-crdt">
 			<span>Correctness model</span>
-			<strong>Review why independent updates converge.</strong>
+			<strong>See why changing the merge order gives the same result.</strong>
 		</a>
 	</nav>
 </section>

@@ -5,8 +5,8 @@ description: How to install lattice in your Gleam project.
 
 ## Umbrella package (recommended)
 
-From your Gleam project directory, install `lattice_crdt` for the core
-toolkit: counters, registers, sets, maps, sequence, and text.
+Use `lattice_crdt` for counters, registers, sets, maps, sequence, and text.
+Install it from your Gleam project directory:
 
 ```sh
 gleam add lattice_crdt
@@ -14,23 +14,23 @@ gleam add lattice_crdt
 
 ### Pin a version
 
-`gleam add` writes a version range to `gleam.toml`. To keep the exact version
-you tested, replace the `lattice_crdt` entry under `[dependencies]`. For
-example, if you tested **4.0.0**, use:
+`gleam add` writes a version range to `gleam.toml`. To pin a release,
+replace the range under `[dependencies]` with the version you tested.
+For example, if you tested version 4.0.0, use:
 
 ```toml
 [dependencies]
 lattice_crdt = "4.0.0"
 ```
 
-Run `gleam deps download` and check `manifest.toml` for the resolved versions.
-For an application, commit the manifest with `gleam.toml` so other builds use
-the same dependencies. Check the [releases on Hex](https://hex.pm/packages/lattice_crdt)
+Run `gleam deps download`. Check `manifest.toml` for the versions Gleam
+selected. If you are building an application, commit both files so the next
+build uses the same versions. Check the [releases on Hex](https://hex.pm/packages/lattice_crdt)
 before you change the pin.
 
 ### Import modules
 
-Even with the umbrella, use the sub-package names:
+Import each module by its package name:
 
 ```gleam
 import lattice_core/replica_id
@@ -41,8 +41,8 @@ import lattice_maps/or_map
 
 ## Presence
 
-To track [who is online](/guides/presence/), install `lattice_presence`. The
-umbrella does not include it:
+The umbrella does not include presence. To track
+[who is online](/guides/presence/), install `lattice_presence`:
 
 ```sh
 gleam add lattice_presence
@@ -50,31 +50,27 @@ gleam add lattice_presence
 
 ## Individual packages
 
-If you only need one category of CRDT, depend on that package directly:
+If you only need counters, install the counter package:
 
 ```sh
 gleam add lattice_counters
 ```
 
-Transitive dependencies are pulled in automatically. For example,
-`lattice_counters` depends on `lattice_core`, so you can import
-`lattice_core/replica_id` without adding `lattice_core` explicitly.
+Gleam also installs `lattice_core` because `lattice_counters` needs it. You
+can import `lattice_core/replica_id` without a second `gleam add` command.
 
 See [Packages](/packages/) for the full list and dependency diagram.
 
 ## When to choose which
 
-- **`lattice_crdt`** — getting started, prototyping, or using CRDTs from
-  multiple categories.
-- **`lattice_presence`** — topic/key/pid presence tracking with metadata and
-  replica visibility.
-- **Individual packages** — production deployments where you want to minimize
-  dependency count or binary size.
+Start with `lattice_crdt` for a prototype or an application that uses several
+CRDT types. If binary size or dependency count matters, install the individual
+packages you need. Use `lattice_presence` to track processes by topic and key,
+store metadata, and control which replicas are visible.
 
 ## Target runtimes
 
-All packages target both Erlang and JavaScript runtimes, so the same API works
-across both Gleam targets.
+Use the same lattice API on Erlang and JavaScript.
 
-After installing, continue with the [Quick Start](/quick-start/) or browse the
-[guides](/guides/counters/).
+After installation, run the [Quick Start](/quick-start/) or read the
+[Counters guide](/guides/counters/).

@@ -1,19 +1,19 @@
 ---
-title: Package Structure
-description: How lattice is organized into focused packages.
+title: Package structure
+description: Choose which lattice packages to install and which modules to import.
 ---
 
 import PackageCatalog from "../../components/PackageCatalog.astro";
 
 ## Which approach to choose
 
-- For a prototype or several types of CRDT, use `gleam add lattice_crdt`.
+- If you are prototyping or need several CRDT types, run `gleam add lattice_crdt`.
   The umbrella includes the causal core, counters, registers, sets, maps,
   sequence, and text.
-- For one type of CRDT, install its package. For example, use
-  `gleam add lattice_counters` if you only need counters.
-- To track who is online, use `gleam add lattice_presence`. You need this
-  package even if you have the umbrella.
+- If you only need counters, run `gleam add lattice_counters`. You can install
+  other individual packages the same way.
+- To track who is online, run `gleam add lattice_presence`, even if you
+  already use the umbrella.
 
 See [Installation](/installation/) to install a package and pin its version.
 
@@ -52,15 +52,14 @@ graph LR
     lattice_presence
 ```
 
-The only packages with no lattice package dependencies are `lattice_core`,
-`lattice_text_core`, and `lattice_presence`. `lattice_text_core` depends only on
-`gleam_stdlib`; `lattice_core` and `lattice_presence` also depend on
-`gleam_json`.
+Three packages need no other lattice packages. `lattice_text_core` depends
+only on `gleam_stdlib`. Both `lattice_core` and `lattice_presence` depend on
+`gleam_stdlib` and `gleam_json`.
 
 ## Import paths
 
-After `gleam add lattice_crdt`, import the modules you need from their own
-packages. For example:
+After you install the umbrella, use the individual package names in your
+imports. For example:
 
 ```gleam
 import lattice_core/replica_id
@@ -73,7 +72,7 @@ import lattice_text/text
 
 ### Optional presence package
 
-After `gleam add lattice_presence`, use this import to follow the
+Install `lattice_presence` before using the import in the
 [Presence guide](/guides/presence/):
 
 ```gleam
@@ -82,9 +81,9 @@ import lattice_presence/presence_state as presence
 
 ### Evaluating the Fugue packages
 
-`lattice_fugue` and `lattice_text_fugue` are not published to Hex yet. To
-evaluate either package, clone the lattice repository and declare the package as
-a local path dependency in your project's `gleam.toml`:
+Hex does not yet list `lattice_fugue` or `lattice_text_fugue`. To try either
+one, clone the lattice repository. Add the package to your project's
+`gleam.toml` using a path relative to that file:
 
 ```toml
 [dependencies]
