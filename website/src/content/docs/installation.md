@@ -5,13 +5,32 @@ description: How to install lattice in your Gleam project.
 
 ## Umbrella package (recommended)
 
-Install `lattice_crdt` to get every CRDT in one dependency:
+From your Gleam project directory, install `lattice_crdt` for the core
+toolkit: counters, registers, sets, maps, sequence, and text.
 
 ```sh
 gleam add lattice_crdt
 ```
 
-Even with the umbrella, imports use the sub-package names:
+### Pin a version
+
+`gleam add` writes a version range to `gleam.toml`. To keep the exact version
+you tested, replace the `lattice_crdt` entry under `[dependencies]`. For
+example, if you tested **4.0.0**, use:
+
+```toml
+[dependencies]
+lattice_crdt = "4.0.0"
+```
+
+Run `gleam deps download` and check `manifest.toml` for the resolved versions.
+For an application, commit the manifest with `gleam.toml` so other builds use
+the same dependencies. Check the [releases on Hex](https://hex.pm/packages/lattice_crdt)
+before you change the pin.
+
+### Import modules
+
+Even with the umbrella, use the sub-package names:
 
 ```gleam
 import lattice_core/replica_id
@@ -20,7 +39,10 @@ import lattice_registers/lww_register
 import lattice_maps/or_map
 ```
 
-Install `lattice_presence` separately when you need distributed presence:
+## Presence
+
+To track [who is online](/guides/presence/), install `lattice_presence`. The
+umbrella does not include it:
 
 ```sh
 gleam add lattice_presence

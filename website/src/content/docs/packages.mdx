@@ -5,9 +5,17 @@ description: How lattice is organized into focused packages.
 
 import PackageCatalog from "../../components/PackageCatalog.astro";
 
-lattice is organized as a family of focused packages for CRDTs and their shared
-infrastructure. You can depend on the `lattice_crdt` umbrella for the core
-toolkit, or pick individual packages for a smaller dependency graph.
+## Which approach to choose
+
+- For a prototype or several types of CRDT, use `gleam add lattice_crdt`.
+  The umbrella includes the causal core, counters, registers, sets, maps,
+  sequence, and text.
+- For one type of CRDT, install its package. For example, use
+  `gleam add lattice_counters` if you only need counters.
+- To track who is online, use `gleam add lattice_presence`. You need this
+  package even if you have the umbrella.
+
+See [Installation](/installation/) to install a package and pin its version.
 
 ## Packages
 
@@ -51,8 +59,8 @@ The only packages with no lattice package dependencies are `lattice_core`,
 
 ## Import paths
 
-In Gleam, imports come from the package name. Even when you install the umbrella
-`lattice_crdt`, you import from the sub-package names:
+After `gleam add lattice_crdt`, import the modules you need from their own
+packages. For example:
 
 ```gleam
 import lattice_core/replica_id
@@ -60,28 +68,17 @@ import lattice_counters/g_counter
 import lattice_sets/or_set
 import lattice_maps/or_map
 import lattice_sequence/sequence
-import lattice_fugue/sequence
 import lattice_text/text
-import lattice_text_core/grapheme
-import lattice_text_fugue/text
-import lattice_presence/presence_state
 ```
 
-## Which approach to choose
+### Optional presence package
 
-**Start with `lattice_crdt`** if you are getting started, prototyping, or using
-CRDTs from multiple categories. It includes the causal core, counters,
-registers, sets, maps, the YATA-style sequence, and its text wrapper.
+After `gleam add lattice_presence`, use this import to follow the
+[Presence guide](/guides/presence/):
 
-**Pick individual packages** when binary size or dependency count matters, or
-when you only need one category of CRDT. For example, if you only need counters:
-
-```sh
-gleam add lattice_counters
+```gleam
+import lattice_presence/presence_state as presence
 ```
-
-Add `lattice_presence` separately when you need distributed presence. It has no
-lattice package dependencies and is not included in the `lattice_crdt` umbrella.
 
 ### Evaluating the Fugue packages
 
@@ -95,8 +92,10 @@ lattice_fugue = { path = "../lattice/packages/lattice_fugue" }
 lattice_text_fugue = { path = "../lattice/packages/lattice_text_fugue" }
 ```
 
-Keep only the dependency or dependencies you need. Paths are relative to your
-project's `gleam.toml`, so adjust them for the location of your lattice clone.
-Do not use `gleam add` for these unreleased packages.
+Keep the entries you need and adjust the paths to match your clone. Use the
+import for the package you added:
 
-See [Installation](/installation/) for full details.
+```gleam
+import lattice_fugue/sequence
+import lattice_text_fugue/text
+```

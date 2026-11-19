@@ -2,16 +2,12 @@
 import DefaultTableOfContents from "@astrojs/starlight/components/TableOfContents.astro";
 
 const { toc } = Astro.locals.starlightRoute;
-const itemCount = toc?.items.length ?? 0;
 ---
 
 {
 	toc && (
 		<div class="reading-path">
 			<p class="reading-path__label">Reading path</p>
-			<p class="reading-path__count">
-				{itemCount === 1 ? "1 stop" : `${itemCount} stops`}
-			</p>
 			<DefaultTableOfContents />
 		</div>
 	)
@@ -26,23 +22,13 @@ const itemCount = toc?.items.length ?? 0;
 		background: var(--lattice-panel-raised);
 	}
 
-	.reading-path__label,
-	.reading-path__count {
-		margin: 0;
-	}
-
 	.reading-path__label {
+		margin: 0;
 		color: var(--sl-color-gray-1);
 		font-family: var(--sl-font-headings);
 		font-size: 0.96rem;
 		font-weight: 700;
 		letter-spacing: -0.02em;
-	}
-
-	.reading-path__count {
-		margin-top: 0.1rem;
-		color: var(--lattice-text-muted);
-		font-size: 0.78rem;
 	}
 
 	.reading-path :global(#starlight__on-this-page) {
