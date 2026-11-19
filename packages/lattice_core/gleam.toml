@@ -1,5 +1,5 @@
 name = "lattice_core"
-version = "2.0.0"
+version = "2.0.1"
 description = "Core types for lattice CRDTs — version vectors, dot contexts, and causal infrastructure"
 licences = ["MIT"]
 repository = { type = "github", user = "tylerbutler", repo = "lattice" }

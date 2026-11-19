@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.1 - 2026-11-18
+
+### Fixed
+
+#### Fix false same-replica conflicts after JSON round-trips
+
+Same-replica merges now ignore JSON object key order in metadata, including objects nested in arrays. Changed values or array order still cause a `SameReplica` error on both Erlang and JavaScript.
+#### Keep merge diffs consistent with local replica visibility
+
+`merge_with_diff` no longer emits joins or leaves for entries hidden by `replica_down`. Merges retain replicated data and causal history, so `replica_up` reports only entries that are still present.
+#### Reject invalid presence snapshots with uncovered or duplicate live tags
+
+`from_json` and `decoder` now return an error if live tags repeat or lack coverage in the causal context or sparse clouds. This prevents entries that cannot be removed and local clock reuse after loading; sparse cloud gaps remain valid.
+
 ## v2.0.0 - 2026-09-11
 
 ### Breaking

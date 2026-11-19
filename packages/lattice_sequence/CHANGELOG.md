@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v2.0.1 - 2026-11-18
+
+### Fixed
+
+#### Honor visible insertion indices after moving sequence items
+
+Single and batch inserts now use the requested visible gap after moves, including during delta replay and snapshot merges. Compaction retains deleted move records and their target-gap boundaries to preserve item order, so those records continue to use storage. Public APIs and the snapshot schema are unchanged.
+#### Prevent JavaScript stack overflows in large sequence edits and reads
+
+Large sequences now support deletion, moves, reads and edits after moves, and compaction without overflowing the JavaScript call stack. Public APIs and snapshot formats are unchanged.
+#### Reject duplicate decoded sequence identities
+
+`from_json` now returns an error for repeated item IDs, overlapping compact blocks, duplicate forwarding keys, and IDs that are both retained and forwarded. This prevents data loss during merge. The checks apply to v1 and v2 snapshots; sparse deltas with missing origins remain valid.
+
+### Performance
+
+#### Speed up merges of large uncompacted sequences by batching tail-linked items without changing conflict resolution
+
+### Dependencies
+
+#### Updated lattice_core to 2.0.1
+
 ## v2.0.0 - 2026-09-11
 
 ### Breaking

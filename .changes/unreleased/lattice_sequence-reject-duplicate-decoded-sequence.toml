@@ -1,6 +1,0 @@
-package = "lattice_sequence"
-kind = "Fixed"
-body = """
-Reject duplicate decoded sequence identities
-
-`from_json` now returns an error for repeated item IDs, overlapping compact blocks, duplicate forwarding keys, and IDs that are both retained and forwarded. This prevents data loss during merge. The checks apply to v1 and v2 snapshots; sparse deltas with missing origins remain valid."""

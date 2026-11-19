@@ -1,3 +1,0 @@
-package = "lattice_text"
-kind = "Performance"
-body = "Speed up large text merges through the shared sequence ordering engine"
