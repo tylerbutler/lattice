@@ -81,17 +81,17 @@ import lattice_presence/presence_state as presence
 
 ### Evaluating the Fugue packages
 
-Hex does not yet list `lattice_fugue` or `lattice_text_fugue`. To try either
-one, clone the lattice repository. Add the package to your project's
-`gleam.toml` using a path relative to that file:
+Hex does not yet list `lattice_fugue` or `lattice_text_fugue`. With Gleam
+1.18 or later, add the package you need as a Git dependency in `gleam.toml`.
+The `path` starts at the root of the Git repository:
 
 ```toml
 [dependencies]
-lattice_fugue = { path = "../lattice/packages/lattice_fugue" }
-lattice_text_fugue = { path = "../lattice/packages/lattice_text_fugue" }
+lattice_fugue = { git = "https://github.com/tylerbutler/lattice.git", ref = "main", path = "packages/lattice_fugue" }
+lattice_text_fugue = { git = "https://github.com/tylerbutler/lattice.git", ref = "main", path = "packages/lattice_text_fugue" }
 ```
 
-Keep the entries you need and adjust the paths to match your clone. Use the
+To pin the revision you tested, replace `main` with its commit hash. Use the
 import for the package you added:
 
 ```gleam
