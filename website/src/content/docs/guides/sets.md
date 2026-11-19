@@ -3,11 +3,9 @@ title: Sets
 description: Using GSet, TwoPSet, and ORSet for distributed collections.
 ---
 
-Sets are provided by the `lattice_sets` package. If you installed the
-`lattice_crdt` umbrella, they are already available.
-
-Use sets when replicas need to track membership and later merge without
-coordination.
+Use `lattice_sets` to track which items belong to a collection. The
+`lattice_crdt` umbrella includes this package. To track online users or active
+sessions, use [Presence](/guides/presence/).
 
 ## GSet (Grow-only Set)
 

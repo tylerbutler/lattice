@@ -1,13 +1,21 @@
 ---
-title: Package Structure
-description: How lattice is organized into focused packages.
+title: Package structure
+description: Choose which lattice packages to install and which modules to import.
 ---
 
 import PackageCatalog from "../../components/PackageCatalog.astro";
 
-lattice is organized as a family of focused packages for CRDTs and their shared
-infrastructure. You can depend on the `lattice_crdt` umbrella for the core
-toolkit, or pick individual packages for a smaller dependency graph.
+## Which approach to choose
+
+- If you are prototyping or need several CRDT types, run `gleam add lattice_crdt`.
+  The umbrella includes the causal core, counters, registers, sets, maps,
+  sequence, and text.
+- If you only need counters, run `gleam add lattice_counters`. You can install
+  other individual packages the same way.
+- To track who is online, run `gleam add lattice_presence`, even if you
+  already use the umbrella.
+
+See [Installation](/installation/) to install a package and pin its version.
 
 ## Packages
 
@@ -44,15 +52,14 @@ graph LR
     lattice_presence
 ```
 
-The only packages with no lattice package dependencies are `lattice_core`,
-`lattice_text_core`, and `lattice_presence`. `lattice_text_core` depends only on
-`gleam_stdlib`; `lattice_core` and `lattice_presence` also depend on
-`gleam_json`.
+Three packages need no other lattice packages. `lattice_text_core` depends
+only on `gleam_stdlib`. Both `lattice_core` and `lattice_presence` depend on
+`gleam_stdlib` and `gleam_json`.
 
 ## Import paths
 
-In Gleam, imports come from the package name. Even when you install the umbrella
-`lattice_crdt`, you import from the sub-package names:
+After you install the umbrella, use the individual package names in your
+imports. For example:
 
 ```gleam
 import lattice_core/replica_id
@@ -60,43 +67,34 @@ import lattice_counters/g_counter
 import lattice_sets/or_set
 import lattice_maps/or_map
 import lattice_sequence/sequence
-import lattice_fugue/sequence
 import lattice_text/text
-import lattice_text_core/grapheme
-import lattice_text_fugue/text
-import lattice_presence/presence_state
 ```
 
-## Which approach to choose
+### Optional presence package
 
-**Start with `lattice_crdt`** if you are getting started, prototyping, or using
-CRDTs from multiple categories. It includes the causal core, counters,
-registers, sets, maps, the YATA-style sequence, and its text wrapper.
+Install `lattice_presence` before using the import in the
+[Presence guide](/guides/presence/):
 
-**Pick individual packages** when binary size or dependency count matters, or
-when you only need one category of CRDT. For example, if you only need counters:
-
-```sh
-gleam add lattice_counters
+```gleam
+import lattice_presence/presence_state as presence
 ```
-
-Add `lattice_presence` separately when you need distributed presence. It has no
-lattice package dependencies and is not included in the `lattice_crdt` umbrella.
 
 ### Evaluating the Fugue packages
 
-`lattice_fugue` and `lattice_text_fugue` are not published to Hex yet. To
-evaluate either package, clone the lattice repository and declare the package as
-a local path dependency in your project's `gleam.toml`:
+Hex does not yet list `lattice_fugue` or `lattice_text_fugue`. With Gleam
+1.18 or later, add the package you need as a Git dependency in `gleam.toml`.
+The `path` starts at the root of the Git repository:
 
 ```toml
 [dependencies]
-lattice_fugue = { path = "../lattice/packages/lattice_fugue" }
-lattice_text_fugue = { path = "../lattice/packages/lattice_text_fugue" }
+lattice_fugue = { git = "https://github.com/tylerbutler/lattice.git", ref = "main", path = "packages/lattice_fugue" }
+lattice_text_fugue = { git = "https://github.com/tylerbutler/lattice.git", ref = "main", path = "packages/lattice_text_fugue" }
 ```
 
-Keep only the dependency or dependencies you need. Paths are relative to your
-project's `gleam.toml`, so adjust them for the location of your lattice clone.
-Do not use `gleam add` for these unreleased packages.
+To pin the revision you tested, replace `main` with its commit hash. Use the
+import for the package you added:
 
-See [Installation](/installation/) for full details.
+```gleam
+import lattice_fugue/sequence
+import lattice_text_fugue/text
+```
