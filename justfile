@@ -101,8 +101,27 @@ licence-audit *ARGS:
     trellis run licence-audit --serial {{ ARGS }}
 
 # Generate reproducible CycloneDX SBOMs for workspace members, including dev dependencies
-sbom *ARGS:
-    trellis run sbom --serial {{ ARGS }}
+[positional-arguments]
+sbom *PACKAGES:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="$PWD"
+    members="$(trellis list --json)"
+    selected="$(jq -er --args '
+      .packages as $members
+      | if $ARGS.positional == [] then $members[]
+        else $ARGS.positional[] as $name
+          | (($members[] | select(.name == $name)) // error("Unknown package: " + $name))
+        end
+      | [.name, .path] | @tsv
+    ' <<< "$members" "$@")"
+    mkdir -p "$root/build/sbom"
+    cd "$root/tools/audit"
+    while IFS=$'\t' read -r name path; do
+      gleam run --target erlang -m licence_audit -- sbom \
+        --manifest="$root/$path/manifest.toml" --reproducible \
+        --output="$root/build/sbom/$name.cdx.json"
+    done <<< "$selected"
 
 # === DOCUMENTATION ===
 
