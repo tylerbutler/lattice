@@ -94,11 +94,10 @@ the attestations before verification is possible.
 ### Dependency SBOMs
 
 Run `just sbom` to generate a reproducible CycloneDX 1.6 JSON document for
-each of the 13 workspace members, including examples. To select one member,
-run `just sbom lattice_counters`. The Just recipe uses `trellis list --json`
-for member discovery and `jq` for package selection; install `jq` on your
-PATH. Just runs the existing `tools/audit` runner serially and writes
-`build/sbom/<member>.cdx.json`.
+each of the 13 workspace members, including examples. The Just recipe reads
+member paths with `trellis list --json` and `jq`, then runs the existing
+`tools/audit` runner serially. It writes `build/sbom/<member>.cdx.json`.
+Install `jq` on your PATH.
 
 Each document describes that member's complete locked dependency graph.
 It includes local path components and development dependencies, with
