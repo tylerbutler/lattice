@@ -14,6 +14,9 @@ needs_deps = true
 [tools.trellis.tasks.licence-audit]
 command = "manifest=\"$PWD/manifest.toml\"; root=\"$(git rev-parse --show-toplevel)\"; cd \"$root/tools/audit\" && gleam run --target erlang -m licence_audit -- check --checks=all --manifest=\"$manifest\" --config=\"$root/gleam.toml\""
 
+[tools.trellis.tasks.sbom]
+command = "manifest=\"$PWD/manifest.toml\"; root=\"$(git rev-parse --show-toplevel)\"; output=\"$root/build/sbom/$(basename \"$PWD\").cdx.json\"; mkdir -p \"$root/build/sbom\" && cd \"$root/tools/audit\" && gleam run --target erlang -m licence_audit -- sbom --manifest=\"$manifest\" --reproducible --output=\"$output\""
+
 [tools.trellis.publish]
 exact_tag_format = "{name}-v{version}"
 path_dep_requirement = "minor"
