@@ -97,6 +97,13 @@ Run `just sbom` to generate a reproducible CycloneDX 1.6 JSON document for
 each of the 13 workspace members, including examples. To select one member,
 run `just sbom lattice_counters`. Trellis runs the existing `tools/audit`
 runner serially and writes `build/sbom/<member>.cdx.json`.
+The task calls `tools/audit/sbom.sh` from each member directory. You can also
+run the script directly, for example:
+
+```sh
+cd packages/lattice_counters
+../../tools/audit/sbom.sh
+```
 
 Each document describes that member's complete locked dependency graph.
 It includes local path components and development dependencies, with
