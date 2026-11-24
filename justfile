@@ -100,6 +100,10 @@ licence-audit *ARGS:
     cd tools/audit && gleam run --target erlang -m licence_audit -- check --checks=all
     trellis run licence-audit --serial {{ ARGS }}
 
+# Generate reproducible CycloneDX SBOMs for workspace members, including dev dependencies
+sbom *ARGS:
+    trellis run sbom --serial {{ ARGS }}
+
 # === DOCUMENTATION ===
 
 # Build documentation for published packages without bursting the Hex API
@@ -143,10 +147,11 @@ examples:
 
 # === CI ===
 
-# Run all CI checks (doctor, dependency audit, format, check, lint, test, build strict)
+# Run all CI checks (doctor, dependency audit, SBOM, format, check, lint, test, build strict)
 ci:
     trellis doctor
     just licence-audit
+    just sbom
     trellis run format --check
     trellis run check
     trellis run lint

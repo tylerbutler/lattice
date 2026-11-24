@@ -13,7 +13,7 @@ Ensure you have the following installed:
 | just | 1.38.0+ | Task runner (thin delegation layer) |
 | Rebar3 | 3.28.0 | Build Erlang dependencies of the audit tooling |
 | [trellis](https://github.com/tylerbutler/trellis) | 1.6.1 | Workspace CLI: task fan-out, changelog, versioning, publishing |
-| [licence_audit](https://licence-audit.tylerbutler.com) | Git `main` (locked commit) | Development dependency for licence and vulnerability checks |
+| [licence_audit](https://licence-audit.tylerbutler.com) | Git `main` (locked commit) | Development dependency for licence, vulnerability, and SBOM commands |
 
 Use [mise](https://mise.jdx.dev/) — `.mise.toml` is the single source for the
 local and CI toolchain, including trellis via the `github:` backend.
@@ -35,6 +35,10 @@ project keeps its Erlang-only dependencies out of published packages and
 JavaScript builds.
 Its `cowlib`, `gun`, and `cvss` dependencies require `rebar3`; mise installs
 the pinned `rebar` tool from `.mise.toml` locally and in CI.
+Use this runner for SBOMs as well as audits. The locked Git source supports
+local path dependencies; the stable GitHub CLI `v0.15.0` does not. Keep the
+tooling lockfile until a compatible upgrade is verified. Do not install a
+second audit CLI through mise or add the tooling dependencies to a member.
 
 ### Dependency policy and CI evidence
 
@@ -67,7 +71,8 @@ not published Hex packages or deployment artifacts.
 
 Only direct pushes to this repository's `main` branch through `ci.yml` generate
 GitHub SLSA provenance. A separate job downloads this run's archives without
-executing their contents and attests the SHA-256 digest of each archive file.
+executing their contents, downloads the SBOMs, and attests the SHA-256 digest
+of each file.
 PRs, forks, and reusable-workflow callers receive no provenance signing
 permissions. The `lattice-ci-provenance` artifact retains the attestation bundle.
 The release workflows retain their existing publication and tagging behavior.
@@ -86,15 +91,61 @@ the archive bytes, not GitHub's artifact download ZIP. Local workflow checks
 cannot exercise hosted OIDC signing; a successful main-branch run must generate
 the attestations before verification is possible.
 
-**SBOM CI work remains paused.** licence_audit `main` includes local path
-dependency support from
-[tylerbutler/licence_audit#258](https://github.com/tylerbutler/licence_audit/issues/258)
-and verifies Hex publication identities without claiming that local files
-match release archives. The pinned Gleam 1.19.2 compiler avoids the Erlang
-string-guard miscompilation in 1.18.0, and the local reproducible SBOM check
-for `lattice_counters` succeeds. The compatibility report is
-[tylerbutler/licence_audit#293](https://github.com/tylerbutler/licence_audit/issues/293).
-This change does not add CI SBOM generation or SBOM attestations.
+### Dependency SBOMs
+
+Run `just sbom` to generate a reproducible CycloneDX 1.6 JSON document for
+each of the 13 workspace members, including examples. To select one member,
+run `just sbom lattice_counters`. Trellis runs the existing `tools/audit`
+runner serially and writes `build/sbom/<member>.cdx.json`.
+The task calls `tools/audit/sbom.sh` from each member directory. You can also
+run the script directly, for example:
+
+```sh
+cd packages/lattice_counters
+../../tools/audit/sbom.sh
+```
+
+Each document describes that member's complete locked dependency graph.
+It includes local path components and development dependencies, with
+production components marked `required` and development-only components
+marked `optional`. The SBOMs exclude the separate audit tooling project's
+dependencies. `just licence-audit` still checks those dependencies under
+the tooling policy.
+
+The CI audit job runs `just sbom` after the licence and vulnerability checks
+and uploads `lattice-sbom` on pushes and PRs. `just ci` also runs generation.
+Download the files from a successful CI run:
+
+```sh
+gh run download <run-id> --repo tylerbutler/lattice --name lattice-sbom
+```
+
+Generation uses `--reproducible` without embedding mutable vulnerability data.
+Keep `just licence-audit` as the policy check; SBOM generation does not
+evaluate that policy. Matching manifests, local metadata, publication
+evidence, tool version, options, and `SOURCE_DATE_EPOCH` produce identical
+output. The timestamp defaults to the Unix epoch when you omit that variable.
+Required metadata or publication lookup failures stop generation.
+
+A verified Hex purl for a local component confirms publication of its name
+and version. It does not prove that local files match the release archive.
+The tool emits no archive hash for local components. These documents describe
+dependencies, not the bytes in the CI build archives.
+
+For direct pushes to `main`, the existing CI provenance job also attests the
+SBOM document bytes. Download `lattice-sbom` and `lattice-ci-provenance` from
+the same successful run, then verify a document:
+
+```sh
+gh attestation verify lattice_counters.cdx.json --repo tylerbutler/lattice
+# Or verify against the downloaded provenance bundle:
+gh attestation verify lattice_counters.cdx.json --bundle <bundle-path>
+```
+
+This provenance records the document digest and workflow revision. It is
+not an SBOM attestation linking the dependency graph to a compiled archive.
+PRs, forks, and reusable-workflow callers receive no SBOM attestations.
+The release workflows do not attach or generate these documents.
 
 ## Getting Started
 
