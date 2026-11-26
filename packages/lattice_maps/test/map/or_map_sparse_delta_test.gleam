@@ -21,11 +21,11 @@ pub fn nested_sparse_thousand_and_ten_thousand_items_test() {
     let encoded = or_map.delta_to_json_with(delta, json.int) |> json.to_string
     fixture.version(snapshot)
     |> fn(assertion_actual) {
-      let assert True = assertion_actual == 3
+      let assert True = assertion_actual == 4
     }
     fixture.version(encoded)
     |> fn(assertion_actual) {
-      let assert True = assertion_actual == 2
+      let assert True = assertion_actual == 3
     }
     { string.byte_size(encoded) * 10 < string.byte_size(snapshot) }
     |> fn(value) {

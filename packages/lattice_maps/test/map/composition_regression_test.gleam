@@ -11,6 +11,7 @@ import lattice_sequence/sequence
 import lattice_sets/g_set
 import lattice_sets/or_set
 import lattice_text/text
+import support/composition_fixture as fixture
 
 fn rid(value: String) {
   replica_id.new(value)
@@ -24,7 +25,10 @@ fn membership(map: or_map.ORMap(String), key: String) {
           "entries",
           decode.list({
             use key <- decode.field("key", decode.string)
-            use membership <- decode.field("membership", decode.string)
+            use membership <- decode.field(
+              "membership",
+              fixture.encoded_json_decoder(),
+            )
             decode.success(#(key, membership))
           }),
         )
@@ -313,7 +317,7 @@ pub fn reset_nochange_register_initialization_is_carried_by_generation_delta_tes
         use children <- decode.field(
           "entries",
           decode.list({
-            use value <- decode.field("value", decode.string)
+            use value <- decode.field("value", fixture.encoded_json_decoder())
             decode.success(value)
           }),
         )

@@ -1,0 +1,6 @@
+package = "lattice_maps"
+kind = "Breaking"
+body = """
+Prevent exponential growth in recursive JSON serialization
+
+Embed nested schemas, snapshots, Text wrappers, and sparse deltas as structured JSON to fix exponential escaping growth. Earlier readers reject this output: upgrade readers before sending map snapshots v4, ORMap deltas v3, or dispatch deltas, Text wrappers, and schemas v2. New readers accept the earlier string-embedded formats; standalone leaf formats and legacy import APIs stay unchanged."""

@@ -6,6 +6,7 @@
 
 import gleam/bool
 import gleam/dict
+import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/int
 import gleam/json.{type Json}
@@ -1045,12 +1046,28 @@ fn check_envelope(
   kind: String,
   versions: List(Int),
 ) -> Result(Nil, json.DecodeError) {
+  use input <- result.try(json.parse(input, decode.dynamic))
+  check_value_envelope(input, kind, versions)
+}
+
+fn decode_value(
+  input: Dynamic,
+  decoder: Decoder(a),
+) -> Result(a, json.DecodeError) {
+  decode.run(input, decoder) |> result.map_error(json.UnableToDecode)
+}
+
+fn check_value_envelope(
+  input: Dynamic,
+  kind: String,
+  versions: List(Int),
+) -> Result(Nil, json.DecodeError) {
   let decoder = {
     use tag <- decode.field("type", decode.string)
     use version <- decode.field("v", decode.int)
     decode.success(#(tag, version))
   }
-  use #(tag, version) <- result.try(json.parse(input, decoder))
+  use #(tag, version) <- result.try(decode_value(input, decoder))
   case tag == kind && list.contains(versions, version) {
     True -> Ok(Nil)
     False ->
@@ -1064,8 +1081,40 @@ fn check_envelope(
   }
 }
 
-fn embedded(value: Json) -> Json {
-  json.string(json.to_string(value))
+// Only structural fields use this adapter. Application Strings stay untouched.
+fn embedded_value(input: Dynamic) -> Result(Dynamic, json.DecodeError) {
+  case dynamic.classify(input) {
+    "String" -> {
+      use encoded <- result.try(decode_value(input, decode.string))
+      json.parse(encoded, decode.dynamic)
+    }
+    _ -> Ok(input)
+  }
+}
+
+// Standalone leaf APIs accept Strings. Re-encode only at that boundary, never
+// at recursive schema, map, or dispatch wrappers.
+fn leaf_json_decoder() -> Decoder(Json) {
+  use <- decode.recursive
+  decode.one_of(decode.map(decode.string, json.string), [
+    decode.map(decode.int, json.int),
+    decode.map(decode.float, json.float),
+    decode.map(decode.bool, json.bool),
+    decode.map(decode.optional(decode.string), fn(_) { json.null() }),
+    decode.map(decode.list(leaf_json_decoder()), json.preprocessed_array),
+    decode.map(
+      decode.dict(decode.string, leaf_json_decoder()),
+      json.dict(_, fn(key) { key }, fn(value) { value }),
+    ),
+  ])
+}
+
+fn parse_leaf(
+  input: Dynamic,
+  parser: fn(String) -> Result(a, json.DecodeError),
+) -> Result(a, json.DecodeError) {
+  use value <- result.try(decode_value(input, leaf_json_decoder()))
+  parser(json.to_string(value))
 }
 
 fn optional_json(value: option.Option(a), encode: fn(a) -> Json) -> Json {
@@ -1076,11 +1125,14 @@ fn optional_json(value: option.Option(a), encode: fn(a) -> Json) -> Json {
 }
 
 fn parse_optional(
-  value: option.Option(String),
-  parser: fn(String) -> Result(a, json.DecodeError),
+  value: option.Option(Dynamic),
+  parser: fn(Dynamic) -> Result(a, json.DecodeError),
 ) -> Result(option.Option(a), json.DecodeError) {
   case value {
-    Some(value) -> result.map(parser(value), Some)
+    Some(value) -> {
+      use value <- result.try(embedded_value(value))
+      result.map(parser(value), Some)
+    }
     None -> Ok(None)
   }
 }
@@ -1097,6 +1149,9 @@ fn unique_pairs(
 
 /// Encode a recursive schema, including the register's configured initial value.
 ///
+/// Version 2 embeds child schemas as objects. Readers also accept the earlier
+/// unversioned schemas with string-embedded children.
+///
 /// ## Examples
 ///
 /// ```gleam
@@ -1108,11 +1163,15 @@ pub fn spec_to_json_with(spec: CrdtSpec(a), encode: fn(a) -> Json) -> Json {
   let fields = case spec {
     LwwRegisterSpec(initial) -> [#("initial", encode(initial))]
     OrMapSpec(child) | LwwMapSpec(child) -> [
-      #("child", embedded(spec_to_json_with(child, encode))),
+      #("child", spec_to_json_with(child, encode)),
     ]
     _ -> []
   }
-  json.object([#("type", json.string(spec_name(spec))), ..fields])
+  json.object([
+    #("type", json.string(spec_name(spec))),
+    #("v", json.int(2)),
+    ..fields
+  ])
 }
 
 /// Decode a complete recursive schema.
@@ -1131,17 +1190,30 @@ pub fn spec_from_json_with(
   input: String,
   decoder: Decoder(a),
 ) -> Result(CrdtSpec(a), json.DecodeError) {
-  use kind <- result.try(
-    json.parse(input, {
+  use input <- result.try(json.parse(input, decode.dynamic))
+  spec_from_value(input, decoder)
+}
+
+fn spec_from_value(
+  input: Dynamic,
+  decoder: Decoder(a),
+) -> Result(CrdtSpec(a), json.DecodeError) {
+  use #(kind, version) <- result.try(
+    decode_value(input, {
       use kind <- decode.field("type", decode.string)
-      decode.success(kind)
+      use version <- decode.optional_field("v", 1, decode.int)
+      decode.success(#(kind, version))
     }),
+  )
+  use <- bool.guard(
+    version != 1 && version != 2,
+    Error(invalid("schema v=1 or v=2", int.to_string(version), ["v"])),
   )
   case kind {
     "g_counter" -> Ok(GCounterSpec)
     "pn_counter" -> Ok(PnCounterSpec)
     "lww_register" ->
-      json.parse(input, {
+      decode_value(input, {
         use initial <- decode.field("initial", decoder)
         decode.success(LwwRegisterSpec(initial))
       })
@@ -1153,12 +1225,13 @@ pub fn spec_from_json_with(
     "text" -> Ok(TextSpec)
     "or_map" | "lww_map" -> {
       use child <- result.try(
-        json.parse(input, {
-          use child <- decode.field("child", decode.string)
+        decode_value(input, {
+          use child <- decode.field("child", decode.dynamic)
           decode.success(child)
         }),
       )
-      use child <- result.try(spec_from_json_with(child, decoder))
+      use child <- result.try(embedded_value(child))
+      use child <- result.try(spec_from_value(child, decoder))
       Ok(case kind {
         "or_map" -> OrMapSpec(child)
         _ -> LwwMapSpec(child)
@@ -1172,6 +1245,8 @@ pub fn spec_from_json_with(
 ///
 /// Maps use the modern recursive protocols. Text uses a distinct dispatch
 /// wrapper around its unchanged standalone Sequence envelope.
+/// Upgrade readers before sending the new structured protocol versions:
+/// map snapshots v4, ORMap deltas v3, dispatch deltas and Text wrappers v2.
 ///
 /// ## Examples
 ///
@@ -1212,7 +1287,7 @@ pub fn to_json_with(value: Crdt(a), encode: fn(a) -> Json) -> Json {
     CrdtOrSet(value) -> or_set.to_json_with(value, encode)
     CrdtVersionVector(value) -> version_vector.to_json(value)
     CrdtSequence(value) -> sequence.to_json(value, encode)
-    CrdtText(value) -> envelope("text", 1, embedded(text.to_json(value)))
+    CrdtText(value) -> envelope("text", 2, text.to_json(value))
     CrdtOrMap(value) -> or_to_json_with(value, encode)
     CrdtLwwMap(value) -> lww_to_json_with(value, encode)
   }
@@ -1283,33 +1358,59 @@ pub fn from_json_with(
   input: String,
   decoder: Decoder(a),
 ) -> Result(Crdt(a), json.DecodeError) {
-  use kind <- result.try(dispatch_tag(input))
+  use input <- result.try(json.parse(input, decode.dynamic))
+  from_value(input, decoder)
+}
+
+fn from_value(
+  input: Dynamic,
+  decoder: Decoder(a),
+) -> Result(Crdt(a), json.DecodeError) {
+  use kind <- result.try(
+    decode_value(input, {
+      use kind <- decode.field("type", decode.string)
+      decode.success(kind)
+    }),
+  )
   case kind {
-    "g_counter" -> g_counter.from_json(input) |> result.map(CrdtGCounter)
-    "pn_counter" -> pn_counter.from_json(input) |> result.map(CrdtPnCounter)
+    "g_counter" ->
+      parse_leaf(input, g_counter.from_json) |> result.map(CrdtGCounter)
+    "pn_counter" ->
+      parse_leaf(input, pn_counter.from_json) |> result.map(CrdtPnCounter)
     "lww_register" ->
-      lww_register.from_json_with(input, decoder) |> result.map(CrdtLwwRegister)
+      parse_leaf(input, lww_register.from_json_with(_, decoder))
+      |> result.map(CrdtLwwRegister)
     "mv_register" ->
-      mv_register.from_json_with(input, decoder) |> result.map(CrdtMvRegister)
-    "g_set" -> g_set.from_json_with(input, decoder) |> result.map(CrdtGSet)
+      parse_leaf(input, mv_register.from_json_with(_, decoder))
+      |> result.map(CrdtMvRegister)
+    "g_set" ->
+      parse_leaf(input, g_set.from_json_with(_, decoder))
+      |> result.map(CrdtGSet)
     "two_p_set" ->
-      two_p_set.from_json_with(input, decoder) |> result.map(CrdtTwoPSet)
-    "or_set" -> or_set.from_json_with(input, decoder) |> result.map(CrdtOrSet)
+      parse_leaf(input, two_p_set.from_json_with(_, decoder))
+      |> result.map(CrdtTwoPSet)
+    "or_set" ->
+      parse_leaf(input, or_set.from_json_with(_, decoder))
+      |> result.map(CrdtOrSet)
     "version_vector" ->
-      version_vector.from_json(input) |> result.map(CrdtVersionVector)
-    "sequence" -> sequence.from_json(input, decoder) |> result.map(CrdtSequence)
+      parse_leaf(input, version_vector.from_json)
+      |> result.map(CrdtVersionVector)
+    "sequence" ->
+      parse_leaf(input, sequence.from_json(_, decoder))
+      |> result.map(CrdtSequence)
     "text" -> {
-      use _ <- result.try(check_envelope(input, "text", [1]))
+      use _ <- result.try(check_value_envelope(input, "text", [1, 2]))
       use payload <- result.try(
-        json.parse(input, {
-          use payload <- decode.field("state", decode.string)
+        decode_value(input, {
+          use payload <- decode.field("state", decode.dynamic)
           decode.success(payload)
         }),
       )
-      text.from_json(payload) |> result.map(CrdtText)
+      use payload <- result.try(embedded_value(payload))
+      parse_leaf(payload, text.from_json) |> result.map(CrdtText)
     }
-    "or_map" -> or_from_json_with(input, decoder) |> result.map(CrdtOrMap)
-    "lww_map" -> lww_from_json_with(input, decoder) |> result.map(CrdtLwwMap)
+    "or_map" -> or_from_value(input, decoder) |> result.map(CrdtOrMap)
+    "lww_map" -> lww_from_value(input, decoder) |> result.map(CrdtLwwMap)
     _ -> Error(invalid("known CRDT type", kind, ["type"]))
   }
 }
@@ -1345,8 +1446,8 @@ pub fn delta_to_json_with(delta: CrdtDelta(a), encode: fn(a) -> Json) -> Json {
   }
   envelope(
     "crdt_delta",
-    1,
-    json.object([#("kind", json.string(kind)), #("payload", embedded(payload))]),
+    2,
+    json.object([#("kind", json.string(kind)), #("payload", payload)]),
   )
 }
 
@@ -1386,22 +1487,30 @@ pub fn delta_from_json_with(
   input: String,
   decoder: Decoder(a),
 ) -> Result(CrdtDelta(a), json.DecodeError) {
-  use _ <- result.try(check_envelope(input, "crdt_delta", [1]))
+  use input <- result.try(json.parse(input, decode.dynamic))
+  delta_from_value(input, decoder)
+}
+
+fn delta_from_value(
+  input: Dynamic,
+  decoder: Decoder(a),
+) -> Result(CrdtDelta(a), json.DecodeError) {
+  use _ <- result.try(check_value_envelope(input, "crdt_delta", [1, 2]))
   use #(kind, payload) <- result.try(
-    json.parse(input, {
+    decode_value(input, {
       use state <- decode.field("state", {
         use kind <- decode.field("kind", decode.string)
-        use payload <- decode.field("payload", decode.string)
+        use payload <- decode.field("payload", decode.dynamic)
         decode.success(#(kind, payload))
       })
       decode.success(state)
     }),
   )
+  use payload <- result.try(embedded_value(payload))
   case kind {
-    "none" -> spec_from_json_with(payload, decoder) |> result.map(NoChange)
-    "state" -> from_json_with(payload, decoder) |> result.map(StateDelta)
-    "or_map" ->
-      or_delta_from_json_with(payload, decoder) |> result.map(OrMapChange)
+    "none" -> spec_from_value(payload, decoder) |> result.map(NoChange)
+    "state" -> from_value(payload, decoder) |> result.map(StateDelta)
+    "or_map" -> or_delta_from_value(payload, decoder) |> result.map(OrMapChange)
     _ -> Error(invalid("none, state, or or_map delta", kind, ["kind"]))
   }
 }
@@ -1442,7 +1551,7 @@ fn or_state_json(
 ) -> Json {
   json.object([
     #("replica_id", json.string(replica_id.to_string(replica))),
-    #("spec", embedded(spec_to_json_with(spec, encode))),
+    #("spec", spec_to_json_with(spec, encode)),
     #("clock", json.int(state.clock)),
     #(
       "entries",
@@ -1451,16 +1560,8 @@ fn or_state_json(
         json.object([
           #("key", json.string(key)),
           #("generation", generation_json(entry.generation)),
-          #(
-            "membership",
-            embedded(or_set.to_json_with(entry.membership, json.string)),
-          ),
-          #(
-            "value",
-            optional_json(entry.value, fn(child) {
-              embedded(encode_child(child))
-            }),
-          ),
+          #("membership", or_set.to_json_with(entry.membership, json.string)),
+          #("value", optional_json(entry.value, encode_child)),
         ])
       }),
     ),
@@ -1471,7 +1572,7 @@ fn or_state_json(
 pub fn or_to_json_with(map: ORMap(a), encode: fn(a) -> Json) -> Json {
   envelope(
     "or_map",
-    3,
+    4,
     or_state_json(map.replica, map.spec, map.state, encode, to_json_with(
       _,
       encode,
@@ -1486,7 +1587,7 @@ pub fn or_delta_to_json_with(
 ) -> Json {
   envelope(
     "or_map_delta",
-    2,
+    3,
     or_state_json(
       delta.replica,
       delta.spec,
@@ -1498,22 +1599,22 @@ pub fn or_delta_to_json_with(
 }
 
 fn parse_or_state(
-  input: String,
+  input: Dynamic,
   decoder: Decoder(a),
-  parse_child: fn(String, CrdtSpec(a)) -> Result(value, json.DecodeError),
+  parse_child: fn(Dynamic, CrdtSpec(a)) -> Result(value, json.DecodeError),
 ) -> Result(#(ReplicaId, CrdtSpec(a), observed.State(value)), json.DecodeError) {
   let entry_decoder = {
     use key <- decode.field("key", decode.string)
     use generation <- decode.field("generation", generation_decoder())
-    use membership <- decode.field("membership", decode.string)
-    use value <- decode.field("value", decode.optional(decode.string))
+    use membership <- decode.field("membership", decode.dynamic)
+    use value <- decode.field("value", decode.optional(decode.dynamic))
     decode.success(#(key, generation, membership, value))
   }
   use #(replica, spec, clock, entries) <- result.try(
-    json.parse(input, {
+    decode_value(input, {
       use state <- decode.field("state", {
         use replica <- decode.field("replica_id", decode.string)
-        use spec <- decode.field("spec", decode.string)
+        use spec <- decode.field("spec", decode.dynamic)
         use clock <- decode.field("clock", decode.int)
         use entries <- decode.field("entries", decode.list(entry_decoder))
         decode.success(#(replica, spec, clock, entries))
@@ -1530,7 +1631,8 @@ fn parse_or_state(
         ]),
       )
   })
-  use spec <- result.try(spec_from_json_with(spec, decoder))
+  use spec <- result.try(embedded_value(spec))
+  use spec <- result.try(spec_from_value(spec, decoder))
   use entries <- result.try(
     list.try_map(entries, fn(entry) {
       let #(key, generation, membership, value) = entry
@@ -1538,10 +1640,10 @@ fn parse_or_state(
         observed.clock(generation) > clock,
         Error(invalid("clock covering all generations", key, ["clock"])),
       )
-      use membership <- result.try(or_set.from_json_with(
-        membership,
-        decode.string,
-      ))
+      use membership <- result.try(embedded_value(membership))
+      use membership <- result.try(
+        parse_leaf(membership, or_set.from_json_with(_, decode.string)),
+      )
       use <- bool.guard(
         set.to_list(or_set.value(membership))
           |> list.any(fn(member) { member != key }),
@@ -1565,11 +1667,11 @@ fn parse_or_state(
 }
 
 fn parse_checked_child(
-  input: String,
+  input: Dynamic,
   spec: CrdtSpec(a),
   decoder: Decoder(a),
 ) -> Result(Crdt(a), json.DecodeError) {
-  use value <- result.try(from_json_with(input, decoder))
+  use value <- result.try(from_value(input, decoder))
   case matches_spec(value, spec) {
     True -> Ok(value)
     False ->
@@ -1584,7 +1686,15 @@ pub fn or_from_json_with(
   input: String,
   decoder: Decoder(a),
 ) -> Result(ORMap(a), json.DecodeError) {
-  use _ <- result.try(check_envelope(input, "or_map", [3]))
+  use input <- result.try(json.parse(input, decode.dynamic))
+  or_from_value(input, decoder)
+}
+
+fn or_from_value(
+  input: Dynamic,
+  decoder: Decoder(a),
+) -> Result(ORMap(a), json.DecodeError) {
+  use _ <- result.try(check_value_envelope(input, "or_map", [3, 4]))
   use #(replica, spec, state) <- result.try(
     parse_or_state(input, decoder, fn(input, spec) {
       parse_checked_child(input, spec, decoder)
@@ -1612,10 +1722,18 @@ pub fn or_delta_from_json_with(
   input: String,
   decoder: Decoder(a),
 ) -> Result(ORMapDelta(a), json.DecodeError) {
-  use _ <- result.try(check_envelope(input, "or_map_delta", [2]))
+  use input <- result.try(json.parse(input, decode.dynamic))
+  or_delta_from_value(input, decoder)
+}
+
+fn or_delta_from_value(
+  input: Dynamic,
+  decoder: Decoder(a),
+) -> Result(ORMapDelta(a), json.DecodeError) {
+  use _ <- result.try(check_value_envelope(input, "or_map_delta", [2, 3]))
   use #(replica, spec, state) <- result.try(
     parse_or_state(input, decoder, fn(input, spec) {
-      use delta <- result.try(delta_from_json_with(input, decoder))
+      use delta <- result.try(delta_from_value(input, decoder))
       case matches_delta(delta, spec) {
         True -> Ok(delta)
         False ->
@@ -1662,10 +1780,10 @@ fn provenance_decoder() -> Decoder(lww.Provenance) {
 pub fn lww_to_json_with(map: LWWMap(a), encode: fn(a) -> Json) -> Json {
   envelope(
     "lww_map",
-    3,
+    4,
     json.object([
       #("replica_id", json.string(replica_id.to_string(map.replica))),
-      #("spec", embedded(spec_to_json_with(map.spec, encode))),
+      #("spec", spec_to_json_with(map.spec, encode)),
       #("pruned_timestamp", json.int(map.state.pruned_timestamp)),
       #(
         "entries",
@@ -1678,7 +1796,7 @@ pub fn lww_to_json_with(map: LWWMap(a), encode: fn(a) -> Json) -> Json {
             #(
               "value",
               optional_json(entry.value, fn(child) {
-                embedded(to_json_with(child, encode))
+                to_json_with(child, encode)
               }),
             ),
           ])
@@ -1693,19 +1811,27 @@ pub fn lww_from_json_with(
   input: String,
   decoder: Decoder(a),
 ) -> Result(LWWMap(a), json.DecodeError) {
-  use _ <- result.try(check_envelope(input, "lww_map", [3]))
+  use input <- result.try(json.parse(input, decode.dynamic))
+  lww_from_value(input, decoder)
+}
+
+fn lww_from_value(
+  input: Dynamic,
+  decoder: Decoder(a),
+) -> Result(LWWMap(a), json.DecodeError) {
+  use _ <- result.try(check_value_envelope(input, "lww_map", [3, 4]))
   let entry_decoder = {
     use key <- decode.field("key", decode.string)
     use timestamp <- decode.field("timestamp", decode.int)
     use provenance <- decode.field("provenance", provenance_decoder())
-    use value <- decode.field("value", decode.optional(decode.string))
+    use value <- decode.field("value", decode.optional(decode.dynamic))
     decode.success(#(key, timestamp, provenance, value))
   }
   use #(replica, spec, pruned, entries) <- result.try(
-    json.parse(input, {
+    decode_value(input, {
       use state <- decode.field("state", {
         use replica <- decode.field("replica_id", decode.string)
-        use spec <- decode.field("spec", decode.string)
+        use spec <- decode.field("spec", decode.dynamic)
         use pruned <- decode.field("pruned_timestamp", decode.int)
         use entries <- decode.field("entries", decode.list(entry_decoder))
         decode.success(#(replica, spec, pruned, entries))
@@ -1721,7 +1847,8 @@ pub fn lww_from_json_with(
       ]),
     ),
   )
-  use spec <- result.try(spec_from_json_with(spec, decoder))
+  use spec <- result.try(embedded_value(spec))
+  use spec <- result.try(spec_from_value(spec, decoder))
   use entries <- result.try(
     list.try_map(entries, fn(entry) {
       let #(key, timestamp, provenance, value) = entry

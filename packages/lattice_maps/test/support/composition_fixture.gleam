@@ -89,7 +89,7 @@ pub fn delta_child(input: String, expected_key: String) -> String {
           "entries",
           decode.list({
             use key <- decode.field("key", decode.string)
-            use value <- decode.field("value", decode.string)
+            use value <- decode.field("value", encoded_json_decoder())
             decode.success(#(key, value))
           }),
         )
@@ -106,7 +106,7 @@ pub fn dispatch_payload(input: String, expected_kind: String) -> String {
     json.parse(input, {
       use state <- decode.field("state", {
         use kind <- decode.field("kind", decode.string)
-        use payload <- decode.field("payload", decode.string)
+        use payload <- decode.field("payload", encoded_json_decoder())
         decode.success(#(kind, payload))
       })
       decode.success(state)
