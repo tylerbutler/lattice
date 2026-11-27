@@ -65,6 +65,10 @@ test-all *ARGS:
 test-pkg pkg:
     trellis run test {{ pkg }}
 
+# Check the OR-set reference model with Bend and its proof kernel (opt-in)
+verify-or-set:
+    cd verification/or_set && mise exec -- bend PROOF.bend --verdict
+
 # === CODE QUALITY ===
 
 # Format source code in all packages and examples
