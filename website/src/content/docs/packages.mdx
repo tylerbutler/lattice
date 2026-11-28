@@ -19,9 +19,19 @@ See [Installation](/installation/) to install a package and pin its version.
 
 ## Packages
 
+<details class="package-reference">
+<summary>Show all packages, versions, docs, and contents</summary>
+
 <PackageCatalog />
 
+</details>
+
 ## Dependencies
+
+<details class="package-dependencies">
+<summary>See which lattice packages depend on others</summary>
+
+<div class="dependency-visual" aria-hidden="true">
 
 ```mermaid
 graph LR
@@ -51,10 +61,41 @@ graph LR
     lattice_text_fugue --> lattice_text_core
     lattice_presence
 ```
+</div>
+
+<ul class="dependency-list" aria-label="Lattice package dependencies">
+	<li>
+		<code>lattice_counters</code>, <code>lattice_fugue</code>,
+		<code>lattice_registers</code>, <code>lattice_sequence</code>, and
+		<code>lattice_sets</code> depend on <code>lattice_core</code>.
+	</li>
+	<li>
+		<code>lattice_text</code> depends on <code>lattice_core</code>,
+		<code>lattice_sequence</code>, and <code>lattice_text_core</code>.
+	</li>
+	<li>
+		<code>lattice_text_fugue</code> depends on <code>lattice_core</code>,
+		<code>lattice_fugue</code>, and <code>lattice_text_core</code>.
+	</li>
+	<li>
+		<code>lattice_maps</code> depends on <code>lattice_core</code>,
+		<code>lattice_counters</code>, <code>lattice_registers</code>,
+		<code>lattice_sequence</code>, <code>lattice_text</code>, and
+		<code>lattice_sets</code>.
+	</li>
+	<li>
+		<code>lattice_crdt</code> depends on <code>lattice_core</code>,
+		<code>lattice_counters</code>, <code>lattice_registers</code>,
+		<code>lattice_sequence</code>, <code>lattice_sets</code>,
+		<code>lattice_maps</code>, and <code>lattice_text</code>.
+	</li>
+</ul>
 
 Three packages need no other lattice packages. `lattice_text_core` depends
 only on `gleam_stdlib`. Both `lattice_core` and `lattice_presence` depend on
 `gleam_stdlib` and `gleam_json`.
+
+</details>
 
 ## Import paths
 
