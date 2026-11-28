@@ -357,11 +357,48 @@ pub fn sequence_from_json_missing_move_decodes_as_no_move_test() {
 
 pub fn sequence_from_json_unknown_version_rejected_test() {
   let payload =
-    "{\"type\":\"sequence\",\"v\":3,\"state\":{\"self_id\":\"A\",\"counter\":0,\"frontier\":"
+    "{\"type\":\"sequence\",\"v\":4,\"state\":{\"self_id\":\"A\",\"counter\":0,\"frontier\":"
     <> empty_frontier
     <> ",\"forwardings\":[],\"segments\":[]}}"
 
   let assert Error(_) = sequence.from_json(payload, decode.string)
+}
+
+pub fn sequence_v3_requires_valid_origin_provenance_test() {
+  let nil = json.null()
+  let known = item_json(id_json(1), nil, nil, nil, nil)
+  let encoded = allocation_snapshot(3, [known], [], version_vector.new())
+  let assert Ok(_) = sequence.from_json(encoded, decode.string)
+  use invalid <- list.each([
+    string.replace(encoded, "\"origin_provenance\":\"known\",", ""),
+    string.replace(encoded, "\"known\"", "\"guessed\""),
+    string.replace(encoded, "\"known\"", "\"unknown\""),
+  ])
+  let assert Error(_) = sequence.from_json(invalid, decode.string)
+}
+
+pub fn sequence_v3_unknown_origins_are_null_and_frontier_covered_test() {
+  let nil = json.null()
+  let stable = version_vector.new() |> version_vector.set_max(rid("B"), 1)
+  let unknown = item_json(id_json(1), nil, nil, id_json(2), nil)
+  let encoded =
+    allocation_snapshot(3, [unknown], [], stable)
+    |> string.replace("\"known\"", "\"unknown\"")
+  let assert Ok(decoded) = sequence.from_json(encoded, decode.string)
+  let assert Ok(round_trip) =
+    sequence.to_json(decoded, json.string)
+    |> json.to_string()
+    |> sequence.from_json(decode.string)
+  assert round_trip == decoded
+  let with_invented_origin =
+    allocation_snapshot(
+      3,
+      [item_json(id_json(1), id_json(3), nil, id_json(2), nil)],
+      [],
+      stable,
+    )
+    |> string.replace("\"known\"", "\"unknown\"")
+  let assert Error(_) = sequence.from_json(with_invented_origin, decode.string)
 }
 
 pub fn sequence_from_json_v1_without_moves_accepted_test() {
@@ -416,6 +453,7 @@ fn item_json(
   json.object([
     #("kind", json.string("item")),
     #("id", id),
+    #("origin_provenance", json.string("known")),
     #("origin_left", left),
     #("origin_right", right),
     #("value", json.string("old")),
@@ -454,7 +492,7 @@ pub fn sequence_from_json_duplicate_identities_rejected_test() {
   let deleted = item_json(id_json(2), nil, nil, id_json(5), nil)
   let block = block_json(id_json(1), ["a", "b", "c"])
   let forwarding = forwarding_json(2, nil, nil)
-  use version <- list.each([1, 2])
+  use version <- list.each([1, 2, 3])
   use pair <- list.each([
     #([live, live], []),
     #([live, item_json(id_json(2), id_json(1), nil, nil, nil)], []),
@@ -490,7 +528,7 @@ pub fn sequence_from_json_unique_identities_self_merge_test() {
       #("replica_id", json.string("C")),
       #("counter", json.int(1)),
     ])
-  use version <- list.each([1, 2])
+  use version <- list.each([1, 2, 3])
   use pair <- list.each([
     #([], []),
     #([block, block_json(id_json(3), ["c"])], []),
@@ -520,11 +558,11 @@ pub fn sequence_from_json_sparse_delta_self_merge_test() {
   let assert Ok(base) =
     sequence.insert_many(sequence.new(rid("A")), 0, ["a", "b", "c"])
   let assert Ok(#(_, delta)) = sequence.insert_with_delta(base, 1, "x")
-  use version <- list.each(["1", "2"])
+  use version <- list.each(["1", "2", "3"])
   let assert Ok(loaded) =
     sequence.to_json(delta, json.string)
     |> json.to_string()
-    |> string.replace("\"v\":2", "\"v\":" <> version)
+    |> string.replace("\"v\":3", "\"v\":" <> version)
     |> sequence.from_json(decode.string)
   assert sequence.values(loaded) == ["x"]
   assert sequence.merge(loaded, loaded, rid("A")) == loaded
@@ -609,7 +647,7 @@ pub fn sequence_load_reconstructs_counter_from_items_operations_and_origins_test
     item_json(id_json(1), nil, nil, nil, move_json(2, id_json(5), nil)),
     item_json(id_json(1), nil, nil, nil, move_json(2, nil, id_json(5))),
   ]
-  use version <- list.each([1, 2])
+  use version <- list.each([1, 2, 3])
   use item <- list.each(cases)
   allocation_snapshot(version, [item], [], version_vector.new())
   |> assert_safe_allocation(5)
@@ -622,14 +660,14 @@ pub fn sequence_load_reconstructs_counter_from_compacted_block_range_test() {
       #("first_id", id_json(3)),
       #("values", json.array(["a", "b", "c"], json.string)),
     ])
-  use version <- list.each([1, 2])
+  use version <- list.each([1, 2, 3])
   allocation_snapshot(version, [block], [], version_vector.new())
   |> assert_safe_allocation(5)
 }
 
 pub fn sequence_load_reconstructs_counter_from_forwarding_history_test() {
   let nil = json.null()
-  use version <- list.each([1, 2])
+  use version <- list.each([1, 2, 3])
   use forwarding <- list.each([
     forwarding_json(5, nil, nil),
     forwarding_json(1, id_json(5), nil),
@@ -641,7 +679,7 @@ pub fn sequence_load_reconstructs_counter_from_forwarding_history_test() {
 
 pub fn sequence_load_reconstructs_counter_from_frontier_without_retained_ids_test() {
   let frontier = version_vector.new() |> version_vector.set_max(rid("B"), 5)
-  use version <- list.each([1, 2])
+  use version <- list.each([1, 2, 3])
   allocation_snapshot(version, [], [], frontier)
   |> assert_safe_allocation(5)
 }

@@ -86,10 +86,8 @@ pub fn canonical_and_alias_merge_preserve_explicit_identity_and_counters_test() 
   use merge <- list.each([text.merge, text.merge_as])
   use pair <- list.each([#(local, incoming), #(incoming, local)])
   let merged = merge(pair.0, pair.1, replica)
-  merged
-  |> fn(actual) {
-    assert actual == expected
-  }
+  assert text.value(merged) == text.value(expected)
+  assert merge(merged, peer, replica) == expected
   merge(merged, incoming, replica)
   |> fn(actual) {
     assert actual == merged

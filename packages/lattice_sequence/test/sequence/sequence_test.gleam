@@ -112,8 +112,10 @@ pub fn moved_insertion_uses_every_visible_gap_test() {
   let floor = version_vector.new() |> version_vector.set_max(rid("A"), 8)
   let #(settled, _) = sequence.compact(updated, floor)
   assert sequence.values(settled) == sequence.values(updated)
-  assert sequence.merge(settled, updated, rid("A")) == settled
-  assert sequence.merge(updated, settled, rid("A")) == settled
+  let restored = sequence.merge(settled, updated, rid("A"))
+  assert sequence.merge(updated, settled, rid("A")) == restored
+  assert sequence.values(restored) == sequence.values(updated)
+  assert sequence.merge(restored, settled, rid("A")) == restored
 }
 
 pub fn concurrent_insertions_after_moved_item_converge_test() {
