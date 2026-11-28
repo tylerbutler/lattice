@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "apm-p-213fc7ce": {
+      "source": {
+        "source": "directory",
+        "path": "./.agents/plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "gleam@apm-p-213fc7ce": true,
+    "impeccable@apm-p-213fc7ce": true
+  }
+}

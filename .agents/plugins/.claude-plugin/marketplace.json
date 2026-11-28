@@ -1,0 +1,16 @@
+{
+  "name": "apm-p-213fc7ce",
+  "owner": {
+    "name": "APM"
+  },
+  "plugins": [
+    {
+      "name": "gleam",
+      "source": "./gleam"
+    },
+    {
+      "name": "impeccable",
+      "source": "./impeccable"
+    }
+  ]
+}

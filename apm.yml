@@ -17,3 +17,4 @@ devDependencies:
   apm:
     - tylerbutler/agent-marketplace/plugins/gleam
     - tylerbutler/apm-base
+    - pbakaus/impeccable/plugin#skill-v4.5.2
