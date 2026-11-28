@@ -1,0 +1,6 @@
+package = "lattice_maps"
+kind = "Breaking"
+body = """
+Preserve legacy register ordering in String dispatch
+
+Route String crdt.from_json through the register String codec so v1 ties converge. Generic dispatch and recursive child decoding reject v1 registers; import legacy children explicitly and encode v3 before constructing modern containers. Upgrade readers before sending register v3 snapshots inside maps or deltas."""

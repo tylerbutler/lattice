@@ -286,6 +286,40 @@ pub fn from_json_lww_register_requires_v2_replica_id_test() {
   }
 }
 
+pub fn from_json_legacy_register_uses_string_tie_key_test() -> Nil {
+  let assert Ok(left) =
+    crdt.from_json(
+      "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"\u{e000}\",\"timestamp\":5}}",
+    )
+  let assert Ok(right) =
+    crdt.from_json(
+      "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"\u{10000}\",\"timestamp\":5}}",
+    )
+  assert crdt.merge(left, right, rid("local")) == Ok(right)
+  assert crdt.merge(right, left, rid("local")) == Ok(right)
+  let encoded = crdt.to_json(right) |> json.to_string
+  assert crdt.from_json(encoded) == Ok(right)
+  assert crdt.from_json_with(encoded, decode.string) == Ok(right)
+}
+
+pub fn from_json_with_rejects_legacy_register_without_import_key_test() -> Nil {
+  let assert Error(_) =
+    crdt.from_json_with(
+      "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":42,\"timestamp\":5}}",
+      decode.int,
+    )
+  let assert Error(_) =
+    crdt.from_json_with(
+      "{\"type\":\"lww_register\",\"v\":1,\"state\":{\"value\":\"x\",\"timestamp\":5}}",
+      decode.string,
+    )
+  let modern =
+    "{\"type\":\"lww_register\",\"v\":2,\"state\":{\"value\":\"x\",\"timestamp\":5,\"replica_id\":\"\"}}"
+  assert crdt.from_json(modern)
+    == Ok(CrdtLwwRegister(lww_register.new("x", 5, rid(""))))
+  assert crdt.from_json_with(modern, decode.string) == crdt.from_json(modern)
+}
+
 pub fn to_json_from_json_g_set_test() {
   let c = CrdtGSet(g_set.new() |> g_set.add("a") |> g_set.add("b"))
   let json_str = json.to_string(crdt.to_json(c))

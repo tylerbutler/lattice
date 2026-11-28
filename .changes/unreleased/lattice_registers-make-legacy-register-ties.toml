@@ -1,0 +1,6 @@
+package = "lattice_registers"
+kind = "Breaking"
+body = """
+Make legacy register ties deterministic
+
+Import v1 String snapshots with stable UTF-8 tie keys; generic callers must use import_legacy_with and a shared deterministic payload key. Emit v3 snapshots preserving legacy provenance: upgrade readers before enabling v3 output. Valid v2 inputs remain modern, including empty writers; already re-encoded legacy data needs an explicit coordinated migration from verified history."""
