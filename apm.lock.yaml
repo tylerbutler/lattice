@@ -1,56 +1,66 @@
 lockfile_version: '1'
-generated_at: '2026-11-17T18:38:14.849831+00:00'
-apm_version: 0.35.1
+generated_at: '2026-11-28T02:10:08.202849+00:00'
+apm_version: 0.39.1
+manifest_targets:
+- claude
+- copilot
 dependencies:
+- repo_url: pbakaus/impeccable
+  name: impeccable
+  host: github.com
+  resolved_commit: d631a8827f99414d2b6daba4ef08b7f8701751d7
+  resolved_ref: skill-v4.5.2
+  version: 4.5.2
+  virtual_path: plugin
+  is_virtual: true
+  package_type: marketplace_plugin
+  content_hash: sha256:1f178f33595736d30ef55c12298ec329c7bd8d4af6fe7c004772b30e431be3a6
+  is_dev: true
+  carried_licenses:
+  - path: .apm/skills/impeccable/LICENSE
+    source: LICENSE
+    hash: sha256:02bb8c3b4e70190e3986c0404ad2fd8d639b4f534252d82379cc1b502b6d1812
+  - path: LICENSE
+    source: LICENSE
+    hash: sha256:02bb8c3b4e70190e3986c0404ad2fd8d639b4f534252d82379cc1b502b6d1812
+  - path: skills/impeccable/LICENSE
+    source: LICENSE
+    hash: sha256:02bb8c3b4e70190e3986c0404ad2fd8d639b4f534252d82379cc1b502b6d1812
+  native_plugin:
+    name: impeccable
+    root: .agents/plugins/impeccable
+    fingerprint: sha256:8faafce585d65a1994168824bfb24438982c26315ba847dc46bdb2ff4f00c62f
+    marketplace:
+      name: apm-p-213fc7ce
+      path: ./.agents/plugins
+  native_declared:
+  - claude
+  - copilot
 - repo_url: tylerbutler/agent-marketplace
   name: gleam
   host: github.com
-  resolved_commit: a88af94c38d2247b18e59d9f237676e62edfed2a
+  resolved_commit: b79ccb72e09ff38a142527568751342ac6233e15
   version: 0.1.0
   virtual_path: plugins/gleam
   is_virtual: true
   package_type: marketplace_plugin
-  deployed_files:
-  - .agents/skills/gleam-reference-docs
-  - .agents/skills/gleam-reference-docs/SKILL.md
-  - .agents/skills/gleam-reference-docs/assets/generate-reference.mjs
-  - .agents/skills/gleam-reference-docs/evals/evals.json
-  - .agents/skills/gleam-review
-  - .agents/skills/gleam-review/SKILL.md
-  - .agents/skills/gleam-review/references/conventions.md
-  - .claude/agents/beam-vm-reviewer.md
-  - .claude/agents/erlang-specialist.md
-  - .claude/skills/gleam-reference-docs
-  - .claude/skills/gleam-reference-docs/SKILL.md
-  - .claude/skills/gleam-reference-docs/assets/generate-reference.mjs
-  - .claude/skills/gleam-reference-docs/evals/evals.json
-  - .claude/skills/gleam-review
-  - .claude/skills/gleam-review/SKILL.md
-  - .claude/skills/gleam-review/references/conventions.md
-  - .github/agents/beam-vm-reviewer.agent.md
-  - .github/agents/erlang-specialist.agent.md
-  deployed_file_hashes:
-    .agents/skills/gleam-reference-docs/SKILL.md: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
-    .agents/skills/gleam-reference-docs/assets/generate-reference.mjs: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
-    .agents/skills/gleam-reference-docs/evals/evals.json: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
-    .agents/skills/gleam-review/SKILL.md: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
-    .agents/skills/gleam-review/references/conventions.md: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
-    .claude/agents/beam-vm-reviewer.md: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
-    .claude/agents/erlang-specialist.md: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
-    .claude/skills/gleam-reference-docs/SKILL.md: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
-    .claude/skills/gleam-reference-docs/assets/generate-reference.mjs: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
-    .claude/skills/gleam-reference-docs/evals/evals.json: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
-    .claude/skills/gleam-review/SKILL.md: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
-    .claude/skills/gleam-review/references/conventions.md: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
-    .github/agents/beam-vm-reviewer.agent.md: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
-    .github/agents/erlang-specialist.agent.md: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
-  content_hash: sha256:aa48826aed0d947f3b3fcede8721d57256a3f109af2a0a8445623ee80d3a98e1
+  content_hash: sha256:1ff4aad29286c7309c56ceb37db96858066d40bce832296a13ba5844430191d8
   is_dev: true
+  native_plugin:
+    name: gleam
+    root: .agents/plugins/gleam
+    fingerprint: sha256:9be6f9ff722a44268fb65c6cac1e6706b22154a6a175c2b0299850b7b281db75
+    marketplace:
+      name: apm-p-213fc7ce
+      path: ./.agents/plugins
+  native_declared:
+  - claude
+  - copilot
 - repo_url: tylerbutler/apm-base
   name: apm-base
   host: github.com
-  resolved_commit: bc2598b13910c37caba38eca68478117be74f177
-  version: 0.2.5
+  resolved_commit: 0be951067859c6fbcb677014d4c9bbcf3764b471
+  version: 0.2.6
   package_type: apm_package
   deployed_files:
   - .agents/skills/humanizer
@@ -60,16 +70,6 @@ dependencies:
   - .agents/skills/prose-banlist/SKILL.md
   - .agents/skills/storytelling
   - .agents/skills/storytelling/SKILL.md
-  - .claude/commands/create-pr.md
-  - .claude/commands/merge-upstream.md
-  - .claude/rules/use-ste.md
-  - .claude/skills/humanizer
-  - .claude/skills/humanizer/LICENSE
-  - .claude/skills/humanizer/SKILL.md
-  - .claude/skills/prose-banlist
-  - .claude/skills/prose-banlist/SKILL.md
-  - .claude/skills/storytelling
-  - .claude/skills/storytelling/SKILL.md
   - .github/instructions/use-ste.instructions.md
   - .github/prompts/create-pr.prompt.md
   - .github/prompts/merge-upstream.prompt.md
@@ -78,22 +78,119 @@ dependencies:
     .agents/skills/humanizer/SKILL.md: sha256:14fc8a965b6e0a8dc100ba4dffeab55cb94bbac112abbde7e014d5c15a35c202
     .agents/skills/prose-banlist/SKILL.md: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
     .agents/skills/storytelling/SKILL.md: sha256:68a7dfe08ba69c59af66b28d2d9f3344eb97dc7f4eb096cae41f98abcc4ea23e
-    .claude/commands/create-pr.md: sha256:f60319bef36ed8d7159543f774f196f2ab90df55d3538c1723da6b81295d02ff
-    .claude/commands/merge-upstream.md: sha256:f8c97a3085cc2b603cd34428aa28d17c55b5411ba526871ae599cede372d3f89
-    .claude/rules/use-ste.md: sha256:29c78e0076d736e43b8d9b414465de9c236128975b95118dcb2047f4e49018b2
-    .claude/skills/humanizer/LICENSE: sha256:4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96
-    .claude/skills/humanizer/SKILL.md: sha256:14fc8a965b6e0a8dc100ba4dffeab55cb94bbac112abbde7e014d5c15a35c202
-    .claude/skills/prose-banlist/SKILL.md: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
-    .claude/skills/storytelling/SKILL.md: sha256:68a7dfe08ba69c59af66b28d2d9f3344eb97dc7f4eb096cae41f98abcc4ea23e
     .github/instructions/use-ste.instructions.md: sha256:686d7f6f6172dd5c238371076383b2f67c0f4937465e6e53633936d294c9adbc
     .github/prompts/create-pr.prompt.md: sha256:5fcb1b64247130aec3a0ebd114ae6d127de44f7e824087033c468d8debb593a2
     .github/prompts/merge-upstream.prompt.md: sha256:bf990755d11f1e73610d9cde3b656aa175c7f63cdd8d069158302c6496a5b77e
-  content_hash: sha256:d80d2a6162685cfb2a027ccfc9439613edda386eb5fd8b8e00fc3d03f1b77680
+  content_hash: sha256:931a394dab11b640cb28c0b7a1d86282141d425eb57306c908518704ec453d3f
   is_dev: true
+  package_targets:
+  - copilot
+- repo_url: cloudflare/security-audit-skill
+  name: security-audit-skill
+  host: github.com
+  resolved_commit: c1c8a8c1471069fb0e188eeaff69b8e8db6564a8
+  version: 0.0.0
+  depth: 2
+  resolved_by: tylerbutler/apm-base
+  package_type: skill_bundle
+  deployed_files:
+  - .agents/skills/security-audit
+  - .agents/skills/security-audit/AI-AND-LLM.md
+  - .agents/skills/security-audit/ATTACK-CLASSES.md
+  - .agents/skills/security-audit/CLIENT-SIDE.md
+  - .agents/skills/security-audit/CLOUD-AND-DEPLOYMENT.md
+  - .agents/skills/security-audit/DATA-ISOLATION-AND-LIFECYCLE.md
+  - .agents/skills/security-audit/DESKTOP-MOBILE-AND-LOCAL-IPC.md
+  - .agents/skills/security-audit/HUNTING.md
+  - .agents/skills/security-audit/LICENSE
+  - .agents/skills/security-audit/MEMORY-SAFETY-AND-BINARY.md
+  - .agents/skills/security-audit/PROTOCOLS-RPC-AND-MESSAGING.md
+  - .agents/skills/security-audit/RECONNAISSANCE.md
+  - .agents/skills/security-audit/RESOURCE-EXHAUSTION-AND-AVAILABILITY.md
+  - .agents/skills/security-audit/SKILL.md
+  - .agents/skills/security-audit/SUPPLY-CHAIN-AND-RELEASE.md
+  - .agents/skills/security-audit/VALIDATION-AND-REPORTING.md
+  - .agents/skills/security-audit/WEB-PROTOCOL-AND-AUTH.md
+  - .agents/skills/security-audit/report-schema.json
+  - .agents/skills/security-audit/validate-coverage-ledger.cjs
+  - .agents/skills/security-audit/validate-coverage-ledger.test.cjs
+  - .agents/skills/security-audit/validate-findings.cjs
+  - .agents/skills/security-audit/validate-findings.test.cjs
+  - .claude/skills/security-audit
+  - .claude/skills/security-audit/AI-AND-LLM.md
+  - .claude/skills/security-audit/ATTACK-CLASSES.md
+  - .claude/skills/security-audit/CLIENT-SIDE.md
+  - .claude/skills/security-audit/CLOUD-AND-DEPLOYMENT.md
+  - .claude/skills/security-audit/DATA-ISOLATION-AND-LIFECYCLE.md
+  - .claude/skills/security-audit/DESKTOP-MOBILE-AND-LOCAL-IPC.md
+  - .claude/skills/security-audit/HUNTING.md
+  - .claude/skills/security-audit/LICENSE
+  - .claude/skills/security-audit/MEMORY-SAFETY-AND-BINARY.md
+  - .claude/skills/security-audit/PROTOCOLS-RPC-AND-MESSAGING.md
+  - .claude/skills/security-audit/RECONNAISSANCE.md
+  - .claude/skills/security-audit/RESOURCE-EXHAUSTION-AND-AVAILABILITY.md
+  - .claude/skills/security-audit/SKILL.md
+  - .claude/skills/security-audit/SUPPLY-CHAIN-AND-RELEASE.md
+  - .claude/skills/security-audit/VALIDATION-AND-REPORTING.md
+  - .claude/skills/security-audit/WEB-PROTOCOL-AND-AUTH.md
+  - .claude/skills/security-audit/report-schema.json
+  - .claude/skills/security-audit/validate-coverage-ledger.cjs
+  - .claude/skills/security-audit/validate-coverage-ledger.test.cjs
+  - .claude/skills/security-audit/validate-findings.cjs
+  - .claude/skills/security-audit/validate-findings.test.cjs
+  deployed_file_hashes:
+    .agents/skills/security-audit/AI-AND-LLM.md: sha256:7335a95c43554eadefcf03ece639291bb0e038c398a179299e3887ffe06bd2ef
+    .agents/skills/security-audit/ATTACK-CLASSES.md: sha256:3ee4f00c6e8c9dcf6dd02dd5ac2a4ceb322e2085f3e9fbe79cf0c6330bc7ef83
+    .agents/skills/security-audit/CLIENT-SIDE.md: sha256:613f6b98f86083e045525c5b60154ffdab122bac35f1e05eb17488e6e453370c
+    .agents/skills/security-audit/CLOUD-AND-DEPLOYMENT.md: sha256:3c80f3088be22345e07b057c056d6ed99fe2b0304f794398964f7ccd5a496ca3
+    .agents/skills/security-audit/DATA-ISOLATION-AND-LIFECYCLE.md: sha256:307dcb3e24d292715c4a041190e7bb135646a37eb6187619ae01d000a634a4ad
+    .agents/skills/security-audit/DESKTOP-MOBILE-AND-LOCAL-IPC.md: sha256:58eae8ee0ca6a46611c501ec5a3ab47fdff88dd7db0d8d74789bbf8bb19d8cb2
+    .agents/skills/security-audit/HUNTING.md: sha256:71c121decea1322c47c718f6e110f1a892980bb4266bd7ac55ef043a213ade09
+    .agents/skills/security-audit/LICENSE: sha256:e598e694aa506650c7192d5ea3be0e50aca0d356ea00551c53429f0b01eb6391
+    .agents/skills/security-audit/MEMORY-SAFETY-AND-BINARY.md: sha256:7c8b0dccfb35315cca2455509674d49632b2fe37e1f3aac16c1a496a7e9924a7
+    .agents/skills/security-audit/PROTOCOLS-RPC-AND-MESSAGING.md: sha256:8b73816fa5b3697c9c40977f0c836b40f01d6e81929ff2720fe83ce089e9a619
+    .agents/skills/security-audit/RECONNAISSANCE.md: sha256:02ca887aca84de8ae137f1891bd2f0a54f28d3fa6da92a27f54734382b3381a2
+    .agents/skills/security-audit/RESOURCE-EXHAUSTION-AND-AVAILABILITY.md: sha256:4326fab5c92a0b4c420a70196254040105cd794026562130b59bf1a6db3e4baa
+    .agents/skills/security-audit/SKILL.md: sha256:5e3e96a1e438d8f35fef0a1e38f02d4f00e2bdf910401b7dfe00e6779c6dac85
+    .agents/skills/security-audit/SUPPLY-CHAIN-AND-RELEASE.md: sha256:f372e919940e335468ba1ae09f99026c3986a345f7fe26f8068f132e199f52a5
+    .agents/skills/security-audit/VALIDATION-AND-REPORTING.md: sha256:b892470cb89bb31f33403e050d4bdfbe2cdaef940ade1496fa65e32b2e129449
+    .agents/skills/security-audit/WEB-PROTOCOL-AND-AUTH.md: sha256:4f3066dffa23c5635859187be9b96c32f2aff29a688186b91ff0c63e47d62b5c
+    .agents/skills/security-audit/report-schema.json: sha256:6575c9de4a62255699ea052ebf9a49ebfb373a32891bcd89af6f55cc84b35519
+    .agents/skills/security-audit/validate-coverage-ledger.cjs: sha256:2eb280bd2e33c002916f86db9b29f9edfedb6454e5db973c766290465b868ac8
+    .agents/skills/security-audit/validate-coverage-ledger.test.cjs: sha256:cfb9df26b03469a4279a70e7664a2a5434dd6f8c2c204e91f9b0aeb9dd71e648
+    .agents/skills/security-audit/validate-findings.cjs: sha256:e85f232e36bfac0f866f244da50376692d6b45c690beadcb00608b0e6c8b5283
+    .agents/skills/security-audit/validate-findings.test.cjs: sha256:b92001117a92c4161d43777a0ba2fa182a8a4d97f2304cc8c0cee5331497b73b
+    .claude/skills/security-audit/AI-AND-LLM.md: sha256:7335a95c43554eadefcf03ece639291bb0e038c398a179299e3887ffe06bd2ef
+    .claude/skills/security-audit/ATTACK-CLASSES.md: sha256:3ee4f00c6e8c9dcf6dd02dd5ac2a4ceb322e2085f3e9fbe79cf0c6330bc7ef83
+    .claude/skills/security-audit/CLIENT-SIDE.md: sha256:613f6b98f86083e045525c5b60154ffdab122bac35f1e05eb17488e6e453370c
+    .claude/skills/security-audit/CLOUD-AND-DEPLOYMENT.md: sha256:3c80f3088be22345e07b057c056d6ed99fe2b0304f794398964f7ccd5a496ca3
+    .claude/skills/security-audit/DATA-ISOLATION-AND-LIFECYCLE.md: sha256:307dcb3e24d292715c4a041190e7bb135646a37eb6187619ae01d000a634a4ad
+    .claude/skills/security-audit/DESKTOP-MOBILE-AND-LOCAL-IPC.md: sha256:58eae8ee0ca6a46611c501ec5a3ab47fdff88dd7db0d8d74789bbf8bb19d8cb2
+    .claude/skills/security-audit/HUNTING.md: sha256:71c121decea1322c47c718f6e110f1a892980bb4266bd7ac55ef043a213ade09
+    .claude/skills/security-audit/LICENSE: sha256:e598e694aa506650c7192d5ea3be0e50aca0d356ea00551c53429f0b01eb6391
+    .claude/skills/security-audit/MEMORY-SAFETY-AND-BINARY.md: sha256:7c8b0dccfb35315cca2455509674d49632b2fe37e1f3aac16c1a496a7e9924a7
+    .claude/skills/security-audit/PROTOCOLS-RPC-AND-MESSAGING.md: sha256:8b73816fa5b3697c9c40977f0c836b40f01d6e81929ff2720fe83ce089e9a619
+    .claude/skills/security-audit/RECONNAISSANCE.md: sha256:02ca887aca84de8ae137f1891bd2f0a54f28d3fa6da92a27f54734382b3381a2
+    .claude/skills/security-audit/RESOURCE-EXHAUSTION-AND-AVAILABILITY.md: sha256:4326fab5c92a0b4c420a70196254040105cd794026562130b59bf1a6db3e4baa
+    .claude/skills/security-audit/SKILL.md: sha256:5e3e96a1e438d8f35fef0a1e38f02d4f00e2bdf910401b7dfe00e6779c6dac85
+    .claude/skills/security-audit/SUPPLY-CHAIN-AND-RELEASE.md: sha256:f372e919940e335468ba1ae09f99026c3986a345f7fe26f8068f132e199f52a5
+    .claude/skills/security-audit/VALIDATION-AND-REPORTING.md: sha256:b892470cb89bb31f33403e050d4bdfbe2cdaef940ade1496fa65e32b2e129449
+    .claude/skills/security-audit/WEB-PROTOCOL-AND-AUTH.md: sha256:4f3066dffa23c5635859187be9b96c32f2aff29a688186b91ff0c63e47d62b5c
+    .claude/skills/security-audit/report-schema.json: sha256:6575c9de4a62255699ea052ebf9a49ebfb373a32891bcd89af6f55cc84b35519
+    .claude/skills/security-audit/validate-coverage-ledger.cjs: sha256:2eb280bd2e33c002916f86db9b29f9edfedb6454e5db973c766290465b868ac8
+    .claude/skills/security-audit/validate-coverage-ledger.test.cjs: sha256:cfb9df26b03469a4279a70e7664a2a5434dd6f8c2c204e91f9b0aeb9dd71e648
+    .claude/skills/security-audit/validate-findings.cjs: sha256:e85f232e36bfac0f866f244da50376692d6b45c690beadcb00608b0e6c8b5283
+    .claude/skills/security-audit/validate-findings.test.cjs: sha256:b92001117a92c4161d43777a0ba2fa182a8a4d97f2304cc8c0cee5331497b73b
+  content_hash: sha256:414184860d72fa1d44fbdf8267672fec765ddab1f2e7c12f8c859122e2223adb
+  is_dev: true
+  carried_licenses:
+  - path: skills/security-audit/LICENSE
+    source: LICENSE
+    hash: sha256:e598e694aa506650c7192d5ea3be0e50aca0d356ea00551c53429f0b01eb6391
 - repo_url: cursor/plugins
   name: unslop
   host: github.com
-  resolved_commit: e1cc03121a0e71129a4fb730d7c5528a0a3e43c8
+  resolved_commit: b7b93c36be9bcc36a74db438e0fd385d660bc559
   version: unknown
   virtual_path: pstack/skills/unslop
   is_virtual: true
@@ -102,14 +199,137 @@ dependencies:
   package_type: claude_skill
   deployed_files:
   - .agents/skills/unslop
+  - .agents/skills/unslop/LICENSE
   - .agents/skills/unslop/SKILL.md
   - .claude/skills/unslop
+  - .claude/skills/unslop/LICENSE
   - .claude/skills/unslop/SKILL.md
   deployed_file_hashes:
+    .agents/skills/unslop/LICENSE: sha256:bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e
     .agents/skills/unslop/SKILL.md: sha256:2b823fd069e031c1420180be8e0d4f5e2fd25bf2c428049e5c835c59a489b5e0
+    .claude/skills/unslop/LICENSE: sha256:bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e
     .claude/skills/unslop/SKILL.md: sha256:2b823fd069e031c1420180be8e0d4f5e2fd25bf2c428049e5c835c59a489b5e0
   content_hash: sha256:9bace43ba8cc2c76bfd18ce3f508381f490013cac2116d747553cfcd5cb44c88
   is_dev: true
+  carried_licenses:
+  - path: LICENSE
+    source: pstack/LICENSE
+    hash: sha256:bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e
+- repo_url: dietrichgebert/ponytail
+  materialization_repo_url: DietrichGebert/ponytail
+  name: ponytail
+  host: github.com
+  resolved_commit: ebd8654c2c627f721eb8f9c0d1bd4090a29f9e10
+  version: ebd8654
+  virtual_path: skills
+  is_virtual: true
+  depth: 2
+  resolved_by: tylerbutler/apm-base
+  package_type: marketplace_plugin
+  deployed_files:
+  - .agents/skills/ponytail
+  - .agents/skills/ponytail-audit
+  - .agents/skills/ponytail-audit/LICENSE
+  - .agents/skills/ponytail-audit/SKILL.md
+  - .agents/skills/ponytail-debt
+  - .agents/skills/ponytail-debt/LICENSE
+  - .agents/skills/ponytail-debt/SKILL.md
+  - .agents/skills/ponytail-gain
+  - .agents/skills/ponytail-gain/LICENSE
+  - .agents/skills/ponytail-gain/SKILL.md
+  - .agents/skills/ponytail-help
+  - .agents/skills/ponytail-help/LICENSE
+  - .agents/skills/ponytail-help/SKILL.md
+  - .agents/skills/ponytail-review
+  - .agents/skills/ponytail-review/LICENSE
+  - .agents/skills/ponytail-review/SKILL.md
+  - .agents/skills/ponytail/LICENSE
+  - .agents/skills/ponytail/SKILL.md
+  - .claude/skills/ponytail
+  - .claude/skills/ponytail-audit
+  - .claude/skills/ponytail-audit/LICENSE
+  - .claude/skills/ponytail-audit/SKILL.md
+  - .claude/skills/ponytail-debt
+  - .claude/skills/ponytail-debt/LICENSE
+  - .claude/skills/ponytail-debt/SKILL.md
+  - .claude/skills/ponytail-gain
+  - .claude/skills/ponytail-gain/LICENSE
+  - .claude/skills/ponytail-gain/SKILL.md
+  - .claude/skills/ponytail-help
+  - .claude/skills/ponytail-help/LICENSE
+  - .claude/skills/ponytail-help/SKILL.md
+  - .claude/skills/ponytail-review
+  - .claude/skills/ponytail-review/LICENSE
+  - .claude/skills/ponytail-review/SKILL.md
+  - .claude/skills/ponytail/LICENSE
+  - .claude/skills/ponytail/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/ponytail-audit/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .agents/skills/ponytail-audit/SKILL.md: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
+    .agents/skills/ponytail-debt/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .agents/skills/ponytail-debt/SKILL.md: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
+    .agents/skills/ponytail-gain/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .agents/skills/ponytail-gain/SKILL.md: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
+    .agents/skills/ponytail-help/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .agents/skills/ponytail-help/SKILL.md: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
+    .agents/skills/ponytail-review/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .agents/skills/ponytail-review/SKILL.md: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
+    .agents/skills/ponytail/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .agents/skills/ponytail/SKILL.md: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
+    .claude/skills/ponytail-audit/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .claude/skills/ponytail-audit/SKILL.md: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
+    .claude/skills/ponytail-debt/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .claude/skills/ponytail-debt/SKILL.md: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
+    .claude/skills/ponytail-gain/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .claude/skills/ponytail-gain/SKILL.md: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
+    .claude/skills/ponytail-help/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .claude/skills/ponytail-help/SKILL.md: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
+    .claude/skills/ponytail-review/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .claude/skills/ponytail-review/SKILL.md: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
+    .claude/skills/ponytail/LICENSE: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+    .claude/skills/ponytail/SKILL.md: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
+  content_hash: sha256:94c31008d3b6ed66eb6cc57fc628c97ff7e95db7d663c086fceae2809ae9ea57
+  is_dev: true
+  carried_licenses:
+  - path: .apm/skills/ponytail-audit/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: .apm/skills/ponytail-debt/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: .apm/skills/ponytail-gain/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: .apm/skills/ponytail-help/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: .apm/skills/ponytail-review/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: .apm/skills/ponytail/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: ponytail-audit/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: ponytail-debt/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: ponytail-gain/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: ponytail-help/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: ponytail-review/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
+  - path: ponytail/LICENSE
+    source: LICENSE
+    hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - repo_url: dietrichgebert/ponytail
   materialization_repo_url: DietrichGebert/ponytail
   name: ponytail
@@ -120,44 +340,8 @@ dependencies:
   resolved_by: tylerbutler/apm-base
   package_type: marketplace_plugin
   deployed_files:
-  - .agents/skills/ponytail
-  - .agents/skills/ponytail-audit
-  - .agents/skills/ponytail-audit/SKILL.md
-  - .agents/skills/ponytail-debt
-  - .agents/skills/ponytail-debt/SKILL.md
-  - .agents/skills/ponytail-gain
-  - .agents/skills/ponytail-gain/SKILL.md
-  - .agents/skills/ponytail-help
-  - .agents/skills/ponytail-help/SKILL.md
-  - .agents/skills/ponytail-review
-  - .agents/skills/ponytail-review/SKILL.md
-  - .agents/skills/ponytail/SKILL.md
-  - .claude/skills/ponytail
-  - .claude/skills/ponytail-audit
-  - .claude/skills/ponytail-audit/SKILL.md
-  - .claude/skills/ponytail-debt
-  - .claude/skills/ponytail-debt/SKILL.md
-  - .claude/skills/ponytail-gain
-  - .claude/skills/ponytail-gain/SKILL.md
-  - .claude/skills/ponytail-help
-  - .claude/skills/ponytail-help/SKILL.md
-  - .claude/skills/ponytail-review
-  - .claude/skills/ponytail-review/SKILL.md
-  - .claude/skills/ponytail/SKILL.md
   - .github/hooks/ponytail-copilot-hooks.json
   deployed_file_hashes:
-    .agents/skills/ponytail-audit/SKILL.md: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
-    .agents/skills/ponytail-debt/SKILL.md: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
-    .agents/skills/ponytail-gain/SKILL.md: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
-    .agents/skills/ponytail-help/SKILL.md: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
-    .agents/skills/ponytail-review/SKILL.md: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
-    .agents/skills/ponytail/SKILL.md: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
-    .claude/skills/ponytail-audit/SKILL.md: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
-    .claude/skills/ponytail-debt/SKILL.md: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
-    .claude/skills/ponytail-gain/SKILL.md: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
-    .claude/skills/ponytail-help/SKILL.md: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
-    .claude/skills/ponytail-review/SKILL.md: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
-    .claude/skills/ponytail/SKILL.md: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
     .github/hooks/ponytail-copilot-hooks.json: sha256:692b5148c3605d2ece2f081834b650c3c43d75cb272a7884dc40e9ce4425ef79
   content_hash: sha256:b995a71ddd28e617eb0e7968c7ec7a0cc8229b3af20065432ce5ecb1da2d92bc
   is_dev: true
@@ -207,7 +391,7 @@ dependencies:
   materialization_repo_url: JuliusBrussee/caveman
   name: caveman-commit
   host: github.com
-  resolved_commit: 9b243662ff98d392bc0a95b865a554583d71be75
+  resolved_commit: e74a11ccdb38b98d15c9f9545787c907dd15f0ab
   version: unknown
   virtual_path: skills/caveman-commit
   is_virtual: true
@@ -216,28 +400,27 @@ dependencies:
   package_type: claude_skill
   deployed_files:
   - .agents/skills/caveman-commit
+  - .agents/skills/caveman-commit/LICENSE
   - .agents/skills/caveman-commit/README.md
   - .agents/skills/caveman-commit/SKILL.md
   - .claude/skills/caveman-commit
+  - .claude/skills/caveman-commit/LICENSE
   - .claude/skills/caveman-commit/README.md
   - .claude/skills/caveman-commit/SKILL.md
   deployed_file_hashes:
+    .agents/skills/caveman-commit/LICENSE: sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
     .agents/skills/caveman-commit/README.md: sha256:a2e82924b487fc1845114c247b47c2d3c2d1bd60f90bbfa60e9831319eb964fa
     .agents/skills/caveman-commit/SKILL.md: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
+    .claude/skills/caveman-commit/LICENSE: sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
     .claude/skills/caveman-commit/README.md: sha256:a2e82924b487fc1845114c247b47c2d3c2d1bd60f90bbfa60e9831319eb964fa
     .claude/skills/caveman-commit/SKILL.md: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
   content_hash: sha256:b416cf134b0f33ddadeca7977aebdbb2d3db79a166d0fce2e1aabeec98132766
   is_dev: true
+  carried_licenses:
+  - path: LICENSE
+    source: LICENSE
+    hash: sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
 deployments:
-- kind: project-relative
-  target: claude
-  value: .claude/agents/beam-vm-reviewer.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
 - kind: project-relative
   target: claude
   value: .claude/agents/crdt-concurrency-expert.md
@@ -258,42 +441,6 @@ deployments:
   content_hash: sha256:f9fccce2dc1c114b85c745ecad7dc9902eaac5163d783bbd398eac10d5f85bae
 - kind: project-relative
   target: claude
-  value: .claude/agents/erlang-specialist.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
-- kind: project-relative
-  target: claude
-  value: .claude/commands/create-pr.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: sha256:f60319bef36ed8d7159543f774f196f2ab90df55d3538c1723da6b81295d02ff
-- kind: project-relative
-  target: claude
-  value: .claude/commands/merge-upstream.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: sha256:f8c97a3085cc2b603cd34428aa28d17c55b5411ba526871ae599cede372d3f89
-- kind: project-relative
-  target: claude
-  value: .claude/rules/use-ste.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: sha256:29c78e0076d736e43b8d9b414465de9c236128975b95118dcb2047f4e49018b2
-- kind: project-relative
-  target: claude
   value: .claude/skills/caveman-commit
   runtime: null
   scope: project
@@ -301,6 +448,15 @@ deployments:
   - juliusbrussee/caveman/skills/caveman-commit
   active_owner: juliusbrussee/caveman/skills/caveman-commit
   content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/caveman-commit/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - juliusbrussee/caveman/skills/caveman-commit
+  active_owner: juliusbrussee/caveman/skills/caveman-commit
+  content_hash: sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
 - kind: project-relative
   target: claude
   value: .claude/skills/caveman-commit/README.md
@@ -321,102 +477,12 @@ deployments:
   content_hash: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
 - kind: project-relative
   target: claude
-  value: .claude/skills/gleam-reference-docs
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: null
-- kind: project-relative
-  target: claude
-  value: .claude/skills/gleam-reference-docs/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
-- kind: project-relative
-  target: claude
-  value: .claude/skills/gleam-reference-docs/assets/generate-reference.mjs
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
-- kind: project-relative
-  target: claude
-  value: .claude/skills/gleam-reference-docs/evals/evals.json
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
-- kind: project-relative
-  target: claude
-  value: .claude/skills/gleam-review
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: null
-- kind: project-relative
-  target: claude
-  value: .claude/skills/gleam-review/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
-- kind: project-relative
-  target: claude
-  value: .claude/skills/gleam-review/references/conventions.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
-- kind: project-relative
-  target: claude
-  value: .claude/skills/humanizer
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: null
-- kind: project-relative
-  target: claude
-  value: .claude/skills/humanizer/LICENSE
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: sha256:4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96
-- kind: project-relative
-  target: claude
-  value: .claude/skills/humanizer/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: sha256:14fc8a965b6e0a8dc100ba4dffeab55cb94bbac112abbde7e014d5c15a35c202
-- kind: project-relative
-  target: claude
   value: .claude/skills/ponytail
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
 - kind: project-relative
   target: claude
@@ -424,17 +490,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ponytail-audit/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-audit/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
 - kind: project-relative
   target: claude
@@ -442,17 +517,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ponytail-debt/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-debt/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
 - kind: project-relative
   target: claude
@@ -460,17 +544,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ponytail-gain/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-gain/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
 - kind: project-relative
   target: claude
@@ -478,17 +571,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ponytail-help/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-help/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
 - kind: project-relative
   target: claude
@@ -496,45 +598,243 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ponytail-review/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail-review/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
+- kind: project-relative
+  target: claude
+  value: .claude/skills/ponytail/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: claude
   value: .claude/skills/ponytail/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
 - kind: project-relative
   target: claude
-  value: .claude/skills/prose-banlist
+  value: .claude/skills/security-audit
   runtime: null
   scope: project
   owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
   content_hash: null
 - kind: project-relative
   target: claude
-  value: .claude/skills/prose-banlist/SKILL.md
+  value: .claude/skills/security-audit/AI-AND-LLM.md
   runtime: null
   scope: project
   owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:7335a95c43554eadefcf03ece639291bb0e038c398a179299e3887ffe06bd2ef
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/ATTACK-CLASSES.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:3ee4f00c6e8c9dcf6dd02dd5ac2a4ceb322e2085f3e9fbe79cf0c6330bc7ef83
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/CLIENT-SIDE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:613f6b98f86083e045525c5b60154ffdab122bac35f1e05eb17488e6e453370c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/CLOUD-AND-DEPLOYMENT.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:3c80f3088be22345e07b057c056d6ed99fe2b0304f794398964f7ccd5a496ca3
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/DATA-ISOLATION-AND-LIFECYCLE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:307dcb3e24d292715c4a041190e7bb135646a37eb6187619ae01d000a634a4ad
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/DESKTOP-MOBILE-AND-LOCAL-IPC.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:58eae8ee0ca6a46611c501ec5a3ab47fdff88dd7db0d8d74789bbf8bb19d8cb2
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/HUNTING.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:71c121decea1322c47c718f6e110f1a892980bb4266bd7ac55ef043a213ade09
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:e598e694aa506650c7192d5ea3be0e50aca0d356ea00551c53429f0b01eb6391
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/MEMORY-SAFETY-AND-BINARY.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:7c8b0dccfb35315cca2455509674d49632b2fe37e1f3aac16c1a496a7e9924a7
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/PROTOCOLS-RPC-AND-MESSAGING.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:8b73816fa5b3697c9c40977f0c836b40f01d6e81929ff2720fe83ce089e9a619
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/RECONNAISSANCE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:02ca887aca84de8ae137f1891bd2f0a54f28d3fa6da92a27f54734382b3381a2
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/RESOURCE-EXHAUSTION-AND-AVAILABILITY.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:4326fab5c92a0b4c420a70196254040105cd794026562130b59bf1a6db3e4baa
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:5e3e96a1e438d8f35fef0a1e38f02d4f00e2bdf910401b7dfe00e6779c6dac85
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/SUPPLY-CHAIN-AND-RELEASE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:f372e919940e335468ba1ae09f99026c3986a345f7fe26f8068f132e199f52a5
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/VALIDATION-AND-REPORTING.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:b892470cb89bb31f33403e050d4bdfbe2cdaef940ade1496fa65e32b2e129449
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/WEB-PROTOCOL-AND-AUTH.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:4f3066dffa23c5635859187be9b96c32f2aff29a688186b91ff0c63e47d62b5c
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/report-schema.json
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:6575c9de4a62255699ea052ebf9a49ebfb373a32891bcd89af6f55cc84b35519
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/validate-coverage-ledger.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:2eb280bd2e33c002916f86db9b29f9edfedb6454e5db973c766290465b868ac8
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/validate-coverage-ledger.test.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:cfb9df26b03469a4279a70e7664a2a5434dd6f8c2c204e91f9b0aeb9dd71e648
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/validate-findings.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:e85f232e36bfac0f866f244da50376692d6b45c690beadcb00608b0e6c8b5283
+- kind: project-relative
+  target: claude
+  value: .claude/skills/security-audit/validate-findings.test.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:b92001117a92c4161d43777a0ba2fa182a8a4d97f2304cc8c0cee5331497b73b
 - kind: project-relative
   target: claude
   value: .claude/skills/stop-slop
@@ -609,24 +909,6 @@ deployments:
   content_hash: sha256:ffbf1316c7fb5aaf552de005609a64a9639b546ecd76bfb0e482864d5bbe6f58
 - kind: project-relative
   target: claude
-  value: .claude/skills/storytelling
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: null
-- kind: project-relative
-  target: claude
-  value: .claude/skills/storytelling/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/apm-base
-  active_owner: tylerbutler/apm-base
-  content_hash: sha256:68a7dfe08ba69c59af66b28d2d9f3344eb97dc7f4eb096cae41f98abcc4ea23e
-- kind: project-relative
-  target: claude
   value: .claude/skills/unslop
   runtime: null
   scope: project
@@ -634,6 +916,15 @@ deployments:
   - cursor/plugins/pstack/skills/unslop
   active_owner: cursor/plugins/pstack/skills/unslop
   content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/unslop/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - cursor/plugins/pstack/skills/unslop
+  active_owner: cursor/plugins/pstack/skills/unslop
+  content_hash: sha256:bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e
 - kind: project-relative
   target: claude
   value: .claude/skills/unslop/SKILL.md
@@ -654,6 +945,15 @@ deployments:
   content_hash: null
 - kind: project-relative
   target: copilot
+  value: .agents/skills/caveman-commit/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - juliusbrussee/caveman/skills/caveman-commit
+  active_owner: juliusbrussee/caveman/skills/caveman-commit
+  content_hash: sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+- kind: project-relative
+  target: copilot
   value: .agents/skills/caveman-commit/README.md
   runtime: null
   scope: project
@@ -670,69 +970,6 @@ deployments:
   - juliusbrussee/caveman/skills/caveman-commit
   active_owner: juliusbrussee/caveman/skills/caveman-commit
   content_hash: sha256:c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193
-- kind: project-relative
-  target: copilot
-  value: .agents/skills/gleam-reference-docs
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: null
-- kind: project-relative
-  target: copilot
-  value: .agents/skills/gleam-reference-docs/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:7d3dd41722242d3cd627aae529ffd919391c8ff8a6be950c9ef61cd0b193c531
-- kind: project-relative
-  target: copilot
-  value: .agents/skills/gleam-reference-docs/assets/generate-reference.mjs
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:a2581e009f9fe189a02681ad29d410a9e55a7c0a399de498bf5710ef539e6f43
-- kind: project-relative
-  target: copilot
-  value: .agents/skills/gleam-reference-docs/evals/evals.json
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:9da907b7e7c07b3529d20d3ee2cf80b6d7f4bc8794ad151b550896268f1f29db
-- kind: project-relative
-  target: copilot
-  value: .agents/skills/gleam-review
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: null
-- kind: project-relative
-  target: copilot
-  value: .agents/skills/gleam-review/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:1d510df9a726b675f5a7de84508eb668828e5f14b36ca96139867b29db502d17
-- kind: project-relative
-  target: copilot
-  value: .agents/skills/gleam-review/references/conventions.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:cd0b6dee401eff48c7afcb83db73ee5971e2563989f266dfd58bd93b997fe6ed
 - kind: project-relative
   target: copilot
   value: .agents/skills/humanizer
@@ -766,8 +1003,8 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
 - kind: project-relative
   target: copilot
@@ -775,17 +1012,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-audit/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: copilot
   value: .agents/skills/ponytail-audit/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:2b3223a02c386d1263e1b08343cb8eb3a53e444cdafb1d79e26c8ec2a8fcad28
 - kind: project-relative
   target: copilot
@@ -793,17 +1039,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-debt/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: copilot
   value: .agents/skills/ponytail-debt/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:b5ec2762f6ba8c4af9ea7173aa6c9f91b88655a25e43f9de0264f6ce8722b25f
 - kind: project-relative
   target: copilot
@@ -811,17 +1066,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-gain/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: copilot
   value: .agents/skills/ponytail-gain/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:231034a896d6762e4b5c8468287083422c56b499119976ec9f76821f7d083090
 - kind: project-relative
   target: copilot
@@ -829,17 +1093,26 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-help/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: copilot
   value: .agents/skills/ponytail-help/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:86ab0ce0af70cbeeeef499d5c884873b393f87f86401dcc45553662ce2c1eff9
 - kind: project-relative
   target: copilot
@@ -847,26 +1120,44 @@ deployments:
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail-review/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: copilot
   value: .agents/skills/ponytail-review/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:33fe4ebe22a460924e5d4a261e223df22e409cc94ab76182bee9fb91a3ef022e
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/ponytail/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
+  content_hash: sha256:fb1bc6909ac3ef82d5c22106e32ef682b0cff66788fa915fb9b53b15c9d2f3ab
 - kind: project-relative
   target: copilot
   value: .agents/skills/ponytail/SKILL.md
   runtime: null
   scope: project
   owners:
-  - dietrichgebert/ponytail
-  active_owner: dietrichgebert/ponytail
+  - dietrichgebert/ponytail/skills
+  active_owner: dietrichgebert/ponytail/skills
   content_hash: sha256:9badd22a32e19cb884e46dfa8d3aae82bb81dfa5484105b8b4f0262df823a509
 - kind: project-relative
   target: copilot
@@ -886,6 +1177,204 @@ deployments:
   - tylerbutler/apm-base
   active_owner: tylerbutler/apm-base
   content_hash: sha256:77d434e3b207f74a0b5e1e9d62e210d484714ff331351de0b272df1fe242886e
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: null
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/AI-AND-LLM.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:7335a95c43554eadefcf03ece639291bb0e038c398a179299e3887ffe06bd2ef
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/ATTACK-CLASSES.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:3ee4f00c6e8c9dcf6dd02dd5ac2a4ceb322e2085f3e9fbe79cf0c6330bc7ef83
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/CLIENT-SIDE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:613f6b98f86083e045525c5b60154ffdab122bac35f1e05eb17488e6e453370c
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/CLOUD-AND-DEPLOYMENT.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:3c80f3088be22345e07b057c056d6ed99fe2b0304f794398964f7ccd5a496ca3
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/DATA-ISOLATION-AND-LIFECYCLE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:307dcb3e24d292715c4a041190e7bb135646a37eb6187619ae01d000a634a4ad
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/DESKTOP-MOBILE-AND-LOCAL-IPC.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:58eae8ee0ca6a46611c501ec5a3ab47fdff88dd7db0d8d74789bbf8bb19d8cb2
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/HUNTING.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:71c121decea1322c47c718f6e110f1a892980bb4266bd7ac55ef043a213ade09
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:e598e694aa506650c7192d5ea3be0e50aca0d356ea00551c53429f0b01eb6391
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/MEMORY-SAFETY-AND-BINARY.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:7c8b0dccfb35315cca2455509674d49632b2fe37e1f3aac16c1a496a7e9924a7
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/PROTOCOLS-RPC-AND-MESSAGING.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:8b73816fa5b3697c9c40977f0c836b40f01d6e81929ff2720fe83ce089e9a619
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/RECONNAISSANCE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:02ca887aca84de8ae137f1891bd2f0a54f28d3fa6da92a27f54734382b3381a2
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/RESOURCE-EXHAUSTION-AND-AVAILABILITY.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:4326fab5c92a0b4c420a70196254040105cd794026562130b59bf1a6db3e4baa
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:5e3e96a1e438d8f35fef0a1e38f02d4f00e2bdf910401b7dfe00e6779c6dac85
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/SUPPLY-CHAIN-AND-RELEASE.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:f372e919940e335468ba1ae09f99026c3986a345f7fe26f8068f132e199f52a5
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/VALIDATION-AND-REPORTING.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:b892470cb89bb31f33403e050d4bdfbe2cdaef940ade1496fa65e32b2e129449
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/WEB-PROTOCOL-AND-AUTH.md
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:4f3066dffa23c5635859187be9b96c32f2aff29a688186b91ff0c63e47d62b5c
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/report-schema.json
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:6575c9de4a62255699ea052ebf9a49ebfb373a32891bcd89af6f55cc84b35519
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/validate-coverage-ledger.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:2eb280bd2e33c002916f86db9b29f9edfedb6454e5db973c766290465b868ac8
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/validate-coverage-ledger.test.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:cfb9df26b03469a4279a70e7664a2a5434dd6f8c2c204e91f9b0aeb9dd71e648
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/validate-findings.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:e85f232e36bfac0f866f244da50376692d6b45c690beadcb00608b0e6c8b5283
+- kind: project-relative
+  target: copilot
+  value: .agents/skills/security-audit/validate-findings.test.cjs
+  runtime: null
+  scope: project
+  owners:
+  - cloudflare/security-audit-skill
+  active_owner: cloudflare/security-audit-skill
+  content_hash: sha256:b92001117a92c4161d43777a0ba2fa182a8a4d97f2304cc8c0cee5331497b73b
 - kind: project-relative
   target: copilot
   value: .agents/skills/stop-slop
@@ -987,6 +1476,15 @@ deployments:
   content_hash: null
 - kind: project-relative
   target: copilot
+  value: .agents/skills/unslop/LICENSE
+  runtime: null
+  scope: project
+  owners:
+  - cursor/plugins/pstack/skills/unslop
+  active_owner: cursor/plugins/pstack/skills/unslop
+  content_hash: sha256:bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e
+- kind: project-relative
+  target: copilot
   value: .agents/skills/unslop/SKILL.md
   runtime: null
   scope: project
@@ -994,15 +1492,6 @@ deployments:
   - cursor/plugins/pstack/skills/unslop
   active_owner: cursor/plugins/pstack/skills/unslop
   content_hash: sha256:2b823fd069e031c1420180be8e0d4f5e2fd25bf2c428049e5c835c59a489b5e0
-- kind: project-relative
-  target: copilot
-  value: .github/agents/beam-vm-reviewer.agent.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:ac71fee93fa8a8caa2cca9248fbd06a3666726c59de93b53feb346df8ce2512c
 - kind: project-relative
   target: copilot
   value: .github/agents/crdt-concurrency-expert.agent.md
@@ -1021,15 +1510,6 @@ deployments:
   - .
   active_owner: .
   content_hash: sha256:f9fccce2dc1c114b85c745ecad7dc9902eaac5163d783bbd398eac10d5f85bae
-- kind: project-relative
-  target: copilot
-  value: .github/agents/erlang-specialist.agent.md
-  runtime: null
-  scope: project
-  owners:
-  - tylerbutler/agent-marketplace/plugins/gleam
-  active_owner: tylerbutler/agent-marketplace/plugins/gleam
-  content_hash: sha256:4bb6bf9b41f0f62cd0d779e0020b276c05ec68ebb4b913135774d0a12acdf851
 - kind: project-relative
   target: copilot
   value: .github/hooks/ponytail-copilot-hooks.json
