@@ -39,7 +39,7 @@ import { Aside } from '@astrojs/starlight/components';
 	</div>
 
 	<div className="evaluator-panel">
-		<h3 id="evaluator-heading">Where to start</h3>
+		<h3 id="evaluator-heading">Other starting points</h3>
 		<nav className="evaluator-paths" aria-labelledby="evaluator-heading">
 			<a href="/introduction/">
 				<span>How replicas converge</span>
@@ -225,11 +225,11 @@ With Gleam 1.18 or later, you can install the unpublished
 	}
 
 	.evaluator-panel h3 {
-		margin: 0.25rem 0 0;
-		font-size: clamp(1.2rem, 2vw, 1.55rem);
+		margin: 0;
+		color: var(--sl-color-gray-3);
+		font-size: 0.86rem;
+		font-weight: 700;
 		line-height: 1.15;
-		letter-spacing: -0.025em;
-		text-wrap: balance;
 	}
 
 	.proof-panel__links {
@@ -256,13 +256,13 @@ With Gleam 1.18 or later, you can install the unpublished
 
 	.evaluator-paths {
 		display: grid;
-		margin-top: 1rem;
+		margin-top: 0.4rem;
 	}
 
 	.evaluator-paths a {
 		display: grid;
 		gap: 0.25rem;
-		padding: 1rem 0;
+		padding: 0.7rem 0;
 		border-top: 1px solid var(--lattice-rule-quiet);
 		color: var(--sl-color-gray-1);
 		text-decoration: none;
@@ -282,16 +282,16 @@ With Gleam 1.18 or later, you can install the unpublished
 
 	.evaluator-paths span {
 		font-family: var(--sl-font-headings);
-		font-size: 1.08rem;
+		font-size: 1rem;
 		font-weight: 700;
 		letter-spacing: -0.02em;
 	}
 
 	.evaluator-paths strong {
 		color: var(--sl-color-gray-2);
-		font-size: 0.95rem;
+		font-size: 0.9rem;
 		font-weight: 400;
-		line-height: 1.55;
+		line-height: 1.45;
 	}
 
 	.state-shapes {
